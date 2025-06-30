@@ -13,11 +13,12 @@ export const createRootCtx = <U extends object, V extends object>(name: string, 
       .flat()
   ].join("-")
 
-  let isCtxMounted = false
+  let ctxMountedCheck = new Set<string>()
 
   return {
     Root: (e: U) => {
-      const ctx = useDataContext<V>(resolveCtxName(e))
+      const ctxName = resolveCtxName(e)
+      const ctx = useDataContext<V>(ctxName)
       const state = useFn(e)
       const stack = useMemo(() => new Error().stack, [])
 
@@ -27,30 +28,31 @@ export const createRootCtx = <U extends object, V extends object>(name: string, 
       )
 
       useEffect(() => {
-        if (isCtxMounted == true) {
-          const err = new Error("RootContext " + resolveCtxName(e) + " are mounted more than once")
+        if (ctxMountedCheck.has(ctxName)) {
+          const err = new Error("RootContext " + ctxName + " are mounted more than once")
           err.stack = stack;
           throw err
         }
-        isCtxMounted = true;
-        return () => { isCtxMounted = false };
+        ctxMountedCheck.add(ctxName)
+        return () => { ctxMountedCheck.delete(ctxName) };
       })
 
       return <></>
     },
     useCtxState: (e: U): Context<V> => {
+      const ctxName = resolveCtxName(e)
 
       const stack = useMemo(() => new Error().stack, [])
 
       useEffect(() => {
-        if (!isCtxMounted) {
-          const err = new Error("RootContext [" + resolveCtxName(e) + "] is not mounted")
+        if (!ctxMountedCheck.has(ctxName)) {
+          const err = new Error("RootContext [" + ctxName + "] is not mounted")
           err.stack = stack;
           throw err
         }
-      }, [isCtxMounted])
+      }, [ctxName])
 
-      return useDataContext<V>(resolveCtxName(e))
+      return useDataContext<V>(ctxName)
     }
   }
 }
