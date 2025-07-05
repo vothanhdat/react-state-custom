@@ -16,6 +16,7 @@ export const createRootCtx = <U extends object, V extends object>(name: string, 
   let ctxMountedCheck = new Set<string>()
 
   return {
+    resolveCtxName,
     Root: (e: U) => {
       const ctxName = resolveCtxName(e)
       const ctx = useDataContext<V>(ctxName)
