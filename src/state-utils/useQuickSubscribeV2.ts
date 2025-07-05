@@ -75,7 +75,7 @@ export const useQuickSubscribeV2 = <D>(
 
       return { proxy, finalGetter, openGetter, clean }
     },
-    []
+    [ctx]
   )
 
   openGetter();

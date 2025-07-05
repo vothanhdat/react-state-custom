@@ -39,7 +39,7 @@ export const createRootCtx = <U extends object, V extends object>(name: string, 
 
       return <></>
     },
-    useCtxState: (e: U): Context<V> => {
+    useCtxStateStrict: (e: U): Context<V> => {
       const ctxName = resolveCtxName(e)
 
       const stack = useMemo(() => new Error().stack, [])
@@ -51,6 +51,22 @@ export const createRootCtx = <U extends object, V extends object>(name: string, 
           throw err
         }
       }, [ctxName])
+
+      return useDataContext<V>(ctxName)
+    },
+    useCtxState: (e: U): Context<V> => {
+      const ctxName = resolveCtxName(e)
+
+      const stack = useMemo(() => new Error().stack, [])
+
+      useEffect(() => {
+        if (!ctxMountedCheck.has(ctxName)) {
+          const err = new Error("RootContext [" + ctxName + "] is not mounted")
+          err.stack = stack;
+          let timeout = setTimeout(() => console.error(err), 1000)
+          return () => clearTimeout(timeout)
+        }
+      }, [ctxMountedCheck.has(ctxName)])
 
       return useDataContext<V>(ctxName)
     }
