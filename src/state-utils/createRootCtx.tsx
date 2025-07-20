@@ -15,31 +15,36 @@ export const createRootCtx = <U extends object, V extends object>(name: string, 
 
   let ctxMountedCheck = new Set<string>()
 
+
+  const RootState: React.FC<U> = (e: U) => {
+    const ctxName = resolveCtxName(e)
+    const ctx = useDataContext<V>(ctxName)
+    const state = useFn(e)
+    const stack = useMemo(() => new Error().stack, [])
+
+    useDataSourceMultiple(
+      ctx,
+      ...Object.entries(state) as any
+    )
+
+    useEffect(() => {
+      if (ctxMountedCheck.has(ctxName)) {
+        const err = new Error("RootContext " + ctxName + " are mounted more than once")
+        err.stack = stack;
+        throw err
+      }
+      ctxMountedCheck.add(ctxName)
+      return () => { ctxMountedCheck.delete(ctxName) };
+    })
+
+    return <></>
+  }
+
+  RootState.displayName = `State[${useFn?.name??'??'}]`
+
   return {
     resolveCtxName,
-    Root: (e: U) => {
-      const ctxName = resolveCtxName(e)
-      const ctx = useDataContext<V>(ctxName)
-      const state = useFn(e)
-      const stack = useMemo(() => new Error().stack, [])
-
-      useDataSourceMultiple(
-        ctx,
-        ...Object.entries(state) as any
-      )
-
-      useEffect(() => {
-        if (ctxMountedCheck.has(ctxName)) {
-          const err = new Error("RootContext " + ctxName + " are mounted more than once")
-          err.stack = stack;
-          throw err
-        }
-        ctxMountedCheck.add(ctxName)
-        return () => { ctxMountedCheck.delete(ctxName) };
-      })
-
-      return <></>
-    },
+    Root: RootState,
     useCtxStateStrict: (e: U): Context<V> => {
       const ctxName = resolveCtxName(e)
 

@@ -54,7 +54,7 @@ export class Context<D> {
       listender(value)
     }
     this.event.addListener(String(key), listener)
-    console.log("listenerCount:", String(key), this.event.listenerCount(String(key)))
+    // console.log("listenerCount:", String(key), this.event.listenerCount(String(key)))
 
     if (key in this.data) listender(this.data[key])
 
