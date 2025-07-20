@@ -1,6 +1,7 @@
 import event from "events"
 import { debounce, memoize, throttle } from "lodash-es"
 import { useEffect, useMemo, useState } from "react"
+import { useObjHash } from "./useObjectHash"
 
 
 
@@ -210,7 +211,7 @@ export const useDataSourceMultiple = <D, T extends readonly (keyof D)[]>(
         ctx.data[key] != value && ctx.publish(key, value)
       }
     }
-  }, [ctx, ...entries.flat()])
+  }, [ctx, useObjHash(entries.flat())])
 
   useRegistryChecker(ctx, ...entries.map(e => e[0]) as any)
 

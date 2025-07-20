@@ -14,6 +14,7 @@ export {
 
 export { createRootCtx } from "./state-utils/createRootCtx"
 export { AutoRootCtx, createAutoCtx } from "./state-utils/createAutoCtx"
+export { useObjHash } from "./state-utils/useObjectHash"
 
 export { useQuickSubscribeV2 as useQuickSubscribe } from "./state-utils/useQuickSubscribeV2"
 
