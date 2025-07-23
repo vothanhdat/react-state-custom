@@ -17,9 +17,9 @@ export const createRootCtx = <U extends object, V extends object>(name: string, 
 
 
   const RootState: React.FC<U> = (e: U) => {
+    const state = useFn(e)
     const ctxName = resolveCtxName(e)
     const ctx = useDataContext<V>(ctxName)
-    const state = useFn(e)
     const stack = useMemo(() => new Error().stack, [])
 
     useDataSourceMultiple(

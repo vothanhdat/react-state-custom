@@ -1,13 +1,18 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import dts from 'vite-plugin-dts'
+import { analyzer } from 'vite-bundle-analyzer'
 
 export default defineConfig({
   plugins: [
     react(),
     dts({
       include: ['src'],
-    })
+    }),
+    analyzer({
+      analyzerMode: "server",
+      openAnalyzer: true
+    }),
   ],
   build: {
     lib: {

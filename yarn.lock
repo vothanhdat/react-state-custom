@@ -1553,13 +1553,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"hamt_plus@npm:1.0.2":
-  version: 1.0.2
-  resolution: "hamt_plus@npm:1.0.2"
-  checksum: 10c0/c5aa5cc08228e8cc2a90150fef680bd5b09f16a327bdab799daeb80fd3c987663308b14e2c6718abdf75afce21d29607e35f2705eb336a14aa935c0ca5949ce7
-  languageName: node
-  linkType: hard
-
 "has-flag@npm:^4.0.0":
   version: 4.0.0
   resolution: "has-flag@npm:4.0.0"
@@ -2156,18 +2149,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-object-view-bigint@npm:^0.3.4":
-  version: 0.3.4
-  resolution: "react-object-view-bigint@npm:0.3.4"
-  dependencies:
-    recoil: "npm:^0.6.1"
-  peerDependencies:
-    react: ">=16.13.1"
-    react-dom: ">=16.13.1"
-  checksum: 10c0/5bbc6b5f2759545a9574f9ad8502c7f12ec927907f92c7f3b6bc80078d41ace01368edbfc859c8c465c0b5d4fd013ef82bbf36ce4038369597924b5e78fb7e91
-  languageName: node
-  linkType: hard
-
 "react-refresh@npm:^0.17.0":
   version: 0.17.0
   resolution: "react-refresh@npm:0.17.0"
@@ -2188,9 +2169,9 @@ __metadata:
     lodash-es: "npm:^4.17.21"
     react: "npm:19"
     react-dom: "npm:19"
-    react-object-view-bigint: "npm:^0.3.4"
     typescript: "npm:^5.8.3"
     vite: "npm:^6.3.5"
+    vite-bundle-analyzer: "npm:^1.1.0"
     vite-plugin-dts: "npm:^4.5.4"
   languageName: unknown
   linkType: soft
@@ -2199,22 +2180,6 @@ __metadata:
   version: 19.1.0
   resolution: "react@npm:19.1.0"
   checksum: 10c0/530fb9a62237d54137a13d2cfb67a7db6a2156faed43eecc423f4713d9b20c6f2728b026b45e28fcd72e8eadb9e9ed4b089e99f5e295d2f0ad3134251bdd3698
-  languageName: node
-  linkType: hard
-
-"recoil@npm:^0.6.1":
-  version: 0.6.1
-  resolution: "recoil@npm:0.6.1"
-  dependencies:
-    hamt_plus: "npm:1.0.2"
-  peerDependencies:
-    react: ">=16.13.1"
-  peerDependenciesMeta:
-    react-dom:
-      optional: true
-    react-native:
-      optional: true
-  checksum: 10c0/05b6d25b36d1ebdb4d6963d3cd0e1a14ca17b362e3ed22ebec64374a0d0831b997ac4742977c3da6ed34f5eb99f10ba4a0f1562a1453785fb55139d2476b4cf5
   languageName: node
   linkType: hard
 
@@ -2650,6 +2615,15 @@ __metadata:
   dependencies:
     punycode: "npm:^2.1.0"
   checksum: 10c0/4ef57b45aa820d7ac6496e9208559986c665e49447cb072744c13b66925a362d96dd5a46c4530a6b8e203e5db5fe849369444440cb22ecfc26c679359e5dfa3c
+  languageName: node
+  linkType: hard
+
+"vite-bundle-analyzer@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "vite-bundle-analyzer@npm:1.1.0"
+  bin:
+    analyze: dist/bin.js
+  checksum: 10c0/cc101f5e1560cf3555f0210d8e290c198eaaf915892a32227bf71759cb2366e9810c12027fc67b4e5184c60f3020f3ea5b1ef6cac26991bac165dcc5ff7b1d39
   languageName: node
   linkType: hard
 
