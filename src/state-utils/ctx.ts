@@ -1,5 +1,5 @@
 import { EventEmitter } from "events"
-import { debounce, memoize, throttle } from "lodash-es"
+import { debounce, memoize } from "lodash-es"
 import { useEffect, useMemo, useState } from "react"
 import { useArrayHash } from "./useArrayHash"
 
@@ -266,13 +266,13 @@ export const useDataSubscribeMultiple = <D, K extends keyof D>(
 /**
  * React hook to subscribe to multiple context values with throttling.
  * @param ctx - The context instance.
- * @param debounceTime - Throttle time in ms (default 100).
+ * @param debounceTime - Debounce time in ms (default 50).
  * @param keys - Keys to subscribe to.
  * @returns Array of current values for the keys.
  */
 export const useDataSubscribeMultipleWithDebounce = <D, K extends (keyof D)[]>(
   ctx: Context<D> | undefined,
-  debounceTime = 100,
+  debounceTime = 50,
   ...keys: K
 ): { [i in keyof K]: D[K[i]] | undefined } => {
   //@ts-check
@@ -283,7 +283,7 @@ export const useDataSubscribeMultipleWithDebounce = <D, K extends (keyof D)[]>(
   useEffect(() => {
     if (ctx) {
       let prevValues = returnValues
-      const callback = throttle(() => {
+      const callback = debounce(() => {
         let currentValues = keys.map(key => ctx?.data?.[key])
         if (keys.some((key, i) => prevValues[i] != currentValues[i])) {
           prevValues = currentValues
