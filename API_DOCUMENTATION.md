@@ -499,7 +499,7 @@ function AutoRootCtx({ Wrapper }: {
 ```typescript
 // At your app root
 function App() {
-  return (
+  return <>
     <AutoRootCtx Wrapper={ErrorBoundary}>
       <Router>
         <Routes>
@@ -507,7 +507,7 @@ function App() {
         </Routes>
       </Router>
     </AutoRootCtx>
-  );
+  </>;
 }
 
 // ErrorBoundary wrapper
