@@ -1,4 +1,4 @@
-import event from "events"
+import { EventEmitter } from "events"
 import { debounce, memoize, throttle } from "lodash-es"
 import { useEffect, useMemo, useState } from "react"
 import { useArrayHash } from "./useArrayHash"
@@ -19,7 +19,7 @@ export class Context<D> {
     this.event.setMaxListeners(100)
   }
 
-  private event = new event.EventEmitter()
+  private event = new EventEmitter()
 
   /**
    * The current data held by the context.
@@ -150,7 +150,9 @@ export const useDataSubscribe = <D, K extends keyof D>(ctx: Context<D> | undefin
 
   useEffect(() => {
     if (ctx) {
-      let callback = debounceTime == 0 ? (value: any) => setState({ value } as any) : debounce((value: any) => setState({ value } as any), debounceTime)
+      let callback = debounceTime == 0 
+        ? (value: any) => setState({ value } as any) 
+        : debounce((value: any) => setState({ value } as any), debounceTime)
       let unsub = ctx.subscribe(key, callback)
       value != ctx.data[key] && setState({ value: ctx.data[key] })
       return () => {
