@@ -1,5 +1,5 @@
-import { createContext, useEffect, useMemo, useState, Fragment, useCallback } from "react"
-import { getContext, useDataContext, useDataSource, useDataSourceMultiple, useDataSubscribe, type Context } from "./ctx"
+import { useEffect, useState, Fragment, useCallback } from "react"
+import { useDataContext, useDataSourceMultiple, useDataSubscribe, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 
 
@@ -27,6 +27,29 @@ const resolveName = (e: any) => [
     .flat()
 ].join("-")
 
+/**
+ * Inline docs: createAutoCtx + AutoRootCtx
+ *
+ * Quick start
+ * 1) Mount <AutoRootCtx /> ONCE near your app root. Provide a Wrapper that acts like an ErrorBoundary to isolate and log errors.
+ *    Example: <AutoRootCtx Wrapper={MyErrorBoundary} />
+ *
+ * 2) Create auto contexts from your root context factories:
+ * ```
+ *    const { useCtxState: useTestCtxState } = createAutoCtx(createRootCtx('test-state', stateFn))
+ *    const { useCtxState: useOtherCtxState } = createAutoCtx(createRootCtx('other-state', otherFn))
+ * ```
+ * 3) Use them in components:
+ * ```
+ *    const ctx = useTestCtxState({ userId })
+ *    const { property1, property2 } = useDataSubscribeMultiple(ctx,'property1','property2')
+ *    // No need to mount the Root returned by createRootCtx directly — AutoRootCtx manages it for you.
+ * ```
+ * Notes
+ * - AutoRootCtx must be mounted before any useCtxState hooks created by createAutoCtx run.
+ * - Wrapper should be an ErrorBoundary-like component that simply renders {children}; no extra providers or layout required.
+ * - For each unique params object (by stable stringified key), AutoRootCtx ensures a corresponding Root instance is rendered.
+ */
 
 export const AutoRootCtx = ({ Wrapper = Fragment }) => {
 
@@ -114,6 +137,30 @@ export const AutoRootCtx = ({ Wrapper = Fragment }) => {
 
 }
 
+/**
+ * createAutoCtx
+ *
+ * Bridges a Root context (from createRootCtx) to the global AutoRootCtx renderer.
+ * You do NOT mount the Root component yourself — just mount <AutoRootCtx /> once at the app root.
+ *
+ * Usage: 
+ * ```
+ *    const { useCtxState: useTestCtxState } = createAutoCtx(createRootCtx(
+ *      'test-state', 
+ *      stateFn
+ *    ))
+ *    const { useCtxState: useOtherCtxState } = createAutoCtx(createRootCtx(
+ *      'other-state', 
+ *      otherFn
+ *    ))
+ * ```
+ * 
+ * Then inside components:
+ * ```
+ *   const ctxState = useTestCtxState({ any: 'params' })
+ * ```
+ * AutoRootCtx will subscribe/unsubscribe instances per unique params and render the appropriate Root under the hood.
+ */
 export const createAutoCtx = <U extends object, V extends object,>({ Root, useCtxState, useCtxStateStrict, resolveCtxName }: ReturnType<typeof createRootCtx<U, V>>) => {
 
   return {
@@ -125,6 +172,8 @@ export const createAutoCtx = <U extends object, V extends object,>({ Root, useCt
       const subscribe = useDataSubscribe(useDataContext<any>("auto-ctx"), "subscribe")
 
       useEffect(() => {
+        // Subscribe this component to an AutoRootCtx-managed Root instance keyed by e.
+        // AutoRootCtx handles instance ref-counting and cleanup on unmount.
         return subscribe?.(Root, e)
       }, [subscribe, ctxName])
 
