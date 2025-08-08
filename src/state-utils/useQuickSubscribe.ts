@@ -1,3 +1,8 @@
+
+import { debounce } from "lodash-es";
+import { useState, useMemo, useEffect } from "react";
+import type { Context } from "./ctx";
+
 /**
  * useQuickSubscribe is a custom React hook for efficiently subscribing to specific properties of a context's data object.
  * 
@@ -16,11 +21,6 @@
  *   return <div>{name}</div>;
  */
 
-import { debounce } from "lodash-es";
-import { useState, useMemo, useEffect } from "react";
-import type { Context } from "./ctx";
-
-
 export const useQuickSubscribe = <D>(
   ctx: Context<D> | undefined
 ): {
@@ -29,85 +29,80 @@ export const useQuickSubscribe = <D>(
 
   const [, setCounter] = useState(0);
 
-  const { proxy, clean, handleOnChange } = useMemo(
+  const { proxy, finalGetter, openGetter, clean } = useMemo(
     () => {
 
       const allKeys = new Set<keyof D>()
-      const allUnsubInstance = new Map<keyof D, Function>()
-      const allCompareValue = ({} as Partial<D>)
-
-      const handleOnChange = debounce(() => {
-        console.log("handleOnChange",allCompareValue)
-        if (ctx && Object
-          .keys(allCompareValue)
-          .some((i: any) => allCompareValue[i as keyof D] != ctx?.data[i as keyof D])) {
-          setCounter(c => c + 1);
-        }
-      }, 1)
-
-      const handleChangeKey = debounce(() => {
-        if (ctx) {
-          console.log("handleChangeKey")
-          let shouldUpdate = false;
-          let keyToDelete: (keyof D)[] = []
-
-          for (let [k, unsub] of allUnsubInstance) {
-            if (!allKeys.has(k)) {
-              console.log("Remove", k)
-              unsub?.();
-              keyToDelete.push(k)
-            }
-          }
-          keyToDelete.forEach(k => {
-            allUnsubInstance.delete(k);
-            delete allCompareValue[k];
-          })
-          for (let k of allKeys) {
-            if (!allUnsubInstance.has(k)) {
-              console.log("Add   ", k)
-              const sub = ctx.subscribe(k, handleOnChange);
-              allUnsubInstance.set(k, sub);
-              shouldUpdate = true;
-            }
-          }
-          allKeys.clear()
-          if (shouldUpdate) handleOnChange?.();
-        }
-      }, 0)
-
-      const handleAddKey = (p: keyof D) => {
-        allKeys.add(p);
-        handleChangeKey();
-      }
+      const allCompareValue: { [P in keyof D]?: D[P] | undefined; } = {}
+      const allUnsub = new Map()
 
       const proxy = new Proxy(
         ctx?.data as any,
         {
           get(target, p) {
-            handleAddKey(p as keyof D);
-            console.log({ [p]: target[p] });
-            return allCompareValue[p as keyof D] = target[p];
+            if (isOpenGetter) {
+              allKeys.add(p as keyof D)
+              return allCompareValue[p as keyof D] = target[p];
+            } else {
+              throw new Error("now allow here")
+            }
           }
         }
       ) as any
 
-      const clean = () => {
-        console.log("Clean", allKeys)
-        handleChangeKey?.()
+      let isOpenGetter = true;
+
+
+      let onChange = debounce(() => {
+        if ([...allKeys.values()]
+          .some(k => allCompareValue[k] != ctx?.data?.[k])) {
+          setCounter(c => c + 1)
+        }
+      }, 0)
+
+      let openGetter = () => {
+        isOpenGetter = true
+        allKeys.clear()
       }
 
-      console.log("NEW")
-      return { proxy, clean, handleOnChange }
+      let finalGetter = () => {
+        isOpenGetter = false;
+
+        [...allKeys.values()]
+          .filter(k => !allUnsub.has(k))
+          .forEach(k => {
+            allUnsub.set(k, ctx?.subscribe(k, onChange))
+          });
+
+        [...allUnsub.keys()]
+          .filter(k => !allKeys.has(k))
+          .forEach(k => {
+            let unsub = allUnsub.get(k)
+            unsub?.();
+            allUnsub.delete(k);
+          });
+
+      }
+
+      let clean = () => {
+        openGetter();
+        finalGetter();
+        setCounter(c => c + 1)
+      }
+
+      return { proxy, finalGetter, openGetter, clean }
     },
     [ctx]
   )
 
-  useEffect(() => () => clean?.(), [clean])
+  openGetter();
 
-  // useEffect(() => {
-  //   let i = setInterval(handleOnChange, 5000);
-  //   return () => clearInterval(i);
-  // },[handleOnChange])
+  setTimeout(finalGetter, 0)
+
+  useEffect(
+    () => () => clean(),
+    [clean]
+  )
 
   return proxy;
 
