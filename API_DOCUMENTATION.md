@@ -499,15 +499,16 @@ function AutoRootCtx({ Wrapper }: {
 ```typescript
 // At your app root
 function App() {
-  return <>
-    <AutoRootCtx Wrapper={ErrorBoundary}>
+  return (
+    <>
+      <AutoRootCtx Wrapper={ErrorBoundary}/>
       <Router>
         <Routes>
           <Route path="/user/:id" element={<UserPage />} />
         </Routes>
       </Router>
-    </AutoRootCtx>
-  </>;
+    </>
+  );
 }
 
 // ErrorBoundary wrapper
