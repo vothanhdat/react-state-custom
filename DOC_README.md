@@ -82,6 +82,112 @@ function UserProfile() {
 }
 ```
 
+## 🔧 Additional Examples
+
+### Using createRootCtx for Advanced State Management
+
+```typescript
+import { createRootCtx, useDataSubscribeMultiple } from 'react-state-custom';
+
+interface UserState {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+}
+
+// Create a state hook
+function useUserState(props: { userId: string }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  useEffect(() => {
+    fetchUser(props.userId).then(setUser).catch(setError).finally(() => setLoading(false));
+  }, [props.userId]);
+  
+  return { user, loading, error };
+}
+
+// Create root context factory
+const { Root: UserRoot, useCtxState: useUserCtxState } = createRootCtx(
+  'user-state',
+  useUserState
+);
+
+// Provider component
+function UserProvider({ userId, children }: { userId: string; children: React.ReactNode }) {
+  return (
+    <>
+      <UserRoot userId={userId} />
+      {children}
+    </>
+  );
+}
+
+// Consumer component using useDataSubscribeMultiple
+function UserProfile({ userId }: { userId: string }) {
+  const ctx = useUserCtxState({ userId });
+  const { user, loading, error } = useDataSubscribeMultiple(ctx, 'user', 'loading', 'error');
+  
+  if (loading) return <div>Loading user...</div>;
+  if (error) return <div>Error: {error}</div>;
+  
+  return <div>Welcome, {user?.name}!</div>;
+}
+```
+
+### Using useQuickSubscribe for Simplified Access
+
+```typescript
+import { useDataContext, useQuickSubscribe } from 'react-state-custom';
+
+interface SettingsState {
+  theme: 'light' | 'dark';
+  language: string;
+  notifications: boolean;
+  updateSetting: (key: string, value: any) => void;
+}
+
+// Component using useQuickSubscribe for easy property access
+function SettingsPanel() {
+  const ctx = useDataContext<SettingsState>('settings');
+  
+  // useQuickSubscribe automatically subscribes to accessed properties
+  const { theme, language, notifications, updateSetting } = useQuickSubscribe(ctx);
+  
+  return (
+    <div className={`settings-panel ${theme}`}>
+      <h2>Settings</h2>
+      
+      <label>
+        Theme:
+        <select value={theme} onChange={(e) => updateSetting('theme', e.target.value)}>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+      
+      <label>
+        Language:
+        <input 
+          value={language} 
+          onChange={(e) => updateSetting('language', e.target.value)} 
+        />
+      </label>
+      
+      <label>
+        <input 
+          type="checkbox" 
+          checked={notifications} 
+          onChange={(e) => updateSetting('notifications', e.target.checked)} 
+        />
+        Enable notifications
+      </label>
+    </div>
+  );
+}
+```
+
 ## 📄 License
 
 MIT License - see the main repository for details.
