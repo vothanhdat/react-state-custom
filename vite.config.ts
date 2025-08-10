@@ -23,7 +23,7 @@ export default defineConfig({
     },
     rollupOptions: {
       // Ensure to externalize deps that shouldn't be bundled
-      external: ['react', 'react-dom'],
+      external: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
       output: {
         globals: {
           'react': 'React',
@@ -31,7 +31,7 @@ export default defineConfig({
         },
       },
     },
-    sourcemap:true
+    sourcemap: true
   },
   server: {
     port: 3000,

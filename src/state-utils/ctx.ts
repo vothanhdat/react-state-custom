@@ -1,25 +1,34 @@
-import { EventEmitter } from "events"
-import { debounce, memoize } from "lodash-es"
+import { debounce, memoize } from "./utils";
 import { useEffect, useMemo, useState } from "react"
 import { useArrayHash } from "./useArrayHash"
 
 
 
+class DataEvent extends Event {
+  constructor(
+    public event: string,
+    public value: any
+  ) {
+    super(event);
+  }
+}
+
 /**
  * Generic context for managing shared state and event subscriptions.
  * @template D - The shape of the data managed by the context.
  */
-export class Context<D> {
+export class Context<D> extends EventTarget {
   /**
    * Create a new Context instance.
    * @param name - The name of the context (for debugging).
    */
   constructor(public name: string) {
     console.log("[CONTEXT] %s", name)
-    this.event.setMaxListeners(100)
+    // this.event.setMaxListeners(100)
+    super();
   }
 
-  private event = new EventEmitter()
+  // private event = new EventEmitter()
 
   /**
    * The current data held by the context.
@@ -40,26 +49,29 @@ export class Context<D> {
     if (value != this.data[key]) {
       this.data[key] = value
       // console.count("[COUNT] " + String(key))
-      this.event.emit(String(key), { value })
+      // this.event.emit(String(key), { value })
+      this.dispatchEvent(new DataEvent(String(key), value))
     }
   }
 
   /**
    * Subscribe to changes for a specific key in the context.
    * @param key - The key to subscribe to.
-   * @param listender - Callback invoked with the new value.
+   * @param _listener - Callback invoked with the new value.
    * @returns Unsubscribe function.
    */
-  public subscribe(key: keyof D, listender: (e: D[typeof key] | undefined) => void) {
-    const listener = ({ value }: any) => {
-      listender(value)
+  public subscribe(key: keyof D, _listener: (e: D[typeof key] | undefined) => void) {
+
+    const listener = ({ event, value }: any) => {
+      _listener(value)
     }
-    this.event.addListener(String(key), listener)
+
+    this.addEventListener(String(key), listener)
     // console.log("listenerCount:", String(key), this.event.listenerCount(String(key)))
 
-    if (key in this.data) listender(this.data[key])
+    if (key in this.data) _listener(this.data[key])
 
-    return () => (this.event.removeListener(String(key), listener), undefined)
+    return () => (this.removeEventListener(String(key), listener), undefined)
   }
 
 }
@@ -150,8 +162,8 @@ export const useDataSubscribe = <D, K extends keyof D>(ctx: Context<D> | undefin
 
   useEffect(() => {
     if (ctx) {
-      let callback = debounceTime == 0 
-        ? (value: any) => setState({ value } as any) 
+      let callback = debounceTime == 0
+        ? (value: any) => setState({ value } as any)
         : debounce((value: any) => setState({ value } as any), debounceTime)
       let unsub = ctx.subscribe(key, callback)
       value != ctx.data[key] && setState({ value: ctx.data[key] })

@@ -1,5 +1,5 @@
 
-import { debounce } from "lodash-es";
+import { debounce } from "./utils";
 import { useState, useMemo, useEffect } from "react";
 import type { Context } from "./ctx";
 
