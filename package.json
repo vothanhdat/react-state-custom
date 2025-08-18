@@ -1,7 +1,7 @@
 {
   "name": "react-state-custom",
   "version": "1.0.15",
-  "description": "A React library built with Vite and TypeScript",
+  "description": "The `react-state-custom` library provides a powerful set of tools for managing shared state in React applications",
   "type": "module",
   "main": "dist/index.umd.js",
   "module": "dist/index.es.js",
