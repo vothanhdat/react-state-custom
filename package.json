@@ -1,6 +1,6 @@
 {
   "name": "react-state-custom",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "description": "The `react-state-custom` library provides a powerful set of tools for managing shared state in React applications",
   "type": "module",
   "main": "dist/index.umd.js",
@@ -18,7 +18,14 @@
     "dev": "vite",
     "test": "echo \"No tests specified\" && exit 0"
   },
-  "keywords": [],
+  "keywords": [
+    "frontend",
+    "hooks",
+    "library",
+    "state",
+    "react",
+    "react-hook"
+  ],
   "author": "Your Name",
   "license": "MIT",
   "peerDependencies": {
