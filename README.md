@@ -53,41 +53,27 @@ The [API Documentation](./API_DOCUMENTATION.md) is organized into the following 
 
 ## 🔧 Quick Example
 
-```typescript
-import { useDataContext, useDataSource, useDataSubscribe } from 'react-state-custom';
-
-interface AppState {
-  user: User | null;
-  theme: 'light' | 'dark';
-}
-
-// Provider component
-function AppProvider({ children }) {
-  const ctx = useDataContext<AppState>('app-state');
-  const user = useCurrentUser();
-  const theme = useTheme();
-  
-  useDataSource(ctx, 'user', user);
-  useDataSource(ctx, 'theme', theme);
-  
-  return <>{children}</>;
-}
-
-// Consumer component
-function UserProfile() {
-  const ctx = useDataContext<AppState>('app-state');
-  const user = useDataSubscribe(ctx, 'user');
-  
-  return <div>Hello, {user?.name}</div>;
-}
-```
-
-## 🔧 Additional Examples
-
 ### Using createRootCtx for Advanced State Management
 
+
+file main.tsx
 ```typescript
-import { createRootCtx, useDataSubscribeMultiple } from 'react-state-custom';
+import { AutoRootCtx } from 'react-state-custom';
+
+// Root Component
+function App({children}) {
+  return (
+    <>
+      <AutoRootCtx />
+      {children}
+    </>
+  );
+}
+
+```
+file userState.ts
+```typescript
+import { createRootCtx, createAutoCtx,  } from 'react-state-custom';
 
 interface UserState {
   user: User | null;
@@ -108,21 +94,20 @@ function useUserState(props: { userId: string }) {
   return { user, loading, error };
 }
 
-// Create root context factory
-const { Root: UserRoot, useCtxState: useUserCtxState } = createRootCtx(
+// Register State hook
+const { useCtxState: useUserCtxState } = createAutoCtx(createRootCtx(
   'user-state',
   useUserState
-);
+));
 
-// Provider component
-function UserProvider({ userId, children }: { userId: string; children: React.ReactNode }) {
-  return (
-    <>
-      <UserRoot userId={userId} />
-      {children}
-    </>
-  );
-}
+export { useUserCtxState }
+
+```
+
+file UserProfile.tsx
+```typescript
+import { useDataSubscribeMultiple, useQuickSubscribe } from 'react-state-custom';
+import { useUserCtxState } from "./userState.ts"
 
 // Consumer component using useDataSubscribeMultiple
 function UserProfile({ userId }: { userId: string }) {
@@ -134,57 +119,17 @@ function UserProfile({ userId }: { userId: string }) {
   
   return <div>Welcome, {user?.name}!</div>;
 }
-```
 
-### Using useQuickSubscribe for Simplified Access
+// Or using useQuickSubscribe  for Simplified Access
 
-```typescript
-import { useDataContext, useQuickSubscribe } from 'react-state-custom';
-
-interface SettingsState {
-  theme: 'light' | 'dark';
-  language: string;
-  notifications: boolean;
-  updateSetting: (key: string, value: any) => void;
-}
-
-// Component using useQuickSubscribe for easy property access
-function SettingsPanel() {
-  const ctx = useDataContext<SettingsState>('settings');
+function UserProfileV2({ userId }: { userId: string }) {
+  const ctx = useUserCtxState({ userId });
+  const { user, loading, error } = useQuickSubscribe(ctx);
   
-  // useQuickSubscribe automatically subscribes to accessed properties
-  const { theme, language, notifications, updateSetting } = useQuickSubscribe(ctx);
+  if (loading) return <div>Loading user...</div>;
+  if (error) return <div>Error: {error}</div>;
   
-  return (
-    <div className={`settings-panel ${theme}`}>
-      <h2>Settings</h2>
-      
-      <label>
-        Theme:
-        <select value={theme} onChange={(e) => updateSetting('theme', e.target.value)}>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
-      </label>
-      
-      <label>
-        Language:
-        <input 
-          value={language} 
-          onChange={(e) => updateSetting('language', e.target.value)} 
-        />
-      </label>
-      
-      <label>
-        <input 
-          type="checkbox" 
-          checked={notifications} 
-          onChange={(e) => updateSetting('notifications', e.target.checked)} 
-        />
-        Enable notifications
-      </label>
-    </div>
-  );
+  return <div>Welcome, {user?.name}!</div>;
 }
 ```
 
