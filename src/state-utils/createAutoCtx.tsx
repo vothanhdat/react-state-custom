@@ -161,7 +161,10 @@ export const AutoRootCtx = ({ Wrapper = Fragment }) => {
  * ```
  * AutoRootCtx will subscribe/unsubscribe instances per unique params and render the appropriate Root under the hood.
  */
-export const createAutoCtx = <U extends object, V extends object,>({ Root, useCtxState, useCtxStateStrict, resolveCtxName }: ReturnType<typeof createRootCtx<U, V>>) => {
+export const createAutoCtx = <U extends object, V extends object,>(
+  { Root, useCtxState, useCtxStateStrict, resolveCtxName }: ReturnType<typeof createRootCtx<U, V>>,
+  unmountTime = 0
+) => {
 
   return {
 
@@ -174,7 +177,12 @@ export const createAutoCtx = <U extends object, V extends object,>({ Root, useCt
       useEffect(() => {
         // Subscribe this component to an AutoRootCtx-managed Root instance keyed by e.
         // AutoRootCtx handles instance ref-counting and cleanup on unmount.
-        return subscribe?.(Root, e)
+        if (unmountTime == 0) {
+          return subscribe?.(Root, e)
+        } else {
+          let unsub = subscribe?.(Root, e)
+          return () => setTimeout(unsub, unmountTime)
+        }
       }, [subscribe, ctxName])
 
       return useDataContext<V>(ctxName)
