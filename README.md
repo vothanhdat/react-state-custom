@@ -1,142 +1,131 @@
-# React State Custom - Documentation
+# react-state-custom
 
-Welcome to the comprehensive documentation for the `react-state-custom` library!
+Simple, powerful shared state for React 19.
+Zero boilerplate. Precise re-renders. Fully typed.
 
-## 📚 Documentation Files
+- Install: npm i react-state-custom
+- Add one provider: <AutoRootCtx />
+- Create a state hook and register it
+- Subscribe to exactly what you need
 
-- **[API_DOCUMENTATION.md](./API_DOCUMENTATION.md)** - Complete API reference with examples for all exported functions, hooks, and classes
-
-## 🚀 Quick Start
+## Install
 
 ```bash
 npm install react-state-custom
+# peer deps: react 19, react-dom 19
 ```
 
-## 📖 What's Inside
+## 60‑second setup
 
-The `react-state-custom` library provides a powerful set of tools for managing shared state in React applications:
+1) Add the root provider once
 
-### Core Features
-
-- **Context System** - Type-safe context management with event-driven subscriptions
-- **Root Context Factory** - Automated context lifecycle management
-- **Auto Context System** - Self-managing context instances
-- **Utility Hooks** - Performance optimization tools
-
-### Key Benefits
-
-- ✅ **Type Safety** - Full TypeScript support with strong typing
-- ✅ **Performance** - Only re-renders when subscribed data changes
-- ✅ **Flexibility** - Works with any data structure
-- ✅ **Developer Experience** - Rich debugging and error checking
-- ✅ **Minimal Boilerplate** - Automated context management
-
-## 📝 Documentation Structure
-
-The [API Documentation](./API_DOCUMENTATION.md) is organized into the following sections:
-
-1. **Core Context System** - Basic context functionality
-2. **Data Source Hooks** - Publishing data to contexts
-3. **Data Subscription Hooks** - Subscribing to context changes
-4. **Root Context Factory** - Advanced context patterns
-5. **Auto Context System** - Automated context management
-6. **Utility Hooks** - Performance and utility functions
-7. **Usage Patterns** - Common implementation patterns
-8. **Examples** - Complete application examples
-
-## 🎯 Common Use Cases
-
-- **Global State Management** - Application-wide state without Redux complexity
-- **Component Communication** - Share data between distant components
-- **Performance Optimization** - Minimize unnecessary re-renders
-- **Context Composition** - Combine multiple contexts efficiently
-
-## 🔧 Quick Example
-
-### Using createRootCtx for Advanced State Management
-
-
-file main.tsx
-```typescript
+```tsx
+// main.tsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
 import { AutoRootCtx } from 'react-state-custom';
+import App from './App';
 
-// Root Component
-function App({children}) {
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <AutoRootCtx />
+    <App />
+  </React.StrictMode>
+);
+```
+
+2) Define state and register it
+
+```tsx
+// counterState.ts
+import { useState } from 'react';
+import { createRootCtx, createAutoCtx } from 'react-state-custom';
+
+function useCounterState() {
+  const [count, setCount] = useState(0);
+  const inc = () => setCount(c => c + 1);
+  const dec = () => setCount(c => c - 1);
+  return { count, inc, dec };
+}
+
+// Create a context for this state hook
+export const { useCtxState: useCounterCtxState } = createAutoCtx(
+  createRootCtx('counter', useCounterState)
+);
+```
+
+3) Consume it (simple)
+
+```tsx
+// Counter.tsx
+import { useQuickSubscribe } from 'react-state-custom';
+import { useCounterCtxState } from './counterState';
+
+export function Counter() {
+  const ctx = useCounterCtxState();
+  const { count, inc, dec } = useQuickSubscribe(ctx);
+
   return (
-    <>
-      <AutoRootCtx />
-      {children}
-    </>
+    <div>
+      <button onClick={dec}>-</button>
+      <span>{count}</span>
+      <button onClick={inc}>+</button>
+    </div>
   );
 }
-
-```
-file userState.ts
-```typescript
-import { createRootCtx, createAutoCtx,  } from 'react-state-custom';
-
-interface UserState {
-  user: User | null;
-  loading: boolean;
-  error: string | null;
-}
-
-// Create a state hook
-function useUserState(props: { userId: string }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  useEffect(() => {
-    fetchUser(props.userId).then(setUser).catch(setError).finally(() => setLoading(false));
-  }, [props.userId]);
-  
-  return { user, loading, error };
-}
-
-// Register State hook
-const { useCtxState: useUserCtxState } = createAutoCtx(createRootCtx(
-  'user-state',
-  useUserState
-));
-
-export { useUserCtxState }
-
-```
-
-file UserProfile.tsx
-```typescript
-import { useDataSubscribeMultiple, useQuickSubscribe } from 'react-state-custom';
-import { useUserCtxState } from "./userState.ts"
-
-// Consumer component using useDataSubscribeMultiple
-function UserProfile({ userId }: { userId: string }) {
-  const ctx = useUserCtxState({ userId });
-  const { user, loading, error } = useDataSubscribeMultiple(ctx, 'user', 'loading', 'error');
-  
-  if (loading) return <div>Loading user...</div>;
-  if (error) return <div>Error: {error}</div>;
-  
-  return <div>Welcome, {user?.name}!</div>;
-}
-
-// Or using useQuickSubscribe  for Simplified Access
-
-function UserProfileV2({ userId }: { userId: string }) {
-  const ctx = useUserCtxState({ userId });
-  const { user, loading, error } = useQuickSubscribe(ctx);
-  
-  if (loading) return <div>Loading user...</div>;
-  if (error) return <div>Error: {error}</div>;
-  
-  return <div>Welcome, {user?.name}!</div>;
 }
 ```
 
-## 📄 License
+4) Or subscribe only to specific keys (maximum performance)
 
-MIT License - see the main repository for details.
+```tsx
+import { useDataSubscribeMultiple } from 'react-state-custom';
+import { useCounterCtxState } from './counterState';
 
----
+export function CountBadge() {
+  const ctx = useCounterCtxState();
+  const { count } = useDataSubscribeMultiple(ctx, 'count');
+  return <span>{count}</span>;
+}
+```
 
-For the complete API reference with detailed examples, see [API_DOCUMENTATION.md](./API_DOCUMENTATION.md).
+## Why it’s simple
+
+- One provider (<AutoRootCtx />), no boilerplate
+- Any state shape—just return an object from your hook
+- useQuickSubscribe for easy full-state access
+
+## Why it’s strong
+
+- Render-precise: components only update when subscribed keys change
+- Type-safe: full TypeScript support with inferred keys and shapes
+- Flexible: works with any data source or async logic
+- Composable: create multiple contexts and combine freely
+- Production-friendly: minimal ceremony, clear patterns
+
+## Common use cases
+
+- Global state without Redux complexity
+- Cross-component communication
+- Parametrized state (e.g., userId, filters)
+- Optimized read patterns (subscribe to specific keys)
+
+## Core API in 20 seconds
+
+- createRootCtx(name, useStateHook): registers a typed context from your hook
+- createAutoCtx(rootCtx): auto-manages context lifecycle
+- AutoRootCtx: mount once near the app root
+- useQuickSubscribe(ctx): select the whole state object
+- useDataSubscribeMultiple(ctx, ...keys): subscribe to specific keys
+
+## Full API docs
+
+See API_DOCUMENTATION.md for details and patterns.
+
+## Requirements
+
+- React 19, react-dom 19
+
+## License
+
+MIT
