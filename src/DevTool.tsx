@@ -1,4 +1,4 @@
-import "./devTool.css"
+import "./DevTool.css"
 import { useState } from "react"
 import { DevToolState } from "./DevToolState";
 

@@ -24,8 +24,10 @@ A powerful React library for managing shared state and context with TypeScript s
 6. [Utility Hooks](#utility-hooks)
    - [useArrayHash](#usearrayhash)
    - [useQuickSubscribe](#usequicksubscribe)
-7. [Usage Patterns](#usage-patterns)
-8. [Examples](#examples)
+7. [Developer Tools](#developer-tools)
+   - [DevToolContainer](#devtoolcontainer)
+8. [Usage Patterns](#usage-patterns)
+9. [Examples](#examples)
 
 ---
 
@@ -632,6 +634,147 @@ function UserComponent() {
 
 ---
 
+## Developer Tools
+
+### DevToolContainer
+
+A React component that provides a visual interface for inspecting and debugging context state in real-time during development.
+
+**Type Definition:**
+```typescript
+function DevToolContainer({
+  toggleButton?: string;
+  children?: React.ReactNode;
+  className?: string;
+  [key: string]: any;
+}): JSX.Element
+```
+
+**Parameters:**
+- `toggleButton` - Deprecated. Text for the close button (default: "[x]")
+- `children` - Custom content for the toggle button (default: "Toggle Dev Tool")
+- `className` - CSS class for the toggle button
+- `...props` - Additional props passed to the toggle button element
+
+**Features:**
+- **Real-time State Inspection** - Displays all active context states and their current values
+- **Live Updates** - Highlights changed values with visual flash effects
+- **Interactive UI** - Click to expand/collapse objects and arrays
+- **Context Filtering** - Browse through different contexts (excludes 'auto-ctx' internal context)
+- **Type-aware Rendering** - Smart display for strings, numbers, booleans, objects, arrays, and functions
+- **Resizable Panel** - Adjustable height for the dev tools panel
+- **Persistent Toggle** - Button stays visible for easy access
+
+**Example:**
+```typescript
+import { DevToolContainer, AutoRootCtx } from 'react-state-custom';
+
+// Basic usage
+function App() {
+  return (
+    <>
+      <AutoRootCtx />
+      <DevToolContainer />
+      <YourApp />
+    </>
+  );
+}
+
+// Custom toggle button text
+function App() {
+  return (
+    <>
+      <AutoRootCtx />
+      <DevToolContainer>
+        🔧 Open Developer Tools
+      </DevToolContainer>
+      <YourApp />
+    </>
+  );
+}
+
+// Conditional rendering for development only
+function App() {
+  return (
+    <>
+      <AutoRootCtx />
+      {process.env.NODE_ENV === 'development' && (
+        <DevToolContainer className="custom-dev-btn">
+          Debug
+        </DevToolContainer>
+      )}
+      <YourApp />
+    </>
+  );
+}
+
+// With custom styling
+function App() {
+  return (
+    <>
+      <AutoRootCtx />
+      <DevToolContainer 
+        style={{ backgroundColor: 'blue', color: 'white' }}
+      >
+        Custom Styled Button
+      </DevToolContainer>
+      <YourApp />
+    </>
+  );
+}
+```
+
+**How It Works:**
+
+1. **Toggle Button** - Renders a fixed-position button at the bottom-right of your screen
+2. **Dev Panel** - When clicked, displays a resizable panel at the bottom of the screen
+3. **Context List** - Left panel shows all available contexts (excluding internal 'auto-ctx')
+4. **State Viewer** - Right panel displays the selected context's state as an expandable JSON tree
+5. **Live Updates** - Polls for changes every 200ms and highlights modified values
+6. **Close Button** - Click the [x] button at the top to close the panel
+
+**UI Features:**
+
+- **Collapsible Trees** - Click on object/array names to expand or collapse
+- **Value Grouping** - Large arrays and objects are automatically grouped for performance
+- **Type Indicators** - Each value shows its type (string, number, object, etc.)
+- **Sticky Headers** - Object labels stick to the top when scrolling
+- **Change Indicators** - Modified values flash red briefly when they change
+- **Syntax Coloring** - Different colors for different types (orange for strings, red for numbers, blue for booleans/functions)
+
+**CSS Classes:**
+
+The DevToolContainer adds these CSS classes for custom styling:
+- `.react-state-dev-btn` - The toggle button
+- `.react-state-dev-container` - The main dev tools panel
+- `.main-panel` - The panel content area
+- `.state-list` - The context list on the left
+- `.state-view` - The state viewer on the right
+- `.jv-root` - The JSON viewer root
+- `.jv-field` - Individual fields in the JSON tree
+
+**Performance Considerations:**
+
+- The dev tool polls state every 200ms, which is acceptable for development but should not be included in production builds
+- Large state objects are automatically grouped to prevent performance issues
+- Use tree-shaking in your bundler or conditional rendering to exclude from production:
+
+```typescript
+// Automatically excluded in production with proper tree-shaking
+import { DevToolContainer } from 'react-state-custom';
+
+// Or explicitly exclude
+{process.env.NODE_ENV === 'development' && <DevToolContainer />}
+```
+
+**Notes:**
+- The DevToolContainer automatically excludes the internal 'auto-ctx' context from the display
+- The component uses CSS custom properties for theming and supports light/dark mode
+- The panel is resizable vertically for better visibility
+- Values are compared with shallow equality, so object mutations won't trigger visual updates unless the reference changes
+
+---
+
 ## Usage Patterns
 
 ### Basic Context Usage
@@ -879,5 +1022,103 @@ function TodoFilters() {
   );
 }
 ```
+
+### Example with DevTools
+
+Here's how to integrate the DevToolContainer into your application for debugging:
+
+```typescript
+import { 
+  AutoRootCtx, 
+  createAutoCtx, 
+  createRootCtx,
+  DevToolContainer,
+  useQuickSubscribe 
+} from 'react-state-custom';
+
+// Your state logic
+function useAppState() {
+  const [count, setCount] = useState(0);
+  const [user, setUser] = useState({ name: 'John', email: 'john@example.com' });
+  const [settings, setSettings] = useState({ theme: 'light', language: 'en' });
+  
+  return {
+    count,
+    user,
+    settings,
+    increment: () => setCount(c => c + 1),
+    updateUser: (updates: Partial<typeof user>) => setUser(u => ({ ...u, ...updates })),
+    updateSettings: (updates: Partial<typeof settings>) => setSettings(s => ({ ...s, ...updates }))
+  };
+}
+
+// Create context
+const { useCtxState: useAppState } = createAutoCtx(
+  createRootCtx('app-state', useAppState)
+);
+
+// Main app with DevTools
+function App() {
+  return (
+    <>
+      <AutoRootCtx />
+      {/* Add DevToolContainer to inspect state */}
+      <DevToolContainer>
+        🔧 Debug State
+      </DevToolContainer>
+      <MainContent />
+    </>
+  );
+}
+
+// Your components
+function MainContent() {
+  const ctx = useAppState();
+  const { count, user, settings, increment, updateUser, updateSettings } = useQuickSubscribe(ctx);
+  
+  return (
+    <div>
+      <h1>Count: {count}</h1>
+      <button onClick={increment}>Increment</button>
+      
+      <h2>User: {user.name} ({user.email})</h2>
+      <button onClick={() => updateUser({ name: 'Jane' })}>Change Name</button>
+      
+      <h2>Theme: {settings.theme}</h2>
+      <button onClick={() => updateSettings({ theme: settings.theme === 'light' ? 'dark' : 'light' })}>
+        Toggle Theme
+      </button>
+    </div>
+  );
+}
+
+// Usage in development only
+function ProductionApp() {
+  return (
+    <>
+      <AutoRootCtx />
+      {process.env.NODE_ENV === 'development' && (
+        <DevToolContainer>
+          Debug
+        </DevToolContainer>
+      )}
+      <MainContent />
+    </>
+  );
+}
+```
+
+**What You'll See in DevTools:**
+
+When you click the dev tools button, you'll see:
+1. **Context List** - Shows "app-state" in the left panel
+2. **State Tree** - Displays the entire state object with `count`, `user`, `settings`, and function references
+3. **Live Updates** - When you click "Increment", the count value flashes red and updates in real-time
+4. **Expandable Objects** - Click on `user` or `settings` to see their properties
+5. **Type Information** - Each value shows its type (number, object, string, function)
+
+This makes debugging complex state interactions much easier during development!
+
+---
 
 This comprehensive documentation covers all exported APIs from the react-state-custom library with detailed descriptions, type information, and practical examples.

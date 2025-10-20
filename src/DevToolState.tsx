@@ -1,6 +1,6 @@
 import { getContext } from "./state-utils/ctx"
 import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import "./devTool.css"
+import "./DevTool.css"
 
 const cache = getContext.cache
 
