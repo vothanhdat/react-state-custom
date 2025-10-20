@@ -37,6 +37,13 @@ const { useCtxState: useDevAdvanceCtx } = createAutoCtx(
                 history,
                 counter,
                 historyMap,
+                state1:9,
+                state2:9,
+                state3:9,
+                state4:9,
+                state6:9,
+                statedd:9,
+                state55:9,
                 testSrt: "aiwioj ".repeat(counter * 3),
                 increase: useCallback(() => setState(f => {
                     setCounter(c => {

@@ -47,9 +47,9 @@ export const StateView: React.FC<{ dataKey: string }> = ({ dataKey }) => {
 
     return <JSONView
         value={currentData}
-        name="ROOT"
+        name={dataKey}
         expandLevel={1}
-        style={{  }}
+        style={{}}
     />
 }
 
@@ -65,8 +65,8 @@ type JSONViewProps = {
     isGrouped?: boolean,
 }
 
-
-const splitArray = <T,>(array: T[], max = 10) => {
+const splitArray = <T,>(array: T[]) => {
+    let max = array.length < 120 ? 10 : 100
     return Object.fromEntries(
         new Array(Math.ceil((array.length + 1) / max))
             .fill(0)
@@ -82,7 +82,7 @@ const splitArray = <T,>(array: T[], max = 10) => {
 }
 
 
-const splitObject = (object: any, max = 10) => {
+const splitObject = (object: any, max = 25) => {
     const keys = Object.keys(object);
     return Object.fromEntries(
         Array(Math.ceil((keys.length + 1) / max))
@@ -122,7 +122,7 @@ const useExpandState = ({ path, expandLevel, expandRoot, setExpandRoot }: JSONVi
 
 }
 
-const ChangeFlashWrappper: React.FC<React.ComponentProps<'div'> & { value: any, deepCompare?: boolean }> = ({ value, deepCompare = false, ...rest }) => {
+export const ChangeFlashWrappper: React.FC<React.ComponentProps<'div'> & { value: any, deepCompare?: boolean }> = ({ value, deepCompare = false, ...rest }) => {
 
     const ref = useRef<HTMLElement>(undefined)
     const refValue = useRef(value);
@@ -162,16 +162,19 @@ const JSONViewObj: React.FC<JSONViewProps> = (props) => {
 
     const childExpandLevel = typeof expandLevel == "number" ? expandLevel - 1 : expandLevel
 
-    const shouldGroup = Object.entries(value).length > 10
+    const shouldGroup = Object.entries(value).length > (value instanceof Array ? 10 : 25);
+
+    const ableToExpand = Object.entries(value).length > 0
 
     const groupedChilds = useMemo(
         () => shouldGroup
-            ? (value instanceof Array) ? splitArray(value, 10) : splitObject(value, 10)
+            ? (value instanceof Array) ? splitArray(value, 10) : splitObject(value, 25)
             : value,
         [value, shouldGroup, splitArray]
     )
 
-    return (isExpand) ? <ChangeFlashWrappper className="jv-field jv-field-obj" value={value} deepCompare={isGrouped}>
+
+    return (isExpand && ableToExpand) ? <ChangeFlashWrappper className="jv-field jv-field-obj" value={value} deepCompare={isGrouped}>
         {currentField && <div>
             <div onClick={() => setExpand(false)}>
                 <span className="jv-name">{currentField}</span>
@@ -200,13 +203,13 @@ const JSONViewObj: React.FC<JSONViewProps> = (props) => {
         </div>}
     </ChangeFlashWrappper> : <ChangeFlashWrappper className="jv-field jv-field-obj" value={value} deepCompare={isGrouped}>
         <div>
-            <div onClick={() => setExpand(true)}>
+            <div onClick={() => ableToExpand && setExpand(true)}>
                 <span className="jv-name">{currentField}</span>
                 {currentField && <span>:</span>}
-                {currentField && <span>[+]</span>}
+                {currentField && ableToExpand && <span>[+]</span>}
                 <span className="jv-type">{Object.keys(value).length} items </span>
                 <span> {isArray ? "[" : "{"} </span>
-                <span> ... </span>
+                {ableToExpand && <span> ... </span>}
                 <span> {isArray ? "]" : "}"} </span>
             </div>
         </div>
