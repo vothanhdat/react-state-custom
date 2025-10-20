@@ -168,7 +168,7 @@ const JSONViewObj: React.FC<JSONViewProps> = (props) => {
 
     const groupedChilds = useMemo(
         () => shouldGroup
-            ? (value instanceof Array) ? splitArray(value, 10) : splitObject(value, 25)
+            ? (value instanceof Array) ? splitArray(value) : splitObject(value, 25)
             : value,
         [value, shouldGroup, splitArray]
     )
