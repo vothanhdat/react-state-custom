@@ -18,6 +18,8 @@
 .react-state-dev-container {
     --color: light-dark(#333b3c, #efefec);
     --bg-color: light-dark(#f9f9f9, #212121);
+    align-items: stretch;
+    font-size: 14px;
     color: var(--color);
     background-color: var(--bg-color);
     position: fixed;
@@ -28,7 +30,7 @@
     pointer-events: none;
     transition: opacity 0.3s, transform 0.3s;
     transform: translateY(100%);
-    padding: 10px;
+    padding: 0.5em;
 
     &[data-active="true"] {
         opacity: 1;
@@ -45,26 +47,43 @@
     .main-panel {
         display: flex;
         flex-direction: row;
-        gap: 0.2em;
+        gap: 1em;
+        padding: 1em;
+        resize: vertical;
+        min-height: 200px;
+        max-height: 60vh;
+        background-color: #8882;
+        overflow: hidden;
+        justify-items: stretch;
 
         .state-list {
-            max-width: 150px;
+            max-width: 50%;
+            min-width: 100px;
+            overflow: auto;
+            align-self: stretch;
+            resize: horizontal;
 
             .state-key {
                 cursor: pointer;
                 padding: 0.2em;
-                border-bottom: solid 1px;
+                border-bottom: solid 1px #8884;
+                font-family: monospace;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
 
                 &[data-active="true"] {
                     background-color: light-dark(#0003, #fff3);
                 }
             }
 
-            .filter {}
         }
 
         .state-view {
             flex: 1;
+            overflow: auto;
+            border-inline-start: solid 1px #8888;;
+            padding-inline-start: 1em;
         }
     }
 }

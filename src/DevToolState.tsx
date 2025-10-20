@@ -49,7 +49,7 @@ export const StateView: React.FC<{ dataKey: string }> = ({ dataKey }) => {
         value={currentData}
         name="ROOT"
         expandLevel={1}
-        style={{ height: "300px", overflow: "auto", resize: "vertical" }}
+        style={{  }}
     />
 }
 

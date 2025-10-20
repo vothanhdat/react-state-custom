@@ -41,7 +41,7 @@ const { useCtxState: useDevAdvanceCtx } = createAutoCtx(
                 increase: useCallback(() => setState(f => {
                     setCounter(c => {
                         setHistory(h => [...h, f]);
-                        setHistoryMap(m => ({ ...m, ['state--' + c]: {f,d: Date.now()} }));
+                        setHistoryMap(m => ({ ...m, ['state--' + c]: { f, d: Date.now() } }));
                         return c + 1
                     })
                     return f + 1
@@ -49,7 +49,7 @@ const { useCtxState: useDevAdvanceCtx } = createAutoCtx(
                 decrease: useCallback(() => setState(f => {
                     setCounter(c => {
                         setHistory(h => [...h, f]);
-                        setHistoryMap(m => ({ ...m, ['state--' + c]: {f,d: Date.now()} }));
+                        setHistoryMap(m => ({ ...m, ['state--' + c]: { f, d: Date.now() } }));
                         return c + 1
                     })
                     return f - 1
@@ -64,6 +64,18 @@ export const Test = ({ }) => {
     const { state, decrease, increase } = useQuickSubscribe(useDevCtx({}))
     const { state: advState, computed: advComputed, increase: advIncreaser, decrease: advDecrise } = useQuickSubscribe(useDevAdvanceCtx({ id: "name" }))
 
+    useDevAdvanceCtx({ id: "2123132" })
+    useDevAdvanceCtx({ id: "dfgfd" })
+    useDevAdvanceCtx({ id: "443" })
+    useDevAdvanceCtx({ id: "w3sef" })
+    useDevAdvanceCtx({ id: "erere" })
+    useDevAdvanceCtx({ id: "sdfdsf" })
+    useDevAdvanceCtx({ id: "asdasd" })
+    useDevAdvanceCtx({ id: "66666" })
+    useDevAdvanceCtx({ id: "dddd" })
+    useDevAdvanceCtx({ id: "eeeee" })
+    useDevAdvanceCtx({ id: "44444" })
+    useDevAdvanceCtx({ id: ";;;;" })
 
     return <div>
         <hr />
