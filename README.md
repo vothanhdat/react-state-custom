@@ -17,7 +17,7 @@ React State Custom lets you write state management code that feels natural—bec
 ## ⚡ Quick Example
 
 ```typescript
-import { createRootCtx, createAutoCtx, useQuickSubscribe, AutoRootCtx } from 'react-state-custom';
+import { createRootCtx, createAutoCtx, useQuickSubscribe, AutoRootCtx, DevToolContainer } from 'react-state-custom';
 
 // 1. Write your state logic using familiar React hooks
 function useCounterState() {
@@ -37,6 +37,8 @@ function App() {
     <>
       <AutoRootCtx />
       <Counter />
+      {/* Optional: Add DevTools for debugging */}
+      <DevToolContainer />
     </>
   );
 }
@@ -105,7 +107,7 @@ Full type inference and type safety throughout. Your IDE knows exactly what's in
 | **Boilerplate** | ✅ None | ❌ Heavy | ✅ Minimal |
 | **Type Safety** | ✅ Full inference | ⚠️ Requires setup | ✅ Good |
 | **Selective Re-renders** | ✅ Built-in | ⚠️ Requires selectors | ✅ Built-in |
-| **DevTools** | ⚠️ Console logging | ✅ Redux DevTools | ✅ DevTools support |
+| **DevTools** | ✅ Built-in DevTools | ✅ Redux DevTools | ✅ DevTools support |
 | **Async Support** | ✅ Native (hooks) | ⚠️ Requires middleware | ✅ Native |
 | **Context Composition** | ✅ Automatic | ❌ Manual | ⚠️ Manual store combination |
 
@@ -283,6 +285,59 @@ const userStats = useDataSubscribeWithTransform(
     isAdmin: user?.role === 'admin'
   })
 );
+```
+
+## 🔧 Developer Tools
+
+React State Custom includes a built-in DevTools component for debugging and inspecting your application state in real-time.
+
+### Using DevToolContainer
+
+```typescript
+import { DevToolContainer } from 'react-state-custom';
+
+function App() {
+  return (
+    <>
+      <AutoRootCtx />
+      <DevToolContainer />
+      <YourApp />
+    </>
+  );
+}
+```
+
+The DevTools panel provides:
+- **Real-time State Inspection** - View all context states and their current values
+- **Live Updates** - See state changes as they happen with visual indicators
+- **Context Browser** - Navigate through different contexts in your app
+- **Type-aware Display** - Smart rendering of objects, arrays, strings, and functions
+
+The dev tool is automatically excluded from production builds when using proper bundling (tree-shaking), or you can conditionally render it:
+
+```typescript
+function App() {
+  return (
+    <>
+      <AutoRootCtx />
+      {process.env.NODE_ENV === 'development' && <DevToolContainer />}
+      <YourApp />
+    </>
+  );
+}
+```
+
+### Customizing the Toggle Button
+
+```typescript
+<DevToolContainer>
+  Open Dev Tools
+</DevToolContainer>
+
+// Or with custom styling
+<DevToolContainer className="my-custom-class">
+  🔧 Debug
+</DevToolContainer>
 ```
 
 ## 📖 Documentation
