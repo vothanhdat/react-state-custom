@@ -1,6 +1,6 @@
 {
   "name": "react-state-custom",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "description": "The `react-state-custom` library provides a powerful set of tools for managing shared state in React applications",
   "type": "module",
   "main": "dist/index.umd.js",
@@ -15,7 +15,7 @@
   },
   "scripts": {
     "build": "vite build",
-    "dev": "vite",
+    "dev": "vite --config vite.config.dev.ts",
     "test": "echo \"No tests specified\" && exit 0"
   },
   "keywords": [
@@ -36,6 +36,8 @@
     "@types/react": "19",
     "@types/react-dom": "19",
     "@vitejs/plugin-react": "^5.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "typescript": "^5.8.3",
     "vite": "7",
     "vite-bundle-analyzer": "^1.1.0",

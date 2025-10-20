@@ -12,7 +12,7 @@ export function debounce<T extends (...args: any[]) => any>(
     timeout = setTimeout(() => {
       func(...args);
     }, wait);
-  } as any; 
+  } as any;
 
   fn.cancel = () => clearTimeout(timeout!);
 
@@ -22,10 +22,11 @@ export function debounce<T extends (...args: any[]) => any>(
 // Memoize function
 export function memoize<T extends (...args: any[]) => any>(
   func: T
-): (...args: Parameters<T>) => ReturnType<T> {
+): ((...args: Parameters<T>) => ReturnType<T>) & { cache: Map<string, ReturnType<T>> } {
+  
   const cache = new Map<string, ReturnType<T>>();
 
-  return function (...args: Parameters<T>): ReturnType<T> {
+  const cachedFunc: any = function (...args: Parameters<T>): ReturnType<T> {
     const key = JSON.stringify(args);
     if (cache.has(key)) {
       return cache.get(key) as ReturnType<T>;
@@ -33,6 +34,10 @@ export function memoize<T extends (...args: any[]) => any>(
     const result = func(...args);
     cache.set(key, result);
     return result;
-  };
+  }
+
+  cachedFunc.cache = cache;
+
+  return cachedFunc
 }
 

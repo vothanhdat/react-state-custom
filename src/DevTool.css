@@ -1,0 +1,173 @@
+:root {
+    color-scheme: light dark;
+}
+
+.react-state-dev-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    transition: opacity 0.3s;
+
+    &[data-active="true"] {
+        opacity: 0;
+        pointer-events: none;
+    }
+}
+
+
+.react-state-dev-container {
+    --color: light-dark(#333b3c, #efefec);
+    --bg-color: light-dark(#f9f9f9, #212121);
+    color: var(--color);
+    background-color: var(--bg-color);
+    position: fixed;
+    bottom: 0px;
+    right: 0px;
+    left: 0px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+    transform: translateY(100%);
+    padding: 10px;
+
+    &[data-active="true"] {
+        opacity: 1;
+        pointer-events: all;
+        transform: translateY(0%);
+    }
+
+    .close-btn {
+        position: absolute;
+        top: -20px;
+        right: 0px;
+    }
+
+    .main-panel {
+        display: flex;
+        flex-direction: row;
+        gap: 0.2em;
+
+        .state-list {
+            max-width: 150px;
+
+            .state-key {
+                cursor: pointer;
+                padding: 0.2em;
+                border-bottom: solid 1px;
+
+                &[data-active="true"] {
+                    background-color: light-dark(#0003, #fff3);
+                }
+            }
+
+            .filter {}
+        }
+
+        .state-view {
+            flex: 1;
+        }
+    }
+}
+
+.jv-root {
+    font-family: monospace;
+    user-select: none;
+
+    .jv-name {
+        opacity: 0.8;
+    }
+
+    .jv-type {
+        opacity: 0.5;
+        font-size: smaller;
+        padding-inline: 0.4em;
+    }
+
+    .jv-cursor {
+        cursor: pointer;
+    }
+
+    .jv-field {
+        margin-block: 1px;
+    }
+
+    .jv-field .jv-field {
+        transition: border-color 1s, background-color 1s;
+        border-color: #0000;
+        background-color: #0000;
+        border-width: 1px;
+        border-style: solid;
+
+        &.jv-updated {
+            transition: border-color 0.00s, background-color 0.00s;
+            border-color: #f00;
+            background-color: #f001;
+        }
+    }
+
+    .jv-field-obj>.jv-value {
+        padding-inline-start: 1em;
+        margin-inline-start: 0.6em;
+        border-inline-start: solid 1px #8888;
+    }
+
+    .jv-field-obj>:first-child>:first-child>.jv-name {
+        cursor: pointer;
+    }
+
+
+    .jv-field-obj {
+        --lv: 0;
+
+        .jv-field-obj {
+            --lv: 1;
+
+            .jv-field-obj {
+                --lv: 2;
+
+                .jv-field-obj {
+                    --lv: 3;
+
+                    .jv-field-obj {
+                        --lv: 4;
+                    }
+                }
+            }
+        }
+    }
+
+    .jv-field-obj>:first-child {
+        container-type: scroll-state;
+        position: sticky;
+        top: calc(var(--lv, 0) * 1.25em);
+        z-index: calc(10 - var(--lv, 0));
+
+        @container scroll-state(stuck: top) {
+            >div {
+                background-color: var(--bg-color);
+                border-bottom: solid 1px #8884;
+                font-weight: bold;
+            }
+
+        }
+    }
+
+
+
+
+    .jv-field-string> :is(.jv-type, .jv-value) {
+        color: orange;
+    }
+
+    .jv-field-number> :is(.jv-type, .jv-value) {
+        color: red;
+    }
+
+    .jv-field-boolean> :is(.jv-type, .jv-value) {
+        color: #08f;
+    }
+
+    .jv-field-function> :is(.jv-type, .jv-value) {
+        color: #08f;
+    }
+}
