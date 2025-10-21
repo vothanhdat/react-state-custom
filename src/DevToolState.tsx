@@ -6,8 +6,19 @@ import { debounce } from "./state-utils/utils"
 const cache = getContext.cache
 
 export const DevToolState = ({ }) => {
+    const [allKeys, setKeys] = useState(() => [...cache.keys()])
     const [filterString, setFilterString] = useState("")
     const [selectedKey, setKey] = useState("")
+
+    useEffect(() => {
+        let t = setInterval(() => {
+            setKeys(k => k.length != cache.size
+                ? [...cache.keys()]
+                : k
+            )
+        }, 50)
+        return () => clearInterval(t)
+    }, [cache])
 
     const filterFn = useMemo(
         () => {
@@ -30,7 +41,7 @@ export const DevToolState = ({ }) => {
                 onChange={(ev) => setFilterString(ev.target.value)}
             />
 
-            {[...cache.keys()]
+            {allKeys
                 .map(e => JSON.parse(e)?.[0])
                 .filter(e => e != "auto-ctx" && e)
                 .filter(filterFn)
@@ -172,7 +183,9 @@ export const ChangeFlashWrappper: React.FC<React.ComponentProps<'div'> & { value
                 ? (
                     Object.keys(value).length != Object.keys(refValue.current).length
                     || Object.keys(value).some(key => value[key] != refValue.current[key])
-                ) : value != refValue.current
+                ) : (
+                    value != refValue.current
+                )
             if (isDiff) {
                 refValue.current = value;
                 ref.current.classList.add('jv-updated');
@@ -280,7 +293,6 @@ const StringViewObj: React.FC<JSONViewProps> = (props) => {
     </ChangeFlashWrappper>
 }
 
-
 const FunctionViewObj: React.FC<JSONViewProps> = (props) => {
 
     const { currentType, currentField, value, } = props
@@ -355,4 +367,20 @@ export const JSONView: React.FC<{ value: any, name?: string, style?: any, expand
             {...{ name, value, expandRoot, setExpandRoot, expandLevel }}
         />
     </div>
+}
+
+
+export const DevToolContainer = ({ toggleButton = "[x]", ...props }) => {
+    const [active, setActive] = useState(false);
+    return <>
+        <button className="react-state-dev-btn" data-active={active} onClick={() => setActive(true)} {...props}>
+            {props?.children ?? "Toggle Dev Tool"}
+        </button>
+        <div className="react-state-dev-container" data-active={active}>
+            <button className="close-btn" onClick={() => setActive(false)}>
+                [x]
+            </button>
+            {active && <DevToolState />}
+        </div>
+    </>
 }
