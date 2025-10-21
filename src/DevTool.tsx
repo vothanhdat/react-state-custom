@@ -13,7 +13,7 @@ export const DevToolContainer = ({ toggleButton = "[x]", ...props }) => {
             <button className="close-btn" onClick={() => setActive(false)}>
                 [x]
             </button>
-            <DevToolState />
+            {active && <DevToolState />}
         </div>
     </>
 }

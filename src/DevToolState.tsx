@@ -1,25 +1,75 @@
 import { getContext } from "./state-utils/ctx"
 import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import "./devTool.css"
+import { debounce } from "./state-utils/utils"
 
 const cache = getContext.cache
 
 export const DevToolState = ({ }) => {
+    const [filterString, setFilterString] = useState("")
     const [selectedKey, setKey] = useState("")
+
+    const filterFn = useMemo(
+        () => {
+            const preFilter = filterString
+                .toLowerCase()
+                .split(" ")
+            return (e: string) => {
+                const sLow = e.toLowerCase()
+                return preFilter.every(token => sLow.includes(token))
+            }
+        },
+        [filterString]
+    )
     return <div className="main-panel">
         <div className="state-list">
+            <input
+                placeholder="Type to Filter ..."
+                className="state-filter"
+                value={filterString}
+                onChange={(ev) => setFilterString(ev.target.value)}
+            />
+
             {[...cache.keys()]
                 .map(e => JSON.parse(e)?.[0])
-                .filter(e => e != "auto-ctx")
-                .map(e => <div
-                    className="state-key"
-                    data-active={e == selectedKey}
-                    onClick={() => setKey(e)}>{e}
-                </div>)}
+                .filter(e => e != "auto-ctx" && e)
+                .filter(filterFn)
+                .map(e => <SelectedKeyRender {...{
+                    selectedKey, setKey,
+                    currentKey: e
+                }} />)}
         </div>
         <div className="state-view" >
             <StateView dataKey={selectedKey} key={selectedKey} />
         </div>
+    </div>
+}
+
+const SelectedKeyRender: React.FC<any> = ({ selectedKey, setKey, currentKey, ...props }) => {
+    const ctx = getContext(currentKey)
+    const divRef = useRef<HTMLDivElement>(undefined)
+
+    useEffect(() => {
+        if (divRef.current) {
+            let flashKeyDebounce = debounce(() => {
+                if (divRef.current) {
+                    divRef.current?.classList.add("state-key-updated");
+                    requestAnimationFrame(() => divRef.current?.classList.remove("state-key-updated"));
+                }
+            }, 16);
+            return ctx.subscribeAll(flashKeyDebounce)
+        }
+
+    }, [ctx, divRef])
+
+    return <div
+        ref={divRef}
+        className="state-key"
+        data-active={currentKey == selectedKey}
+        onClick={() => setKey(currentKey)}
+        {...props}
+    >
+        {currentKey}
     </div>
 }
 
@@ -28,21 +78,10 @@ export const StateView: React.FC<{ dataKey: string }> = ({ dataKey }) => {
     const [currentData, setCurrentData] = useState({ ...ctx?.data })
 
     useEffect(() => {
-        let checkState = { ...currentData }
-        let interval = setInterval(() => {
+        let updateDataDebounce = debounce(setCurrentData, 16)
+        return ctx
+            .subscribeAll((changeKey, newData) => updateDataDebounce({ ...newData }))
 
-            let isDiff = false
-
-            for (let i in ctx?.data) {
-                if (ctx?.data?.[i] != checkState[i]) {
-                    checkState[i] = ctx?.data?.[i];
-                    isDiff = true;
-                }
-            }
-            if (isDiff) setCurrentData({ ...checkState })
-        }, 200)
-
-        return () => clearInterval(interval)
     }, [ctx])
 
     return <JSONView

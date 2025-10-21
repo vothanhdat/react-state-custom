@@ -50,6 +50,7 @@
         gap: 1em;
         padding: 1em;
         resize: vertical;
+        height: 350px;
         min-height: 200px;
         max-height: 60vh;
         background-color: #8882;
@@ -59,21 +60,46 @@
         .state-list {
             max-width: 50%;
             min-width: 100px;
+            width: 200px;
             overflow: auto;
             align-self: stretch;
             resize: horizontal;
 
+            .state-filter {
+                padding: 0.2em 0.5em;
+                width: stretch;
+                position: sticky;
+                top: 0px;
+            }
+
             .state-key {
                 cursor: pointer;
-                padding: 0.2em;
-                border-bottom: solid 1px #8884;
+                padding: 0.2em 0.5em;
                 font-family: monospace;
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
 
+                &:hover {
+                    background-color: light-dark(#0001, #fff1);
+                }
+
                 &[data-active="true"] {
                     background-color: light-dark(#0003, #fff3);
+                }
+
+                transition: border-color 1s;
+                border-color: #0000;
+                border-bottom-color: #8884;
+
+                background-color: #0000;
+                border-width: 1px;
+                border-style: solid;
+
+                &.state-key-updated {
+                    transition: border-color 0.00s;
+                    border-color: #f00;
+                    background-color: #f001;
                 }
             }
 
@@ -82,7 +108,7 @@
         .state-view {
             flex: 1;
             overflow: auto;
-            border-inline-start: solid 1px #8888;;
+            border-inline-start: solid 3px #8888;
             padding-inline-start: 1em;
         }
     }
@@ -135,25 +161,13 @@
     }
 
 
-    .jv-field-obj {
-        --lv: 0;
-
-        .jv-field-obj {
-            --lv: 1;
-
-            .jv-field-obj {
-                --lv: 2;
-
-                .jv-field-obj {
-                    --lv: 3;
-
-                    .jv-field-obj {
-                        --lv: 4;
-                    }
-                }
-            }
-        }
-    }
+    .jv-field-obj { --lv: 0; }
+    .jv-field-obj .jv-field-obj { --lv: 1; }
+    .jv-field-obj .jv-field-obj .jv-field-obj { --lv: 2; }
+    .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj { --lv: 3; }
+    .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj { --lv: 4; }
+    .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj { --lv: 5; }
+    .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj { --lv: 6; }
 
     .jv-field-obj>:first-child {
         container-type: scroll-state;

@@ -4,12 +4,22 @@ import { useArrayHash } from "./useArrayHash"
 
 
 
-class DataEvent extends Event {
+const CHANGE_EVENT = "@--change-event"
+
+class DataEvent<D> extends Event {
   constructor(
-    public event: string,
-    public value: any
+    public event: keyof D,
+    public value: D[typeof event] | undefined
   ) {
-    super(event);
+    super(String(event));
+  }
+}
+
+class ChangeEvent<D> extends Event {
+  constructor(
+    public value: DataEvent<D>
+  ) {
+    super(CHANGE_EVENT, value);
   }
 }
 
@@ -27,8 +37,6 @@ export class Context<D> extends EventTarget {
     // this.event.setMaxListeners(100)
     super();
   }
-
-  // private event = new EventEmitter()
 
   /**
    * The current data held by the context.
@@ -48,9 +56,9 @@ export class Context<D> extends EventTarget {
 
     if (value != this.data[key]) {
       this.data[key] = value
-      // console.count("[COUNT] " + String(key))
-      // this.event.emit(String(key), { value })
-      this.dispatchEvent(new DataEvent(String(key), value))
+      let event = new DataEvent(key, value);
+      this.dispatchEvent(event);
+      this.dispatchEvent(new ChangeEvent(event))
     }
   }
 
@@ -71,7 +79,22 @@ export class Context<D> extends EventTarget {
 
     if (key in this.data) _listener(this.data[key])
 
-    return () => (this.removeEventListener(String(key), listener), undefined)
+    return () => this.removeEventListener(String(key), listener)
+  }
+
+  public subscribeAll(_listener: (changeKey: keyof D, newData: Partial<D>) => void) {
+
+    const listener = (event: any) => {
+      if (event instanceof ChangeEvent) {
+        const { value: data } = event
+        _listener(data.event as any as keyof D, this.data)
+      }
+    }
+
+    this.addEventListener(String(CHANGE_EVENT), listener)
+
+    return () => this.removeEventListener(String(CHANGE_EVENT), listener)
+
   }
 
 }
