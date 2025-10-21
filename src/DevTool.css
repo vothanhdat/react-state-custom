@@ -1,5 +1,8 @@
 :root {
     color-scheme: light dark;
+    --jv-color: light-dark(#333b3c, #efefec);
+    --jv-bg-color: light-dark(#f9f9f9, #212121);
+    --jv-change-color: rgb(255, 50, 0);
 }
 
 .react-state-dev-btn {
@@ -16,12 +19,12 @@
 
 
 .react-state-dev-container {
-    --color: light-dark(#333b3c, #efefec);
-    --bg-color: light-dark(#f9f9f9, #212121);
+
     align-items: stretch;
-    font-size: 14px;
-    color: var(--color);
-    background-color: var(--bg-color);
+    font-size: 12px;
+    color: var(--jv-color);
+    background-color: var(--jv-bg-color);
+    border-top: solid var(--jv-color) 1px;
     position: fixed;
     bottom: 0px;
     right: 0px;
@@ -40,7 +43,7 @@
 
     .close-btn {
         position: absolute;
-        top: -20px;
+        top: 0px;
         right: 0px;
     }
 
@@ -53,7 +56,6 @@
         height: 350px;
         min-height: 200px;
         max-height: 60vh;
-        background-color: #8882;
         overflow: hidden;
         justify-items: stretch;
 
@@ -76,9 +78,7 @@
                 cursor: pointer;
                 padding: 0.2em 0.5em;
                 font-family: monospace;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
+                background-color: #0000;
 
                 &:hover {
                     background-color: light-dark(#0001, #fff1);
@@ -92,14 +92,28 @@
                 border-color: #0000;
                 border-bottom-color: #8884;
 
-                background-color: #0000;
-                border-width: 1px;
+                border-width: 2px;
                 border-style: solid;
 
                 &.state-key-updated {
                     transition: border-color 0.00s;
-                    border-color: #f00;
-                    background-color: #f001;
+                    border-color: var(--jv-change-color);
+                    background-color: color-mix(in srgb, var(--jv-change-color) 20%, transparent);
+                }
+
+                .state-key-name {
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+
+                &[data-active="true"] .state-key-name {
+                    white-space: wrap;
+                }
+
+                .state-key-meta {
+                    font-size: 10px;
+                    opacity: 0.6;
                 }
             }
 
@@ -112,11 +126,17 @@
             padding-inline-start: 1em;
         }
     }
+
+    mark {
+        background: orange;
+    }
 }
 
 .jv-root {
+
     font-family: monospace;
     user-select: none;
+    background-color: var(--jv-bg-color);
 
     .jv-name {
         opacity: 0.8;
@@ -128,6 +148,10 @@
         padding-inline: 0.4em;
     }
 
+    .jv-value {
+        word-wrap: break-word;
+    }
+
     .jv-cursor {
         cursor: pointer;
     }
@@ -137,23 +161,30 @@
     }
 
     .jv-field .jv-field {
-        transition: border-color 1s, background-color 1s;
-        border-color: #0000;
-        background-color: #0000;
-        border-width: 1px;
-        border-style: solid;
 
-        &.jv-updated {
-            transition: border-color 0.00s, background-color 0.00s;
-            border-color: #f00;
-            background-color: #f001;
+        >:first-child>:first-child>.jv-name,
+        >.jv-name {
+            transition: background-color 1s;
+            background-color: #0000;
+        }
+
+        &.jv-updated>:first-child>:first-child>.jv-name,
+        &.jv-updated>.jv-name {
+            transition: background-color 0.00s;
+            background-color: var(--jv-change-color);
         }
     }
 
     .jv-field-obj>.jv-value {
-        padding-inline-start: 1em;
-        margin-inline-start: 0.6em;
+        padding-inline-start: 1.5em;
+        margin-inline-start: 0.2em;
         border-inline-start: solid 1px #8888;
+        transition: border-color 1s;
+    }
+
+    .jv-field .jv-field-obj.jv-updated>.jv-value {
+        border-color: var(--jv-change-color);
+        transition: border-color 0.00s;
     }
 
     .jv-field-obj>:first-child>:first-child>.jv-name {
@@ -161,23 +192,48 @@
     }
 
 
-    .jv-field-obj { --lv: 0; }
-    .jv-field-obj .jv-field-obj { --lv: 1; }
-    .jv-field-obj .jv-field-obj .jv-field-obj { --lv: 2; }
-    .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj { --lv: 3; }
-    .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj { --lv: 4; }
-    .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj { --lv: 5; }
-    .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj { --lv: 6; }
+    .jv-field-obj {
+        --lv: 0;
+    }
+
+    .jv-field-obj .jv-field-obj {
+        --lv: 1;
+    }
+
+    .jv-field-obj .jv-field-obj .jv-field-obj {
+        --lv: 2;
+    }
+
+    .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj {
+        --lv: 3;
+    }
+
+    .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj {
+        --lv: 4;
+    }
+
+    .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj {
+        --lv: 5;
+    }
+
+    .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj {
+        --lv: 6;
+    }
+
+    .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj .jv-field-obj {
+        --lv: 7;
+    }
 
     .jv-field-obj>:first-child {
         container-type: scroll-state;
         position: sticky;
-        top: calc(var(--lv, 0) * 1.25em);
+        top: calc(var(--lv, 0) * 1.5em);
+        line-height: 1.5;
         z-index: calc(10 - var(--lv, 0));
 
         @container scroll-state(stuck: top) {
             >div {
-                background-color: var(--bg-color);
+                background-color: var(--jv-bg-color);
                 border-bottom: solid 1px #8884;
                 font-weight: bold;
             }
@@ -202,5 +258,9 @@
 
     .jv-field-function> :is(.jv-type, .jv-value) {
         color: #08f;
+    }
+
+    .jv-preview {
+        opacity: 0.5;
     }
 }

@@ -1,6 +1,6 @@
-import { getContext } from "./state-utils/ctx"
-import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import React, { type Dispatch, type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import "./devTool.css"
+import { getContext } from "./state-utils/ctx"
 import { debounce } from "./state-utils/utils"
 
 const cache = getContext.cache
@@ -20,6 +20,13 @@ export const DevToolState = ({ }) => {
         return () => clearInterval(t)
     }, [cache])
 
+    const highlight = useMemo(
+        () => buildRegex(filterString
+            .toLowerCase()
+            .split(" "), 'gi'),
+        [filterString]
+    )
+
     const filterFn = useMemo(
         () => {
             const preFilter = filterString
@@ -32,6 +39,8 @@ export const DevToolState = ({ }) => {
         },
         [filterString]
     )
+
+
     return <div className="main-panel">
         <div className="state-list">
             <input
@@ -47,7 +56,8 @@ export const DevToolState = ({ }) => {
                 .filter(filterFn)
                 .map(e => <SelectedKeyRender {...{
                     selectedKey, setKey,
-                    currentKey: e
+                    currentKey: e,
+                    highlight,
                 }} />)}
         </div>
         <div className="state-view" >
@@ -56,7 +66,38 @@ export const DevToolState = ({ }) => {
     </div>
 }
 
-const SelectedKeyRender: React.FC<any> = ({ selectedKey, setKey, currentKey, ...props }) => {
+function escapeRegex(str: string) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildRegex(words: string[], flags = 'gi') {
+    const pattern = words.map(escapeRegex).join('|');
+    return new RegExp(`(${pattern})`, flags);
+}
+
+function markByToken(text: string, regex: RegExp) {
+    const result = [];
+    let last = 0;
+    for (const match of text.matchAll(regex)) {
+        const [m] = match;
+        const start = match.index;
+        if (start > last) result.push(text.slice(last, start));
+        result.push(<mark key={start}>{m}</mark>);
+        last = start + m.length;
+    }
+    if (last < text.length) result.push(text.slice(last));
+    return result;
+}
+
+const MarketString: React.FC<{ text: string, highlight: RegExp }> = ({ text, highlight }) => {
+    const render = useMemo(
+        () => markByToken(text, highlight),
+        [text, highlight]
+    )
+    return <>{render}</>
+}
+
+const SelectedKeyRender: React.FC<any> = ({ selectedKey, setKey, currentKey, highlight, ...props }) => {
     const ctx = getContext(currentKey)
     const divRef = useRef<HTMLDivElement>(undefined)
 
@@ -76,11 +117,17 @@ const SelectedKeyRender: React.FC<any> = ({ selectedKey, setKey, currentKey, ...
     return <div
         ref={divRef}
         className="state-key"
+        title={currentKey}
         data-active={currentKey == selectedKey}
         onClick={() => setKey(currentKey)}
         {...props}
     >
-        {currentKey}
+        <div className="state-key-name">
+            <MarketString highlight={highlight} text={String(currentKey)} />
+        </div>
+        <div className="state-key-meta">
+            {Object.keys(ctx.data).length} items
+        </div>
     </div>
 }
 
@@ -110,49 +157,61 @@ type JSONViewProps = {
     expandRoot: Record<string, boolean>,
     setExpandRoot: Dispatch<SetStateAction<Record<string, boolean>>>,
     expandLevel: number | boolean,
-    currentField?: any
+    // currentField?: any
     currentType?: any,
     isGrouped?: boolean,
 }
 
-const splitArray = <T,>(array: T[]) => {
-    let max = array.length < 120 ? 10 : 100
-    return Object.fromEntries(
-        new Array(Math.ceil((array.length + 1) / max))
-            .fill(0)
-            .map((_, i, a) => new Array(i == a.length - 1 ? array.length % max : max)
-                .fill(0)
-                .map((_, j) => i * max + j)
-            )
-            .filter(e => e.length)
-            .map(keys => [`${keys.at(0)}..${keys.at(-1)}`, Object.fromEntries(
-                keys.map(k => [k, array[k]])
-            )])
-    )
+class GroupedObject {
+    constructor(
+        public obj: any,
+        public keys = Object.keys(obj),
+        public from = 0,
+        public to = keys.length,
+    ) { }
+
+    getSize() {
+        return this.to - this.from
+    }
+
+    getKey(maxLength = 10) {
+        return this.obj instanceof Array
+            ? `${this.from}..${this.to}`
+            : `${this.keys[this.from]?.slice(0, maxLength)}..${this.keys[this.from]?.slice(0, maxLength)}`
+    }
+
+    getKeys() {
+        return this.keys.slice(this.from, this.to)
+    }
+
+    getObject() {
+        return Object.fromEntries(
+            this.keys.slice(this.from, this.to)
+                .map(k => [k, this.obj[k]])
+        )
+    }
+
 }
 
-
-const splitObject = (object: any, max = 25) => {
-    const keys = Object.keys(object);
-    return Object.fromEntries(
-        Array(Math.ceil((keys.length + 1) / max))
-            .fill(0)
-            .map((_, i, a) => new Array(i == a.length - 1 ? keys.length % max : max)
-                .fill(0)
-                .map((_, j) => i * max + j)
-            )
-            .filter(e => e.length)
-            .map((e) => e.map(i => keys.at(i)))
-            .map(sortedKeys => [
-                `${sortedKeys.at(0)?.slice(0, 15)}...${sortedKeys.at(-1)?.slice(0, 15)}`,
-                Object.fromEntries(sortedKeys.map(key => [key, object[key as any]]))]
-            )
-    )
+const toGrouped = (grouped: GroupedObject, max = 10) => {
+    let size = grouped.getSize()
+    let seperator = max ** Math.floor(Math.log(size - 1) / Math.log(max))
+    if (seperator > 0) {
+        return new Array(Math.ceil((size - 1) / seperator))
+            .fill(0).map((_, i) => new GroupedObject(
+                grouped.obj,
+                grouped.keys,
+                grouped.from + i * seperator,
+                Math.min(grouped.from + (i + 1) * seperator, grouped.to),
+            ))
+    } else {
+        return [grouped]
+    }
 }
 
 
 const useExpandState = ({ path, expandLevel, expandRoot, setExpandRoot }: JSONViewProps) => {
-    const expandKeys = path?.join("%") ?? "";
+    const expandKeys = path?.join("/") ?? "";
 
     const defaultExpand = typeof expandLevel == "boolean"
         ? expandLevel
@@ -168,24 +227,32 @@ const useExpandState = ({ path, expandLevel, expandRoot, setExpandRoot }: JSONVi
         [expandRoot, expandKeys]
     )
 
-    return { isExpand, setExpand }
+    return { isExpand, setExpand, expandKeys }
 
 }
 
-export const ChangeFlashWrappper: React.FC<React.ComponentProps<'div'> & { value: any, deepCompare?: boolean }> = ({ value, deepCompare = false, ...rest }) => {
+export const ChangeFlashWrappper: React.FC<React.ComponentProps<'div'> & { value: any, }> = ({ value, ...rest }) => {
 
     const ref = useRef<HTMLElement>(undefined)
     const refValue = useRef(value);
 
     useEffect(() => {
         if (ref.current) {
-            let isDiff = deepCompare && value && refValue.current
+            const p = performance.now()
+            let tmp1: any, tmp2: any;
+            let isDiff = value instanceof GroupedObject && refValue.current instanceof GroupedObject
                 ? (
-                    Object.keys(value).length != Object.keys(refValue.current).length
-                    || Object.keys(value).some(key => value[key] != refValue.current[key])
+                    value.getSize() != refValue.current.getSize()
+                    || (tmp1 = value.obj, tmp2 = refValue.current.obj, value.getKeys().some(k => tmp1[k] != tmp2[k]))
                 ) : (
                     value != refValue.current
                 )
+            const p1 = performance.now()
+
+            if (p1 - p >= 1) {
+                console.warn("Slow Compare perfomance", { time: p1 - p, size: value?.getSize?.(), value })
+            }
+
             if (isDiff) {
                 refValue.current = value;
                 ref.current.classList.add('jv-updated');
@@ -194,7 +261,7 @@ export const ChangeFlashWrappper: React.FC<React.ComponentProps<'div'> & { value
             }
         }
 
-    }, [value, deepCompare, ref])
+    }, [value, ref])
 
     return <div  {...rest} ref={ref as any} />
 }
@@ -202,76 +269,110 @@ export const ChangeFlashWrappper: React.FC<React.ComponentProps<'div'> & { value
 const JSONViewObj: React.FC<JSONViewProps> = (props) => {
 
     const {
-        currentField,
         value, path = [], name, expandRoot, setExpandRoot,
         expandLevel,
-        isGrouped,
     } = props
 
-    const isArray = value instanceof Array
-
-    const { isExpand, setExpand } = useExpandState(props)
+    const { isExpand, setExpand, expandKeys } = useExpandState(props)
 
     const childExpandLevel = typeof expandLevel == "number" ? expandLevel - 1 : expandLevel
 
-    const shouldGroup = Object.entries(value).length > (value instanceof Array ? 10 : 25);
+    const { isArray, size, shouldGroup, ableToExpand, groupedChilds } = useMemo(
+        () => {
 
-    const ableToExpand = Object.entries(value).length > 0
+            if (value instanceof GroupedObject) {
+                const isArray = value.obj instanceof Array
+                const size = value.getSize()
+                const groupdSize = isArray ? 10 : 25
+                const shouldGroup = size > groupdSize;
+                const ableToExpand = size > 0
 
-    const groupedChilds = useMemo(
-        () => shouldGroup
-            ? (value instanceof Array) ? splitArray(value) : splitObject(value, 25)
-            : value,
-        [value, shouldGroup, splitArray]
+                const groupedChilds = shouldGroup
+                    ? Object.fromEntries(
+                        toGrouped(value, groupdSize)
+                            .map(g => [g.getKey(), g])
+                    )
+                    : value.getObject()
+
+                return { size, isArray, shouldGroup, ableToExpand, groupedChilds, }
+            } else {
+                const isArray = value instanceof Array
+                const size = isArray ? value.length : Object.keys(value).length
+                const groupdSize = isArray ? 10 : 25
+                const shouldGroup = size > groupdSize;
+
+                const ableToExpand = size > 0
+
+                const groupedChilds = shouldGroup
+                    ? Object.fromEntries(
+                        toGrouped(new GroupedObject(value), groupdSize)
+                            .map(g => [g.getKey(), g])
+                    )
+                    : value
+
+                return { isArray, size, shouldGroup, ableToExpand, groupedChilds, }
+            }
+        },
+        [value]
     )
 
 
-    return (isExpand && ableToExpand) ? <ChangeFlashWrappper className="jv-field jv-field-obj" value={value} deepCompare={isGrouped}>
-        {currentField && <div>
-            <div onClick={() => setExpand(false)}>
-                <span className="jv-name">{currentField}</span>
-                <span>:</span>
-                <span>[-]</span>
-                <span className="jv-type">{Object.keys(value).length} items </span>
-                <span> {isArray ? "[" : "{"} </span>
+    return <ChangeFlashWrappper className="jv-field jv-field-obj" value={value}>
+        {isExpand && ableToExpand ? <>
+            {name && <div>
+                <div onClick={() => setExpand(false)}>
+                    <span className="jv-name">{name}</span>
+                    <span>:</span>
+                    <span>[-]</span>
+                    <span className="jv-type">{size} items </span>
+                    <span> {isArray ? "[" : "{"} </span>
+                </div>
+            </div>}
+            <div className="jv-value">
+                {Object
+                    .entries(groupedChilds)
+                    .map(([name, value], index) => ({
+                        name, value,
+                        path: [...path, value instanceof GroupedObject ? String(index) : name]
+                    }))
+                    .map(({ name, value, path }) => <JSONViewCurr
+                        {...{
+                            name,
+                            value,
+                            path,
+                            expandRoot, setExpandRoot,
+                            expandLevel: childExpandLevel,
+                            isGrouped: shouldGroup,
+                        }}
+                        key={path.join("/")}
+                    />)}
             </div>
-        </div>}
-        <div className="jv-value">
-            {Object
-                .entries(groupedChilds)
-                .map(([k, v], index) => <JSONViewCurr
-                    {...{
-                        name, expandRoot, setExpandRoot,
-                        expandLevel: childExpandLevel,
-                        value: v,
-                        isGrouped: shouldGroup,
-                    }}
-                    key={[...path, shouldGroup ? index : k].join("%")}
-                    path={[...path, k]}
-                />)}
-        </div>
-        {currentField && <div>
-            <span> {isArray ? "]" : "}"} </span>
-        </div>}
-    </ChangeFlashWrappper> : <ChangeFlashWrappper className="jv-field jv-field-obj" value={value} deepCompare={isGrouped}>
-        <div>
-            <div onClick={() => ableToExpand && setExpand(true)}>
-                <span className="jv-name">{currentField}</span>
-                {currentField && <span>:</span>}
-                {currentField && ableToExpand && <span>[+]</span>}
-                <span className="jv-type">{Object.keys(value).length} items </span>
-                <span> {isArray ? "[" : "{"} </span>
-                {ableToExpand && <span> ... </span>}
+            {name && <div>
                 <span> {isArray ? "]" : "}"} </span>
+            </div>}
+        </> : <>
+            <div>
+                <div onClick={() => ableToExpand && setExpand(true)}>
+                    <span className="jv-name">{name}</span>
+                    {name && <span>:</span>}
+                    {name && ableToExpand && <span>[+]</span>}
+                    <span className="jv-type">{size} items </span>
+                    <span> {isArray ? "[" : "{"} </span>
+                    {ableToExpand && <PreviewObj {...{ value, size, }} />}
+                    <span> {isArray ? "]" : "}"} </span>
+                </div>
             </div>
-        </div>
+        </>}
     </ChangeFlashWrappper>
+}
 
+const PreviewObj: React.FC<{ size: number, value: any }> = ({ }) => {
+    return <span className="jv-preview"> ... </span>
 }
 
 const StringViewObj: React.FC<JSONViewProps> = (props) => {
 
-    const { currentType, currentField, value, } = props
+    const { currentType, name, value, } = props
 
     const { isExpand, setExpand } = useExpandState(props)
 
@@ -285,7 +386,7 @@ const StringViewObj: React.FC<JSONViewProps> = (props) => {
         value={props.value}
         className={`jv-field jv-field-${currentType} ${useExpand ? 'jv-cursor' : ''}`}
         onClick={() => setExpand(!isExpand)}>
-        <span className="jv-name">{currentField}</span>
+        <span className="jv-name">{name}</span>
         <span>:</span>
         <span className="jv-type">{currentType}, lng={value?.length}</span>
         <span className="jv-value">"{renderString}"</span>
@@ -294,22 +395,17 @@ const StringViewObj: React.FC<JSONViewProps> = (props) => {
 }
 
 const FunctionViewObj: React.FC<JSONViewProps> = (props) => {
-
-    const { currentType, currentField, value, } = props
-
+    const { currentType, name, value, } = props
     const { isExpand, setExpand } = useExpandState(props)
-
     const useExpand = String(value).length > 50
-
     const renderString = useExpand && !isExpand
         ? `${String(value).slice(0, 15)}...${String(value).slice(-15, -1)}`
         : String(value)
-
     return <ChangeFlashWrappper
         value={props.value}
         className={`jv-field jv-field-${currentType} ${useExpand ? 'jv-cursor' : ''}`}
         onClick={() => setExpand(!isExpand)}>
-        <span className="jv-name">{currentField}</span>
+        <span className="jv-name">{name}</span>
         <span>:</span>
         <span className="jv-type">{currentType}</span>
         <span className="jv-value">"{renderString}"</span>
@@ -319,12 +415,12 @@ const FunctionViewObj: React.FC<JSONViewProps> = (props) => {
 
 const DefaultValueView: React.FC<JSONViewProps> = (props) => {
 
-    const { currentType, currentField, value, } = props
+    const { currentType, name, value, } = props
 
     return <ChangeFlashWrappper
         value={props.value}
         className={`jv-field jv-field-${currentType}`}>
-        <span className="jv-name">{currentField}</span>
+        <span className="jv-name">{name}</span>
         <span>:</span>
         <span className="jv-type">{currentType}</span>
         <span className="jv-value">{String(value)}</span>
@@ -334,7 +430,7 @@ const DefaultValueView: React.FC<JSONViewProps> = (props) => {
 
 const JSONViewCurr: React.FC<Omit<JSONViewProps, 'currentField'>> = (props) => {
 
-    const { value, path = [], name } = props
+    const { value, path = [], name, } = props
 
     const currentField = path.at(-1) ?? name ?? undefined;
 
