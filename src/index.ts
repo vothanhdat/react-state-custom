@@ -18,4 +18,4 @@ export { useArrayHash } from "./state-utils/useArrayHash"
 
 export { useQuickSubscribe } from "./state-utils/useQuickSubscribe"
 
-export { DevToolContainer } from "./DevTool"
+export { DevToolContainer } from "./dev-tool/DevTool"

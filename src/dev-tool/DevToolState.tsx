@@ -1,7 +1,7 @@
 import React, { type Dispatch, type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import "./devTool.css"
-import { getContext } from "./state-utils/ctx"
-import { debounce } from "./state-utils/utils"
+import { getContext } from "../state-utils/ctx"
+import { debounce } from "../state-utils/utils"
 
 const cache = getContext.cache
 

@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client'
-import { DevToolContainer } from './DevTool'
+import { DevToolContainer } from './dev-tool/DevTool'
 import { AutoRootCtx, createAutoCtx } from './state-utils/createAutoCtx'
 import { Test } from './Test'
 
