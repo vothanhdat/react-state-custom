@@ -16,7 +16,7 @@ const DataView: DataViewComponent = ({ name, value }) => {
 
 createRoot(document.getElementById('root')!).render(
   <>
-    <DevToolContainer Component={DataView} />
+    {/* <DevToolContainer Component={DataView} /> */}
     <Test />
     <AutoRootCtx />
   </>

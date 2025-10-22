@@ -11,6 +11,12 @@ import todoApp from "./examples/todo/app.tsx?raw"
 import timerState from "./examples/timer/state.ts?raw"
 import timerView from "./examples/timer/view.tsx?raw"
 import timerApp from "./examples/timer/app.tsx?raw"
+import formState from "./examples/form/state.ts?raw"
+import formView from "./examples/form/view.tsx?raw"
+import formApp from "./examples/form/app.tsx?raw"
+import cartState from "./examples/cart/state.ts?raw"
+import cartView from "./examples/cart/view.tsx?raw"
+import cartApp from "./examples/cart/app.tsx?raw"
 
 const devToolCode = `
 
@@ -66,12 +72,26 @@ const examples = {
         view: updateImport(todoView),
         app: injectRootCtx(updateImport(todoApp)),
     },
+    form: {
+        title: 'Form Example',
+        description: 'Form validation example with multiple independent form instances. Shows real-time validation and error handling.',
+        state: updateImport(formState),
+        view: updateImport(formView),
+        app: injectRootCtx(updateImport(formApp)),
+    },
     timer: {
         title: 'Timer Example',
         description: 'Multiple independent timers with millisecond precision demonstrating side effects.',
         state: updateImport(timerState),
         view: updateImport(timerView),
         app: injectRootCtx(updateImport(timerApp)),
+    },
+    cart: {
+        title: 'Shopping Cart Example',
+        description: 'Shopping cart with product selection and quantity management. Shows how to handle derived state (total, itemCount) and complex state updates.',
+        state: updateImport(cartState),
+        view: updateImport(cartView),
+        app: injectRootCtx(updateImport(cartApp)),
     }
 }
 
@@ -113,6 +133,7 @@ export const Playground = () => {
                 </p>
             </div>
 
+
             <Sandpack
                 template="react-ts"
                 theme="light"
@@ -123,12 +144,17 @@ export const Playground = () => {
                     '/dataview.tsx': devToolCode,
                 }}
                 options={{
-                    showNavigator: false,
+                    // showNavigator: true,
                     showTabs: true,
                     showLineNumbers: true,
-                    editorHeight: 500,
-
+                    editorHeight: 600,
+                    // editorWidthPercentage: 40,
                 }}
+                style={{
+                    '--sp-font-size': '12px',
+                    '--sp-font-lineHeight': '17px',
+                    // '--sp-font-body': 'inherit',
+                } as React.CSSProperties}
                 customSetup={{
                     dependencies: {
                         'react': '^19.0.0',
