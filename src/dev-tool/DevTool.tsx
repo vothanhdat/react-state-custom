@@ -1,9 +1,10 @@
 import "./devTool.css"
 import { useState } from "react"
 import { DevToolState } from "./DevToolState";
+import { DataViewDefault } from "./DataViewComponent";
 
 
-export const DevToolContainer = ({ toggleButton = "[x]", ...props }) => {
+export const DevToolContainer = ({ toggleButton = "[x]", Component = DataViewDefault, ...props }) => {
     const [active, setActive] = useState(false);
     return <>
         <button className="react-state-dev-btn" data-active={active} onClick={() => setActive(true)} {...props}>
@@ -13,7 +14,7 @@ export const DevToolContainer = ({ toggleButton = "[x]", ...props }) => {
             <button className="close-btn" onClick={() => setActive(false)}>
                 [x]
             </button>
-            {active && <DevToolState />}
+            {active && <DevToolState Component={Component} />}
         </div>
     </>
 }

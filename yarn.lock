@@ -2188,6 +2188,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-obj-view@npm:^1.0.4":
+  version: 1.0.4
+  resolution: "react-obj-view@npm:1.0.4"
+  peerDependencies:
+    react: 19
+    react-dom: 19
+  checksum: 10c0/ccff2fefcb75ec5994584e9ce78d4515e7027c1ff02f78d069368965a6c5d190b08ef26373d48056bc9e358031072fd4355eed8d15ef48a402a9abab92e55348
+  languageName: node
+  linkType: hard
+
 "react-refresh@npm:^0.17.0":
   version: 0.17.0
   resolution: "react-refresh@npm:0.17.0"
@@ -2204,6 +2214,7 @@ __metadata:
     "@vitejs/plugin-react": "npm:^5.0.0"
     react: "npm:^19.2.0"
     react-dom: "npm:^19.2.0"
+    react-obj-view: "npm:^1.0.4"
     typescript: "npm:^5.8.3"
     vite: "npm:7"
     vite-bundle-analyzer: "npm:^1.1.0"
