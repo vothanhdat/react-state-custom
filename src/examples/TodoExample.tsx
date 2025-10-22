@@ -1,7 +1,5 @@
-import { createAutoCtx } from '../state-utils/createAutoCtx'
-import { createRootCtx } from '../state-utils/createRootCtx'
+import { createRootCtx, createAutoCtx, useQuickSubscribe } from '../index'
 import { useCallback, useState } from 'react'
-import { useQuickSubscribe } from '../state-utils/useQuickSubscribe'
 
 interface Todo {
     id: string
@@ -26,17 +24,17 @@ const { useCtxState: useTodoCtx } = createAutoCtx(
                     setInput('')
                 }
             }, [input])
-            
+
             const toggleTodo = useCallback((id: string) => {
-                setTodos(prev => prev.map(t => 
+                setTodos(prev => prev.map(t =>
                     t.id === id ? { ...t, completed: !t.completed } : t
                 ))
             }, [])
-            
+
             const removeTodo = useCallback((id: string) => {
                 setTodos(prev => prev.filter(t => t.id !== id))
             }, [])
-            
+
             const clearCompleted = useCallback(() => {
                 setTodos(prev => prev.filter(t => !t.completed))
             }, [])
@@ -56,7 +54,7 @@ const { useCtxState: useTodoCtx } = createAutoCtx(
 )
 
 export const TodoExample = ({ listId = "main" }: { listId?: string }) => {
-    const { todos, input, setInput, addTodo, toggleTodo, removeTodo, clearCompleted } = 
+    const { todos, input, setInput, addTodo, toggleTodo, removeTodo, clearCompleted } =
         useQuickSubscribe(useTodoCtx({ listId }))
 
     return (
@@ -80,8 +78,8 @@ export const TodoExample = ({ listId = "main" }: { listId?: string }) => {
                             checked={todo.completed}
                             onChange={() => toggleTodo?.(todo.id)}
                         />
-                        <span style={{ 
-                            flex: 1, 
+                        <span style={{
+                            flex: 1,
                             textDecoration: todo.completed ? 'line-through' : 'none',
                             opacity: todo.completed ? 0.6 : 1
                         }}>
@@ -97,3 +95,6 @@ export const TodoExample = ({ listId = "main" }: { listId?: string }) => {
         </div>
     )
 }
+
+
+export default TodoExample;

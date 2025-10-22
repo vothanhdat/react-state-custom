@@ -1,7 +1,5 @@
-import { createAutoCtx } from '../state-utils/createAutoCtx'
-import { createRootCtx } from '../state-utils/createRootCtx'
+import { createRootCtx, createAutoCtx, useQuickSubscribe } from '../index'
 import { useCallback, useState } from 'react'
-import { useQuickSubscribe } from '../state-utils/useQuickSubscribe'
 
 interface CartItem {
     id: string
@@ -30,28 +28,28 @@ const { useCtxState: useCartCtx } = createAutoCtx(
                 setItems(prev => {
                     const existing = prev.find(i => i.id === product.id)
                     if (existing) {
-                        return prev.map(i => 
+                        return prev.map(i =>
                             i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i
                         )
                     }
                     return [...prev, { ...product, quantity: 1 }]
                 })
             }, [])
-            
+
             const removeItem = useCallback((id: string) => {
                 setItems(prev => prev.filter(i => i.id !== id))
             }, [])
-            
+
             const updateQuantity = useCallback((id: string, quantity: number) => {
                 if (quantity <= 0) {
                     setItems(prev => prev.filter(i => i.id !== id))
                 } else {
-                    setItems(prev => prev.map(i => 
+                    setItems(prev => prev.map(i =>
                         i.id === id ? { ...i, quantity } : i
                     ))
                 }
             }, [])
-            
+
             const clear = useCallback(() => setItems([]), [])
 
             return {
@@ -69,7 +67,7 @@ const { useCtxState: useCartCtx } = createAutoCtx(
 )
 
 export const CartExample = ({ userId = "user1" }: { userId?: string }) => {
-    const { items, total, itemCount, addItem, removeItem, updateQuantity, clear } = 
+    const { items, total, itemCount, addItem, removeItem, updateQuantity, clear } =
         useQuickSubscribe(useCartCtx({ userId }))
 
     return (
@@ -125,3 +123,5 @@ export const CartExample = ({ userId = "user1" }: { userId?: string }) => {
         </div>
     )
 }
+
+export default CartExample;

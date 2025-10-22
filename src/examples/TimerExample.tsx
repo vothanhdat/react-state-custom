@@ -1,7 +1,5 @@
-import { createAutoCtx } from '../state-utils/createAutoCtx'
-import { createRootCtx } from '../state-utils/createRootCtx'
-import { useCallback, useState, useEffect } from 'react'
-import { useQuickSubscribe } from '../state-utils/useQuickSubscribe'
+import { createRootCtx, createAutoCtx, useQuickSubscribe } from '../index'
+import { useCallback, useEffect, useState } from 'react'
 
 const { useCtxState: useTimerCtx } = createAutoCtx(
     createRootCtx(
@@ -65,3 +63,5 @@ export const TimerExample = ({ timerId = "main-timer" }: { timerId?: string }) =
         </div>
     )
 }
+
+export default TimerExample;

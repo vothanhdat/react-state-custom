@@ -1,7 +1,5 @@
-import { createAutoCtx } from '../state-utils/createAutoCtx'
-import { createRootCtx } from '../state-utils/createRootCtx'
+import { createRootCtx, createAutoCtx, useQuickSubscribe } from '../index'
 import { useCallback, useState } from 'react'
-import { useQuickSubscribe } from '../state-utils/useQuickSubscribe'
 
 interface FormData {
     name: string
@@ -107,3 +105,6 @@ export const FormExample = ({ formId = "user-form" }: { formId?: string }) => {
         </div>
     )
 }
+
+
+export default FormExample;

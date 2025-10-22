@@ -4,10 +4,11 @@ import { TodoExample } from './examples/TodoExample'
 import { FormExample } from './examples/FormExample'
 import { TimerExample } from './examples/TimerExample'
 import { CartExample } from './examples/CartExample'
+import { Playground } from './Playground'
 import { useState } from 'react'
 
 export const Test = () => {
-    const [activeTab, setActiveTab] = useState<'counter' | 'todo' | 'form' | 'timer' | 'cart'>('counter')
+    const [activeTab, setActiveTab] = useState<'counter' | 'todo' | 'form' | 'timer' | 'cart' | 'playground'>('playground')
 
     return (
         <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
@@ -79,9 +80,25 @@ export const Test = () => {
                 >
                     Shopping Cart
                 </button>
+                <button 
+                    onClick={() => setActiveTab('playground')}
+                    style={{ 
+                        padding: '0.5rem 1rem',
+                        background: activeTab === 'playground' ? '#28a745' : '#e0e0e0',
+                        color: activeTab === 'playground' ? 'white' : 'black',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                    }}
+                >
+                    🎮 Interactive Playground
+                </button>
             </div>
 
             <div>
+                {activeTab === 'playground' && <Playground />}
+                
                 {activeTab === 'counter' && (
                     <>
                         <CounterExample />

@@ -1,7 +1,5 @@
-import { createAutoCtx } from '../state-utils/createAutoCtx'
-import { createRootCtx } from '../state-utils/createRootCtx'
+import { createRootCtx, createAutoCtx, useQuickSubscribe } from '../index'
 import { useCallback, useState } from 'react'
-import { useQuickSubscribe } from '../state-utils/useQuickSubscribe'
 
 const { useCtxState: useCounterCtx } = createAutoCtx(
     createRootCtx(
@@ -38,3 +36,5 @@ export const CounterExample = () => {
         </div>
     )
 }
+
+export default CounterExample;
