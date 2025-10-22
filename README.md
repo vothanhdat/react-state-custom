@@ -4,9 +4,15 @@
 
 A lightweight React state management library that combines the simplicity of React hooks with the power of event-driven subscriptions. No boilerplate, no complexity—just pure, performant state management.
 
+[![Demo](https://img.shields.io/badge/Demo-Live-blue?style=flat-square)](https://vothanhdat.github.io/react-state-custom/)
+[![npm version](https://img.shields.io/npm/v/react-state-custom?style=flat-square)](https://www.npmjs.com/package/react-state-custom)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+
 ```bash
 npm install react-state-custom
 ```
+
+🎮 **[Try the Live Demo →](https://vothanhdat.github.io/react-state-custom/)**
 
 ## Why React State Custom?
 
@@ -289,6 +295,26 @@ const userStats = useDataSubscribeWithTransform(
 
 For complete API documentation, examples, and advanced patterns, see:
 - **[API_DOCUMENTATION.md](./API_DOCUMENTATION.md)** - Complete API reference
+- **[Live Demo](https://vothanhdat.github.io/react-state-custom/)** - Interactive examples
+
+## 🛠️ Development
+
+```bash
+# Install dependencies
+yarn install
+
+# Run dev server with examples
+yarn dev
+
+# Build library
+yarn build
+
+# Build demo site
+yarn build:demo
+
+# Preview demo locally
+yarn preview
+```
 
 ## 🎓 Learning Path
 
