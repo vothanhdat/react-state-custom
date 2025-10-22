@@ -2,6 +2,8 @@
 
 A powerful React library for managing shared state and context with TypeScript support, built with Vite.
 
+🎮 **[Try the Live Demo →](https://vothanhdat.github.io/react-state-custom/)**
+
 ## Table of Contents
 
 1. [Core Context System](#core-context-system)
@@ -21,11 +23,14 @@ A powerful React library for managing shared state and context with TypeScript s
 5. [Auto Context System](#auto-context-system)
    - [AutoRootCtx](#autorootctx)
    - [createAutoCtx](#createautoctx)
-6. [Utility Hooks](#utility-hooks)
+6. [Developer Tools](#developer-tools)
+   - [DevToolContainer](#devtoolcontainer)
+   - [DataViewComponent](#dataviewcomponent)
+7. [Utility Hooks](#utility-hooks)
    - [useArrayHash](#usearrayhash)
    - [useQuickSubscribe](#usequicksubscribe)
-7. [Usage Patterns](#usage-patterns)
-8. [Examples](#examples)
+8. [Usage Patterns](#usage-patterns)
+9. [Examples](#examples)
 
 ---
 
@@ -560,6 +565,105 @@ function UserProfile({ userId }: { userId: string }) {
 
 ---
 
+## Developer Tools
+
+### DevToolContainer
+
+A debugging component that displays all context data in your application. Provides a visual interface for inspecting state values across all contexts.
+
+**Type Definition:**
+```typescript
+function DevToolContainer(props: {
+  toggleButton?: string;
+  Component?: DataViewComponent;
+  style?: React.CSSProperties;
+  children?: React.ReactNode;
+}): JSX.Element
+```
+
+**Parameters:**
+- `toggleButton` - Optional text for the toggle button (default: "[x]")
+- `Component` - Optional custom component for rendering data (default: `DataViewDefault`)
+- `style` - Optional inline styles for the toggle button
+- `children` - Optional custom content for the toggle button (default: "Toggle Dev Tool")
+
+**Returns:**
+- A JSX element containing the dev tool UI
+
+**Example:**
+```typescript
+import { DevToolContainer } from 'react-state-custom';
+import 'react-state-custom/dist/react-state-custom.css'; // Import styles
+
+function App() {
+  return (
+    <>
+      <AutoRootCtx />
+      <YourAppContent />
+      <DevToolContainer />
+    </>
+  );
+}
+```
+
+**With Custom Component:**
+```typescript
+import { DevToolContainer, DataViewComponent } from 'react-state-custom';
+import { ObjectView } from 'react-obj-view';
+import 'react-obj-view/dist/react-obj-view.css';
+
+const CustomDataView: DataViewComponent = ({ name, value }) => {
+  return <ObjectView name={name} value={value} expandLevel={2} />;
+};
+
+function App() {
+  return (
+    <>
+      <AutoRootCtx />
+      <YourAppContent />
+      <DevToolContainer 
+        Component={CustomDataView}
+        style={{ left: "20px", bottom: "10px" }}
+      />
+    </>
+  );
+}
+```
+
+---
+
+### DataViewComponent
+
+Type definition for custom data view components used by `DevToolContainer`.
+
+**Type Definition:**
+```typescript
+type DataViewComponent = React.FC<{
+  value: any;
+  name: string;
+}>;
+```
+
+**Parameters:**
+- `value` - The data value to display
+- `name` - The context name
+
+**Example:**
+```typescript
+import { DataViewComponent } from 'react-state-custom';
+
+const CustomDataView: DataViewComponent = ({ name, value }) => {
+  return (
+    <div className="custom-view">
+      <h3>{name}</h3>
+      <pre>{JSON.stringify(value, null, 2)}</pre>
+    </div>
+  );
+};
+```
+
+---
+
 ## Utility Hooks
 
 ### useArrayHash
@@ -879,5 +983,30 @@ function TodoFilters() {
   );
 }
 ```
+
+---
+
+## Live Examples
+
+For interactive examples with live editing, visit the **[Live Demo](https://vothanhdat.github.io/react-state-custom/)**.
+
+The demo includes the following examples:
+
+### Counter Example
+A simple counter demonstrating basic state management with increment, decrement, and reset operations.
+
+### Todo List Example  
+Multiple independent todo lists showing how contexts can be scoped by parameters. Each list maintains its own state.
+
+### Form Example
+Form validation example with multiple independent form instances. Shows real-time validation and error handling.
+
+### Timer Example
+Multiple independent timers with millisecond precision demonstrating side effects and cleanup patterns.
+
+### Shopping Cart Example
+Shopping cart with product selection and quantity management. Shows how to handle derived state (total, itemCount) and complex state updates.
+
+---
 
 This comprehensive documentation covers all exported APIs from the react-state-custom library with detailed descriptions, type information, and practical examples.

@@ -19,3 +19,4 @@ export { useArrayHash } from "./state-utils/useArrayHash"
 export { useQuickSubscribe } from "./state-utils/useQuickSubscribe"
 
 export { DevToolContainer } from "./dev-tool/DevTool"
+export type { DataViewComponent } from "./dev-tool/DataViewComponent"

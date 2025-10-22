@@ -2,6 +2,7 @@
 - `react-state-custom` is a hook-first state management library; entrypoint `src/index.ts` re-exports context factories and subscription hooks.
 - TypeScript only; consumers are expected to be React 19 apps (see `package.json` peerDependencies).
 - Library build artifacts live in `dist/`; all source utilities reside under `src/state-utils/`.
+- Live demo at https://vothanhdat.github.io/react-state-custom/ showcases interactive examples.
 
 ## Context Core
 - `Context` (`src/state-utils/ctx.ts`) extends `EventTarget`; `data` stores the latest values and `publish` fires per-key DOM events when a loose `!=` comparison detects change.
@@ -20,6 +21,12 @@
 - `createAutoCtx(rootCtx, unmountTime?)` returns `useCtxState(params)` that subscribes through `'auto-ctx'` and hands back `useDataContext` for the resolved name.
 - Multiple callers with identical params share a single `Root`; `unmountTime` delays teardown to absorb rapid mount/unmount cycles.
 
+## Developer Tools
+- `DevToolContainer` (`src/dev-tool/DevTool.tsx`) provides a debugging UI for inspecting all context data; mount it alongside `<AutoRootCtx />`.
+- Accepts optional `Component` prop (type `DataViewComponent`) for custom data rendering; defaults to JSON stringify.
+- Import styles with `import 'react-state-custom/dist/react-state-custom.css'` when using DevTool.
+- Used in demo (`src/dev.tsx`, `src/examples/`) with `react-obj-view` for rich object inspection.
+
 ## Subscription Patterns
 - `useDataSourceMultiple(ctx, ...entries)` expects stable `[key, value]` tuples; internal `useArrayHash` hashes length and reference equality only.
 - Use `useDataSubscribe(ctx, key, debounceMs)` or `useDataSubscribeMultiple(ctx, ...keys)` for keyed reads; debounce variants batch updates when values bounce.
@@ -31,12 +38,20 @@
 - `useArrayHash`/`useObjectHash` generate random hashes when array/object shape changes; they do not deep-compare nested content.
 - The reserved `'auto-ctx'` namespace powers `AutoRootCtx`; do not manually reuse this context name.
 
+## Examples
+- Five complete examples in `src/examples/`: counter, todo, form, timer, cart.
+- `Playground.tsx` uses `@codesandbox/sandpack-react` to render interactive examples with live editing.
+- Each example has `state.ts` (hook), `view.tsx` (components), `app.tsx` (root), and `index.ts` (exports).
+- Demo uses `?raw` imports to show source code in Sandpack editor.
+
 ## Build and Tooling
 - `yarn build` runs Vite with `@vitejs/plugin-react`, `vite-plugin-dts`, and `vite-bundle-analyzer`; the analyzer spins up a server after builds—stop it in CI if unused.
-- `yarn dev` starts the Vite dev server on port 3000; useful for manual inspection of bundle output.
+- `yarn dev` starts the Vite dev server on port 3000 with demo examples; `yarn build:demo` creates GitHub Pages build.
+- `yarn preview` previews demo build locally with correct base path (`/react-state-custom/`).
 - Tests are stubbed (`yarn test` exits 0 after printing "No tests specified"); add coverage before depending on test gates.
 - Repo is Yarn 4 (PnP); if editors struggle with module resolution, run `./fix-vscode-yarn-pnp.sh`.
+- GitHub Actions workflow (`.github/workflows/deploy.yml`) auto-deploys demo to GitHub Pages on push to master.
 
 ## Reference Docs
-- README (`README.md`) offers narrative examples and positioning.
+- README (`README.md`) offers narrative examples and positioning; includes live demo link.
 - API reference (`API_DOCUMENTATION.md`) documents every export; update alongside code changes.
