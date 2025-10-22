@@ -15,8 +15,10 @@
   },
   "scripts": {
     "build": "vite build",
+    "build:demo": "vite build --config vite.config.dev.ts",
     "dev": "vite --config vite.config.dev.ts",
-    "test": "echo \"No tests specified\" && exit 0"
+    "test": "echo \"No tests specified\" && exit 0",
+    "preview": "vite preview --config vite.config.dev.ts"
   },
   "keywords": [
     "frontend",

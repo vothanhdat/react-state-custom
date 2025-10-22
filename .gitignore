@@ -12,6 +12,7 @@ node_modules
 .yarn/
 dist
 dist-ssr
+demo-dist
 *.local
 
 # Editor directories and files
