@@ -65,7 +65,7 @@ export const StateView: React.FC<{ dataKey: string, Component: DataViewComponent
     const [currentData, setCurrentData] = useState({ ...ctx?.data })
 
     useEffect(() => {
-        let updateDataDebounce = debounce(setCurrentData, 16)
+        let updateDataDebounce = debounce(setCurrentData, 5)
         return ctx
             .subscribeAll((changeKey, newData) => updateDataDebounce({ ...newData }))
 

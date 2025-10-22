@@ -33,6 +33,7 @@
     "react-dom": "19"
   },
   "devDependencies": {
+    "@codesandbox/sandpack-react": "^2.20.0",
     "@types/react": "19",
     "@types/react-dom": "19",
     "@vitejs/plugin-react": "^5.0.0",

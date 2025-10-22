@@ -14,7 +14,7 @@ export const StateLabelRender: React.FC<any> = ({ selectedKey, setKey, currentKe
                     divRef.current?.classList.add("state-key-updated");
                     requestAnimationFrame(() => divRef.current?.classList.remove("state-key-updated"));
                 }
-            }, 16);
+            }, 5);
             return ctx.subscribeAll(flashKeyDebounce);
         }
 
