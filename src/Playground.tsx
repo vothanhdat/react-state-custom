@@ -1,37 +1,77 @@
 import { Sandpack } from '@codesandbox/sandpack-react'
 import { useState } from 'react'
 
-import appCode from "./examples/App.tsx?raw"
-import counterCode from "./examples/CounterExample.tsx?raw"
-import todoCode from "./examples/TodoExample.tsx?raw"
-import timerCode from "./examples/TodoExample.tsx?raw"
+
+import counterState from "./examples/counter/state.ts?raw"
+import counterView from "./examples/counter/view.tsx?raw"
+import counterApp from "./examples/counter/app.tsx?raw"
+import todoState from "./examples/todo/state.ts?raw"
+import todoView from "./examples/todo/view.tsx?raw"
+import todoApp from "./examples/todo/app.tsx?raw"
+import timerState from "./examples/timer/state.ts?raw"
+import timerView from "./examples/timer/view.tsx?raw"
+import timerApp from "./examples/timer/app.tsx?raw"
+
+const devToolCode = `
+
+import { ObjectView } from "react-obj-view"
+import "react-obj-view/dist/react-obj-view.css"
+
+export const DataView: DataViewComponent = ({ name, value }) => {
+  return <ObjectView
+    {...{ name, value }}
+    expandLevel={1}
+  />
+}
+
+`
 
 
 const updateImport = (code: string) => {
     return code.replaceAll(
-        `from '../index'`,
+        `from '../../index'`,
         `from 'react-state-custom'`
     )
+}
+
+
+const injectRootCtx = (code: string) => {
+    return [
+        `import { AutoRootCtx, DevToolContainer } from 'react-state-custom';`,
+        `import 'react-state-custom/dist/react-state-custom.css';`,
+        `import { DataView } from './dataview.tsx';`,
+        code
+            .replaceAll(
+                `{/* <AutoRootCtx/> */}`,
+                `<AutoRootCtx/>`
+            ).replaceAll(
+                `{/* <DevToolContainer Component={DataView} /> */}`,
+                `<DevToolContainer Component={DataView} style={{ left:"20px", bottom:"10px", right:"unset"}}/>`,
+            )
+    ].join("\n")
 }
 
 const examples = {
     counter: {
         title: 'Counter Example',
         description: 'A simple counter demonstrating basic state management with increment, decrement, and reset operations.',
-        code: updateImport(counterCode),
-        app: updateImport(appCode)
+        state: updateImport(counterState),
+        view: updateImport(counterView),
+        app: injectRootCtx(updateImport(counterApp)),
     },
     todo: {
         title: 'Todo List Example',
         description: 'Multiple independent todo lists showing how contexts can be scoped by parameters.',
-        code: updateImport(todoCode),
-        app: updateImport(appCode)
+        state: updateImport(todoState),
+        view: updateImport(todoView),
+        app: injectRootCtx(updateImport(todoApp)),
     },
     timer: {
         title: 'Timer Example',
         description: 'Multiple independent timers with millisecond precision demonstrating side effects.',
-        code: updateImport(timerCode),
-        app: updateImport(appCode)
+        state: updateImport(timerState),
+        view: updateImport(timerView),
+        app: injectRootCtx(updateImport(timerApp)),
     }
 }
 
@@ -74,17 +114,20 @@ export const Playground = () => {
             </div>
 
             <Sandpack
-                template="react"
-                theme="dark"
+                template="react-ts"
+                theme="light"
                 files={{
-                    '/App.js': example.app,
-                    '/Example.js': example.code,
+                    '/App.tsx': example.app,
+                    '/state.ts': example.state,
+                    '/view.tsx': example.view,
+                    '/dataview.tsx': devToolCode,
                 }}
                 options={{
                     showNavigator: false,
                     showTabs: true,
                     showLineNumbers: true,
                     editorHeight: 500,
+
                 }}
                 customSetup={{
                     dependencies: {

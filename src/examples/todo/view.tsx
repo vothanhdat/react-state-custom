@@ -1,57 +1,5 @@
-import { createRootCtx, createAutoCtx, useQuickSubscribe } from '../index'
-import { useCallback, useState } from 'react'
-
-interface Todo {
-    id: string
-    text: string
-    completed: boolean
-}
-
-const { useCtxState: useTodoCtx } = createAutoCtx(
-    createRootCtx(
-        "todos",
-        ({ listId }: { listId: string }) => {
-            const [todos, setTodos] = useState<Todo[]>([])
-            const [input, setInput] = useState('')
-
-            const addTodo = useCallback(() => {
-                if (input.trim()) {
-                    setTodos(prev => [...prev, {
-                        id: Date.now().toString(),
-                        text: input.trim(),
-                        completed: false
-                    }])
-                    setInput('')
-                }
-            }, [input])
-
-            const toggleTodo = useCallback((id: string) => {
-                setTodos(prev => prev.map(t =>
-                    t.id === id ? { ...t, completed: !t.completed } : t
-                ))
-            }, [])
-
-            const removeTodo = useCallback((id: string) => {
-                setTodos(prev => prev.filter(t => t.id !== id))
-            }, [])
-
-            const clearCompleted = useCallback(() => {
-                setTodos(prev => prev.filter(t => !t.completed))
-            }, [])
-
-            return {
-                listId,
-                todos,
-                input,
-                setInput,
-                addTodo,
-                toggleTodo,
-                removeTodo,
-                clearCompleted,
-            }
-        }
-    )
-)
+import { useQuickSubscribe } from '../../index'
+import { useTodoCtx } from './state'
 
 export const TodoExample = ({ listId = "main" }: { listId?: string }) => {
     const { todos, input, setInput, addTodo, toggleTodo, removeTodo, clearCompleted } =
@@ -96,5 +44,4 @@ export const TodoExample = ({ listId = "main" }: { listId?: string }) => {
     )
 }
 
-
-export default TodoExample;
+export default TodoExample
