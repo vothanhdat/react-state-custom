@@ -271,6 +271,7 @@ function App() {
 ```typescript
 import { DataViewComponent } from 'react-state-custom';
 import { ObjectView } from 'react-obj-view';
+import 'react-obj-view/dist/react-obj-view.css'; // Required for ObjectView styling
 
 const CustomDataView: DataViewComponent = ({ name, value }) => {
   return <ObjectView name={name} value={value} expandLevel={2} />;
