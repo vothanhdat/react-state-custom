@@ -111,7 +111,7 @@ Full type inference and type safety throughout. Your IDE knows exactly what's in
 | **Boilerplate** | ✅ None | ❌ Heavy | ✅ Minimal |
 | **Type Safety** | ✅ Full inference | ⚠️ Requires setup | ✅ Good |
 | **Selective Re-renders** | ✅ Built-in | ⚠️ Requires selectors | ✅ Built-in |
-| **DevTools** | ⚠️ Console logging | ✅ Redux DevTools | ✅ DevTools support |
+| **DevTools** | ✅ Built-in UI | ✅ Redux DevTools | ✅ DevTools support |
 | **Async Support** | ✅ Native (hooks) | ⚠️ Requires middleware | ✅ Native |
 | **Context Composition** | ✅ Automatic | ❌ Manual | ⚠️ Manual store combination |
 
@@ -249,6 +249,36 @@ const { useCtxState } = createAutoCtx(rootContext);
 
 ## 🚀 Advanced Features
 
+### Developer Tools
+Visual debugging component to inspect all your context data in real-time:
+
+```typescript
+import { DevToolContainer } from 'react-state-custom';
+import 'react-state-custom/dist/react-state-custom.css';
+
+function App() {
+  return (
+    <>
+      <AutoRootCtx />
+      <YourAppContent />
+      <DevToolContainer />
+    </>
+  );
+}
+```
+
+**Custom data viewer with rich object visualization:**
+```typescript
+import { DataViewComponent } from 'react-state-custom';
+import { ObjectView } from 'react-obj-view';
+
+const CustomDataView: DataViewComponent = ({ name, value }) => {
+  return <ObjectView name={name} value={value} expandLevel={2} />;
+};
+
+<DevToolContainer Component={CustomDataView} />
+```
+
 ### Parameterized Contexts
 Create multiple instances of the same state with different parameters:
 
@@ -290,6 +320,18 @@ const userStats = useDataSubscribeWithTransform(
   })
 );
 ```
+
+## 🎮 Live Examples
+
+Explore interactive examples in the **[Live Demo](https://vothanhdat.github.io/react-state-custom/)**:
+
+- **Counter** - Basic state management with increment, decrement, and reset
+- **Todo List** - Multiple independent lists with scoped contexts
+- **Form Validation** - Real-time validation with error handling
+- **Timer** - Side effects and cleanup with millisecond precision
+- **Shopping Cart** - Complex state with derived values (total, itemCount)
+
+Each example includes live code editing with syntax highlighting, powered by Sandpack!
 
 ## 📖 Documentation
 
