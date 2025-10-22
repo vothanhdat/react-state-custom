@@ -150,11 +150,11 @@ export const Playground = () => {
                     editorHeight: 600,
                     // editorWidthPercentage: 40,
                 }}
-                style={{
-                    '--sp-font-size': '12px',
-                    '--sp-font-lineHeight': '17px',
-                    // '--sp-font-body': 'inherit',
-                } as React.CSSProperties}
+                // style={{
+                //     '--sp-font-size': '12px',
+                //     '--sp-font-lineHeight': '17px',
+                //     // '--sp-font-body': 'inherit',
+                // } as React.CSSProperties}
                 customSetup={{
                     dependencies: {
                         'react': '^19.0.0',
