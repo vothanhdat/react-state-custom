@@ -1,4 +1,4 @@
-import { useEffect, useState, Fragment, useCallback } from "react"
+import { useEffect, useState, Fragment, useCallback, useMemo } from "react"
 import { useDataContext, useDataSourceMultiple, useDataSubscribe, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 
@@ -57,11 +57,17 @@ export const AutoRootCtx = ({ Wrapper = Fragment }) => {
 
 
   // const [state, setState] = useState<Record<string, { Component: React.FC, subState: Record<string, { params: any, counter: number }> }>>({})
-  const [state, setState] = useState<Record<string, { Component: React.FC, params: any, paramKey: string, counter: number }>>({})
+  const [state, setState] = useState<Record<string, {
+    Component: React.FC,
+    params: any,
+    paramKey: string,
+    counter: number,
+    keepUntil?: number
+  }>>({})
 
 
   const subscribeRoot = useCallback(
-    (contextName: string, Component: React.FC<any>, params: any) => {
+    (contextName: string, Component: React.FC<any>, params: any, timeToCleanState = 0) => {
 
       const recordKey = [contextName, weakmapName(Component), resolveName(params)].join(":");
 
@@ -70,13 +76,18 @@ export const AutoRootCtx = ({ Wrapper = Fragment }) => {
         [recordKey]: {
           ...state[recordKey] ?? { Component, params, paramKey: resolveName(params) },
           counter: (state[recordKey]?.counter ?? 0) + 1,
+          keepUntil: undefined,
         }
       }))
 
       return () => setState(({ [recordKey]: current, ...rest }) => ({
         ...rest,
-        ...(current?.counter > 1) ? {
-          [recordKey]: { ...current, counter: current.counter - 1 }
+        ...(current?.counter > 1 || timeToCleanState > 0) ? {
+          [recordKey]: {
+            ...current,
+            counter: current.counter - 1,
+            keepUntil: current.counter > 1 ? undefined : (Date.now() + timeToCleanState),
+          }
         } : {}
       }))
 
@@ -84,16 +95,42 @@ export const AutoRootCtx = ({ Wrapper = Fragment }) => {
     []
   )
 
+  const nextDelete = useMemo(() => Object.entries(state)
+    .filter(([, { counter, keepUntil }]) => counter <= 0 && keepUntil)
+    .toSorted(([, { keepUntil: k1 = 0 }], [, { keepUntil: k2 = 0 }]) => k1 - k2)
+    ?.at(0),
+    [state]
+  )
+
+  console.log({ state, nextDelete })
+
+  useEffect(() => {
+    if (nextDelete) {
+      const [key, { keepUntil }] = nextDelete
+      if (typeof keepUntil == 'undefined')
+        throw new Error("Invalid state mfr")
+
+      let t = setTimeout(() => {
+        // console.log("Delay Cleaned")
+        setState(({ [key]: _, ...rest }) => rest)
+      }, Math.max(0, keepUntil - Date.now()))
+      return () => {
+        // console.log("Cancel clean")
+        clearTimeout(t)
+      };
+    }
+  }, [nextDelete])
+
   useDataSourceMultiple(ctx,
     ["subscribe", subscribeRoot],
     ["state", state],
   )
 
-
   return <>
     {Object
       .entries(state)
-      .map(([key, { Component, params, counter, paramKey }]) => <Wrapper key={key}>
+      .filter(([, { counter, keepUntil = 0 }]) => counter > 0 || keepUntil >= Date.now())
+      .map(([key, { Component, params, counter, paramKey, keepUntil }]) => <Wrapper key={key}>
         <Component key={paramKey} {...params} />
       </Wrapper>)}
   </>
@@ -126,6 +163,7 @@ export const AutoRootCtx = ({ Wrapper = Fragment }) => {
  */
 export const createAutoCtx = <U extends object, V extends object,>(
   { Root, resolveCtxName, name }: ReturnType<typeof createRootCtx<U, V>>,
+  timeToClean = 0
 ) => {
 
   return {
@@ -137,8 +175,8 @@ export const createAutoCtx = <U extends object, V extends object,>(
       const subscribe = useDataSubscribe(useDataContext<any>("auto-ctx"), "subscribe")
 
       useEffect(
-        () => subscribe?.(name, Root, e),
-        [Root, subscribe, name, ctxName]
+        () => subscribe?.(name, Root, e, timeToClean),
+        [Root, subscribe, name, ctxName, timeToClean]
       )
 
       return useDataContext<V>(ctxName)

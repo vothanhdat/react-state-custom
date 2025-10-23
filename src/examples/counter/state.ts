@@ -18,5 +18,6 @@ export const { useCtxState: useCounterCtx } = createAutoCtx(
                 reset,
             }
         }
-    )
+    ),
+    5000
 )

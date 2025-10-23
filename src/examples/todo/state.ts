@@ -50,5 +50,6 @@ export const { useCtxState: useTodoCtx } = createAutoCtx(
                 clearCompleted,
             }
         }
-    )
+    ),
+    20000
 )
