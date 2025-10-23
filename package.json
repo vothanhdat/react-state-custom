@@ -7,7 +7,14 @@
   "module": "dist/index.es.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist",
+    "dist/index.d.ts",
+    "dist/index.es.js",
+    "dist/index.es.js.map",
+    "dist/index.umd.js",
+    "dist/index.umd.js.map",
+    "dist/react-state-custom.css",
+    "dist/state-utils",
+    "dist/dev-tool",
     "README.md",
     "LICENSE"
   ],

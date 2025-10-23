@@ -29,6 +29,10 @@ yarn.lock
 src/examples/
 src/playground/
 src/dev/
+dist/examples/
+dist/playground/
+dist/dev/
+dist/dev.d.ts
 
 # Other
 .DS_Store
