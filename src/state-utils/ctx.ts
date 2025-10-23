@@ -47,6 +47,8 @@ export class Context<D> extends EventTarget {
    */
   public registry = new Set<string>()
 
+  public useCounter = 0
+
   /**
    * Publish a value to the context and notify subscribers if it changed.
    * @param key - The key to update.
@@ -117,8 +119,20 @@ export type getContext<D> = (e: string) => Context<D>
  * @returns The Context instance.
  */
 export const useDataContext = <D>(name: string = "noname") => {
-
   const ctx = useMemo(() => getContext(name), [name])
+  useEffect(() => {
+    ctx.useCounter += 1;
+    return () => {
+      ctx.useCounter -= 1;
+      if (ctx.useCounter <= 0) {
+        setTimeout(() => {
+          if (ctx.useCounter <= 0) {
+            getContext.cache.delete(JSON.stringify([name]))
+          }
+        }, 100)
+      }
+    }
+  }, [ctx])
 
   return ctx as any as Context<D>
 }
