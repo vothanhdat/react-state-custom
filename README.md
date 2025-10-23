@@ -346,8 +346,11 @@ For complete API documentation, examples, and advanced patterns, see:
 # Install dependencies
 yarn install
 
-# Run dev server with examples
+# Run development UI with example selector
 yarn dev
+
+# Run interactive playground with live code editing
+yarn dev:playground
 
 # Build library
 yarn build
@@ -358,6 +361,18 @@ yarn build:demo
 # Preview demo locally
 yarn preview
 ```
+
+### Development Modes
+
+**`yarn dev`** - Starts a clean development UI with an interactive example selector. Great for:
+- Testing all examples in one place
+- Quick switching between different examples
+- Visual debugging with DevTool component
+
+**`yarn dev:playground`** - Starts the Sandpack-powered playground with live code editing. Perfect for:
+- Creating interactive demos
+- Live code editing and experimentation
+- Sharing editable examples
 
 ## 🎓 Learning Path
 

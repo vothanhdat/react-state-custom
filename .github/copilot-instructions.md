@@ -46,11 +46,20 @@
 
 ## Build and Tooling
 - `yarn build` runs Vite with `@vitejs/plugin-react`, `vite-plugin-dts`, and `vite-bundle-analyzer`; the analyzer spins up a server after builds—stop it in CI if unused.
-- `yarn dev` starts the Vite dev server on port 3000 with demo examples; `yarn build:demo` creates GitHub Pages build.
+- `yarn dev` starts the Vite dev server on port 3000 with dev UI (`src/dev/`) showing all examples with selector; served from `dev.html`.
+- `yarn dev:playground` starts Vite dev server with Sandpack-powered playground (`src/playground/`) for live code editing; served from `index.html`.
+- `yarn build:demo` creates GitHub Pages build from playground; outputs to `demo-dist/`.
 - `yarn preview` previews demo build locally with correct base path (`/react-state-custom/`).
 - Tests are stubbed (`yarn test` exits 0 after printing "No tests specified"); add coverage before depending on test gates.
 - Repo is Yarn 4 (PnP); if editors struggle with module resolution, run `./fix-vscode-yarn-pnp.sh`.
 - GitHub Actions workflow (`.github/workflows/deploy.yml`) auto-deploys demo to GitHub Pages on push to master.
+
+## Development Structure
+- `src/dev/` - Development UI with example selector and DevTool; imports App components from examples; accessed via `dev.html`.
+- `src/playground/` - Sandpack playground for live demos; uses `?raw` imports to show source; accessed via `index.html`.
+- `src/examples/` - Five examples (counter, todo, form, timer, cart); each has `state.ts`, `view.tsx`, `app.tsx`, `index.ts`.
+- `dev.html` - Entry for development UI with example selector.
+- `index.html` - Entry for playground with Sandpack live editor.
 
 ## Reference Docs
 - README (`README.md`) offers narrative examples and positioning; includes live demo link.
