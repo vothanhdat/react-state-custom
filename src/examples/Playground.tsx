@@ -144,17 +144,10 @@ export const Playground = () => {
                     '/dataview.tsx': devToolCode,
                 }}
                 options={{
-                    // showNavigator: true,
                     showTabs: true,
                     showLineNumbers: true,
                     editorHeight: 600,
-                    // editorWidthPercentage: 40,
                 }}
-                // style={{
-                //     '--sp-font-size': '12px',
-                //     '--sp-font-lineHeight': '17px',
-                //     // '--sp-font-body': 'inherit',
-                // } as React.CSSProperties}
                 customSetup={{
                     dependencies: {
                         'react': '^19.0.0',
