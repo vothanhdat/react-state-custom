@@ -1,0 +1,36 @@
+# Source files
+src/
+tsconfig.json
+vite.config.ts
+vite.config.dev.ts
+
+# Development files
+dev.html
+index.html
+.vscode/
+.github/
+demo-dist/
+node_modules/
+
+# Git files
+.git/
+.gitignore
+
+# Yarn files
+.yarn/
+.yarnrc.yml
+.pnp.*
+yarn.lock
+
+# Build artifacts to exclude
+*.tsbuildinfo
+
+# Examples and playground (not needed in npm package)
+src/examples/
+src/playground/
+src/dev/
+
+# Other
+.DS_Store
+*.log
+fix-vscode-yarn-pnp.sh

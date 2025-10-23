@@ -6,6 +6,11 @@
   "main": "dist/index.umd.js",
   "module": "dist/index.es.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "bugs": {
     "url": "https://github.com/vothanhdat/react-state-custom/issues"
   },
@@ -19,7 +24,8 @@
     "dev": "vite",
     "dev:playground": "vite --config vite.config.dev.ts",
     "test": "echo \"No tests specified\" && exit 0",
-    "preview": "vite preview --config vite.config.dev.ts"
+    "preview": "vite preview --config vite.config.dev.ts",
+    "prepublishOnly": "yarn build"
   },
   "keywords": [
     "frontend",
