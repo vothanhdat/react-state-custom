@@ -1,9 +1,4 @@
 import { useState } from 'react'
-import { AutoRootCtx } from '../state-utils/createAutoCtx'
-import { DevToolContainer } from '../dev-tool/DevTool'
-import { ObjectView } from 'react-obj-view'
-import { DataViewComponent } from '../dev-tool/DataViewComponent'
-import 'react-obj-view/dist/react-obj-view.css'
 import './dev.css'
 
 // Import all example apps
@@ -13,10 +8,6 @@ import FormApp from '../examples/form/app'
 import TimerApp from '../examples/timer/app'
 import CartApp from '../examples/cart/app'
 
-// Custom data view component
-const DataView: DataViewComponent = ({ name, value }) => {
-  return <ObjectView {...{ name, value }} expandLevel={1} />
-}
 
 // Example configurations
 const examples = {
@@ -55,7 +46,6 @@ export const Dev = () => {
 
   return (
     <>
-      <AutoRootCtx />
       
       <div style={{
         minHeight: '100vh',
@@ -177,11 +167,6 @@ export const Dev = () => {
           </div>
         </div>
       </div>
-
-      <DevToolContainer 
-        Component={DataView} 
-        style={{ left: '20px', bottom: '20px', right: 'unset' }}
-      />
     </>
   )
 }
