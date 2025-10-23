@@ -2,21 +2,21 @@ import { Sandpack } from '@codesandbox/sandpack-react'
 import { useState } from 'react'
 
 
-import counterState from "./counter/state.ts?raw"
-import counterView from "./counter/view.tsx?raw"
-import counterApp from "./counter/app.tsx?raw"
-import todoState from "./todo/state.ts?raw"
-import todoView from "./todo/view.tsx?raw"
-import todoApp from "./todo/app.tsx?raw"
-import timerState from "./timer/state.ts?raw"
-import timerView from "./timer/view.tsx?raw"
-import timerApp from "./timer/app.tsx?raw"
-import formState from "./form/state.ts?raw"
-import formView from "./form/view.tsx?raw"
-import formApp from "./form/app.tsx?raw"
-import cartState from "./cart/state.ts?raw"
-import cartView from "./cart/view.tsx?raw"
-import cartApp from "./cart/app.tsx?raw"
+import counterState from "../examples/counter/state.ts?raw"
+import counterView from "../examples/counter/view.tsx?raw"
+import counterApp from "../examples/counter/app.tsx?raw"
+import todoState from "../examples/todo/state.ts?raw"
+import todoView from "../examples/todo/view.tsx?raw"
+import todoApp from "../examples/todo/app.tsx?raw"
+import timerState from "../examples/timer/state.ts?raw"
+import timerView from "../examples/timer/view.tsx?raw"
+import timerApp from "../examples/timer/app.tsx?raw"
+import formState from "../examples/form/state.ts?raw"
+import formView from "../examples/form/view.tsx?raw"
+import formApp from "../examples/form/app.tsx?raw"
+import cartState from "../examples/cart/state.ts?raw"
+import cartView from "../examples/cart/view.tsx?raw"
+import cartApp from "../examples/cart/app.tsx?raw"
 
 const devToolCode = `
 
@@ -138,9 +138,9 @@ export const Playground = () => {
                 template="react-ts"
                 theme="light"
                 files={{
-                    '/App.tsx': example.app,
                     '/state.ts': example.state,
                     '/view.tsx': example.view,
+                    '/App.tsx': example.app,
                     '/dataview.tsx': devToolCode,
                 }}
                 options={{
