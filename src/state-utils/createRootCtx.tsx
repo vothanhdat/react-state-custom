@@ -2,7 +2,6 @@ import { useEffect, useMemo } from "react"
 import { useDataContext, useDataSourceMultiple, type Context } from "./ctx"
 
 
-
 /**
  * createRootCtx
  *
@@ -42,7 +41,9 @@ export const createRootCtx = <U extends object, V extends object>(name: string, 
       .flat()
   ].join("-")
 
-  let ctxMountedCheck = new Set<string>()
+  const ctxMountedCheck = new Set<string>()
+
+  const DebugState = ({ }) => <></>
 
 
   const RootState: React.FC<U> = (e: U) => {
@@ -66,18 +67,20 @@ export const createRootCtx = <U extends object, V extends object>(name: string, 
       return () => { ctxMountedCheck.delete(ctxName) };
     })
 
-    return <></>
+    return <DebugState {...e} {...state} />
   }
 
-  RootState.displayName = `State[${useFn?.name??'??'}]`
+  RootState.displayName = `StateContainer[${name}]`
+  DebugState.displayName = `Debug[${name}]`
 
   return {
+    name,
     resolveCtxName,
     Root: RootState,
-  /**
-   * Strict consumer: throws if the corresponding Root for these props isn't mounted.
-   * Use in development/tests to fail fast when wiring is incorrect.
-   */
+    /**
+     * Strict consumer: throws if the corresponding Root for these props isn't mounted.
+     * Use in development/tests to fail fast when wiring is incorrect.
+     */
     useCtxStateStrict: (e: U): Context<V> => {
       const ctxName = resolveCtxName(e)
 
@@ -93,10 +96,10 @@ export const createRootCtx = <U extends object, V extends object>(name: string, 
 
       return useDataContext<V>(ctxName)
     },
-  /**
-   * Lenient consumer: schedules a console.error if the Root isn't mounted instead of throwing.
-   * Useful in production to avoid hard crashes while still surfacing misconfiguration.
-   */
+    /**
+     * Lenient consumer: schedules a console.error if the Root isn't mounted instead of throwing.
+     * Useful in production to avoid hard crashes while still surfacing misconfiguration.
+     */
     useCtxState: (e: U): Context<V> => {
       const ctxName = resolveCtxName(e)
 

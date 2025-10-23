@@ -13,7 +13,7 @@ const weakmapName = (function () {
   return (e: any): string => {
     let result = weakmap.get(e);
     if (!result) {
-      weakmap.set(e, result = (e?.name ?? "") + Math.random().toString())
+      weakmap.set(e, result = (e?.name ?? "") + ":" + Math.random().toString())
     }
     return result
   }
@@ -56,60 +56,28 @@ export const AutoRootCtx = ({ Wrapper = Fragment }) => {
   const ctx = useDataContext<any>("auto-ctx")
 
 
-  const [state, setState] = useState<Record<string, { Component: React.FC, subState: Record<string, { params: any, counter: number }> }>>({})
+  // const [state, setState] = useState<Record<string, { Component: React.FC, subState: Record<string, { params: any, counter: number }> }>>({})
+  const [state, setState] = useState<Record<string, { Component: React.FC, params: any, paramKey: string, counter: number }>>({})
 
 
   const subscribeRoot = useCallback(
-    (Comp: any, params: any) => {
-      const weakName = weakmapName(Comp);
-      const key = resolveName(params);
+    (contextName: string, Component: React.FC<any>, params: any) => {
 
-      setState(({
-        [weakName]: {
-          Component = Comp,
-          subState: {
-            [key]: preState = { params, counter: 0 },
-            ...subState
-          } = {}
-        } = {},
-        ...state
-      }) => ({
-        ...state,
-        [weakName]: {
-          Component,
-          subState: {
-            ...subState,
-            [key]: {
-              ...preState,
-              counter: preState.counter + 1,
-            },
-          },
-        }
-      }));
+      const recordKey = [contextName, weakmapName(Component), resolveName(params)].join(":");
 
-      return () => setState(({
-        [weakName]: {
-          Component = Comp,
-          subState: {
-            [key]: preState = { params, counter: 0 },
-            ...subState
-          } = {}
-        } = {},
-        ...state
-      }) => ({
+      setState(state => ({
         ...state,
-        [weakName]: {
-          Component,
-          subState: {
-            ...subState,
-            ...preState.counter > 1 ? {
-              [key]: {
-                ...preState,
-                counter: preState.counter - 1,
-              },
-            } : {},
-          },
+        [recordKey]: {
+          ...state[recordKey] ?? { Component, params, paramKey: resolveName(params) },
+          counter: (state[recordKey]?.counter ?? 0) + 1,
         }
+      }))
+
+      return () => setState(({ [recordKey]: current, ...rest }) => ({
+        ...rest,
+        ...(current?.counter > 1) ? {
+          [recordKey]: { ...current, counter: current.counter - 1 }
+        } : {}
       }))
 
     },
@@ -123,16 +91,11 @@ export const AutoRootCtx = ({ Wrapper = Fragment }) => {
 
 
   return <>
-    {Object.entries(state)
-      .flatMap(([k1, { Component, subState }]) => Object
-        .entries(subState)
-        .map(([k2, { counter, params }]) => ({ key: k1 + k2, Component, params, counter }))
-        .filter(e => e.counter > 0)
-        .map(({ key, params, Component }) => <Wrapper key={key} >
-          <Component {...params} />
-        </Wrapper>)
-      )
-    }
+    {Object
+      .entries(state)
+      .map(([key, { Component, params, counter, paramKey }]) => <Wrapper key={key}>
+        <Component key={paramKey} {...params} />
+      </Wrapper>)}
   </>
 
 }
@@ -162,8 +125,7 @@ export const AutoRootCtx = ({ Wrapper = Fragment }) => {
  * AutoRootCtx will subscribe/unsubscribe instances per unique params and render the appropriate Root under the hood.
  */
 export const createAutoCtx = <U extends object, V extends object,>(
-  { Root, useCtxState, useCtxStateStrict, resolveCtxName }: ReturnType<typeof createRootCtx<U, V>>,
-  unmountTime = 0
+  { Root, resolveCtxName, name }: ReturnType<typeof createRootCtx<U, V>>,
 ) => {
 
   return {
@@ -174,16 +136,10 @@ export const createAutoCtx = <U extends object, V extends object,>(
 
       const subscribe = useDataSubscribe(useDataContext<any>("auto-ctx"), "subscribe")
 
-      useEffect(() => {
-        // Subscribe this component to an AutoRootCtx-managed Root instance keyed by e.
-        // AutoRootCtx handles instance ref-counting and cleanup on unmount.
-        if (unmountTime == 0) {
-          return subscribe?.(Root, e)
-        } else {
-          let unsub = subscribe?.(Root, e)
-          return () => setTimeout(unsub, unmountTime)
-        }
-      }, [subscribe, ctxName])
+      useEffect(
+        () => subscribe?.(name, Root, e),
+        [Root, subscribe, name, ctxName]
+      )
 
       return useDataContext<V>(ctxName)
     }
