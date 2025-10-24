@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react"
 import { useDataContext, useDataSourceMultiple, type Context } from "./ctx"
+// import { debugObjTime } from "./debugObjTime"
 
 
 /**
@@ -33,7 +34,7 @@ import { useDataContext, useDataSourceMultiple, type Context } from "./ctx"
  */
 export const createRootCtx = <U extends object, V extends object>(name: string, useFn: (e: U) => V) => {
 
-  const resolveCtxName = (e: U) => [
+  const getCtxName = (e: U) => [
     name,
     ...Object
       .entries(e ?? {})
@@ -43,12 +44,9 @@ export const createRootCtx = <U extends object, V extends object>(name: string, 
 
   const ctxMountedCheck = new Set<string>()
 
-  const DebugState = ({ }) => <></>
-
-
-  const RootState: React.FC<U> = (e: U) => {
+  const useRootState = (e: U) => {
     const state = useFn(e)
-    const ctxName = resolveCtxName(e)
+    const ctxName = getCtxName(e)
     const ctx = useDataContext<V>(ctxName)
     const stack = useMemo(() => new Error().stack, [])
 
@@ -67,22 +65,31 @@ export const createRootCtx = <U extends object, V extends object>(name: string, 
       return () => { ctxMountedCheck.delete(ctxName) };
     })
 
-    return <DebugState {...e} {...state} />
+    return state;
   }
 
+  const Debug = ({ }) => <></>
+
+  const RootState: React.FC<U> = (e: U) => {
+    const state = useRootState(e);
+    return <Debug {...e} {...state} />
+  }
+
+  useRootState.displayName = `useState[${name}]`
   RootState.displayName = `StateContainer[${name}]`
-  DebugState.displayName = `Debug[${name}]`
+  Debug.displayName = `Debug[${name}]`
 
   return {
     name,
-    resolveCtxName,
+    getCtxName,
+    useRootState,
     Root: RootState,
     /**
      * Strict consumer: throws if the corresponding Root for these props isn't mounted.
      * Use in development/tests to fail fast when wiring is incorrect.
      */
     useCtxStateStrict: (e: U): Context<V> => {
-      const ctxName = resolveCtxName(e)
+      const ctxName = getCtxName(e)
 
       const stack = useMemo(() => new Error().stack, [])
 
@@ -101,7 +108,7 @@ export const createRootCtx = <U extends object, V extends object>(name: string, 
      * Useful in production to avoid hard crashes while still surfacing misconfiguration.
      */
     useCtxState: (e: U): Context<V> => {
-      const ctxName = resolveCtxName(e)
+      const ctxName = getCtxName(e)
 
       const stack = useMemo(() => new Error().stack, [])
 

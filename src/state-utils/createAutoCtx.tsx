@@ -1,31 +1,17 @@
-import { useEffect, useState, Fragment, useCallback, useMemo } from "react"
+import { useEffect, useState, Fragment, useCallback, useMemo, Activity } from "react"
 import { useDataContext, useDataSourceMultiple, useDataSubscribe, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
+import { paramsToId } from "./paramsToId"
 
 
 
+const DebugState = ({ }) => <></>
 
+const StateRunner: React.FC<{ useStateFn: Function, params: any, debugging: boolean }> = ({ useStateFn, params, debugging }) => {
+  const state = useStateFn(params)
+  return debugging ? <DebugState {...state} /> : <></>
+}
 
-
-const weakmapName = (function () {
-  const weakmap = new WeakMap()
-
-  return (e: any): string => {
-    let result = weakmap.get(e);
-    if (!result) {
-      weakmap.set(e, result = (e?.name ?? "") + ":" + Math.random().toString())
-    }
-    return result
-  }
-})()
-
-
-const resolveName = (e: any) => [
-  ...Object
-    .entries(e ?? {})
-    .sort((e, f) => e[0].localeCompare(f[0]))
-    .flat()
-].join("-")
 
 /**
  * Inline docs: createAutoCtx + AutoRootCtx
@@ -51,32 +37,32 @@ const resolveName = (e: any) => [
  * - For each unique params object (by stable stringified key), AutoRootCtx ensures a corresponding Root instance is rendered.
  */
 
-export const AutoRootCtx = ({ Wrapper = Fragment }) => {
+export const AutoRootCtx: React.FC<{ Wrapper?: React.FC<any>, debugging?: boolean }> = ({ Wrapper = Fragment, debugging = false }) => {
 
   const ctx = useDataContext<any>("auto-ctx")
 
-
-  // const [state, setState] = useState<Record<string, { Component: React.FC, subState: Record<string, { params: any, counter: number }> }>>({})
   const [state, setState] = useState<Record<string, {
-    Component: React.FC,
+    useStateFn: Function,
     params: any,
-    paramKey: string,
+    // paramKey: string,
     counter: number,
     keepUntil?: number
   }>>({})
 
 
   const subscribeRoot = useCallback(
-    (contextName: string, Component: React.FC<any>, params: any, timeToCleanState = 0) => {
+    (contextName: string, useStateFn: Function, params: any, timeToCleanState = 0) => {
 
-      const recordKey = [contextName, weakmapName(Component), resolveName(params)].join(":");
+      const recordKey = contextName + '?' + paramsToId(params)
+
 
       setState(state => ({
         ...state,
         [recordKey]: {
-          ...state[recordKey] ?? { Component, params, paramKey: resolveName(params) },
+          ...state[recordKey] ?? { useStateFn, params },
           counter: (state[recordKey]?.counter ?? 0) + 1,
           keepUntil: undefined,
+          useStateFn,
         }
       }))
 
@@ -102,13 +88,11 @@ export const AutoRootCtx = ({ Wrapper = Fragment }) => {
     [state]
   )
 
-  console.log({ state, nextDelete })
-
   useEffect(() => {
     if (nextDelete) {
       const [key, { keepUntil }] = nextDelete
       if (typeof keepUntil == 'undefined')
-        throw new Error("Invalid state mfr")
+        throw new Error("Invalid state mgr")
 
       let t = setTimeout(() => {
         // console.log("Delay Cleaned")
@@ -130,8 +114,8 @@ export const AutoRootCtx = ({ Wrapper = Fragment }) => {
     {Object
       .entries(state)
       .filter(([, { counter, keepUntil = 0 }]) => counter > 0 || keepUntil >= Date.now())
-      .map(([key, { Component, params, counter, paramKey, keepUntil }]) => <Wrapper key={key}>
-        <Component key={paramKey} {...params} />
+      .map(([key, { useStateFn, params }]) => <Wrapper key={key}>
+        <StateRunner key={key} params={params} useStateFn={useStateFn} debugging={debugging} />
       </Wrapper>)}
   </>
 
@@ -162,7 +146,7 @@ export const AutoRootCtx = ({ Wrapper = Fragment }) => {
  * AutoRootCtx will subscribe/unsubscribe instances per unique params and render the appropriate Root under the hood.
  */
 export const createAutoCtx = <U extends object, V extends object,>(
-  { Root, resolveCtxName, name }: ReturnType<typeof createRootCtx<U, V>>,
+  { useRootState, getCtxName, name }: ReturnType<typeof createRootCtx<U, V>>,
   timeToClean = 0
 ) => {
 
@@ -170,13 +154,13 @@ export const createAutoCtx = <U extends object, V extends object,>(
 
     useCtxState: (e: U): Context<V> => {
 
-      const ctxName = resolveCtxName(e)
+      const ctxName = getCtxName(e)
 
       const subscribe = useDataSubscribe(useDataContext<any>("auto-ctx"), "subscribe")
 
       useEffect(
-        () => subscribe?.(name, Root, e, timeToClean),
-        [Root, subscribe, name, ctxName, timeToClean]
+        () => subscribe?.(name, useRootState, e, timeToClean),
+        [useRootState, subscribe, name, ctxName, timeToClean]
       )
 
       return useDataContext<V>(ctxName)
