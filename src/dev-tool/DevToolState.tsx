@@ -50,7 +50,7 @@ export const DevToolState: React.FC<{ Component: DataViewComponent }> = ({ Compo
                     .map(e => JSON.parse(e)?.[0])
                     .filter(e => e != "auto-ctx" && e)
                     .filter(filterFn)
-                    .map(e => <StateLabelRender {...{ selectedKey, setKey, currentKey: e, }} />)}
+                    .map(currentKey => <StateLabelRender {...{key:currentKey, selectedKey, setKey, currentKey }} />)}
             </HightlightWrapper>
 
         </div>
