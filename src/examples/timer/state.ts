@@ -1,5 +1,5 @@
 import { createRootCtx, createAutoCtx } from '../../index'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 export const { useCtxState: useTimerCtx } = createAutoCtx(
     createRootCtx(
@@ -22,12 +22,12 @@ export const { useCtxState: useTimerCtx } = createAutoCtx(
             const ms = Math.floor((milliseconds % 1000) / 10)
             const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`
             
-            const start = useCallback(() => setIsRunning(true), [])
-            const pause = useCallback(() => setIsRunning(false), [])
-            const reset = useCallback(() => {
+            const start = () => setIsRunning(true)
+            const pause = () => setIsRunning(false)
+            const reset = () => {
                 setIsRunning(false)
                 setMilliseconds(0)
-            }, [])
+            }
 
             return {
                 timerId,
@@ -39,5 +39,6 @@ export const { useCtxState: useTimerCtx } = createAutoCtx(
                 reset,
             }
         }
-    )
+    ),
+    5000
 )

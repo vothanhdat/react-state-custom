@@ -1,5 +1,5 @@
 import { createRootCtx, createAutoCtx } from '../../index'
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 
 export interface FormData {
     name: string
@@ -15,20 +15,20 @@ export const { useCtxState: useFormCtx } = createAutoCtx(
             const [errors, setErrors] = useState<Partial<FormData>>({})
             const [submitted, setSubmitted] = useState(false)
 
-            const validate = useCallback((data: FormData): Partial<FormData> => {
+            const validate = (data: FormData): Partial<FormData> => {
                 const errors: Partial<FormData> = {}
                 if (!data.name.trim()) errors.name = 'Name is required'
                 if (!data.email.includes('@')) errors.email = 'Invalid email'
                 if (data.age && isNaN(Number(data.age))) errors.age = 'Age must be a number'
                 return errors
-            }, [])
+            }
 
-            const updateField = useCallback((field: keyof FormData, value: string) => {
+            const updateField = (field: keyof FormData, value: string) => {
                 setData(prev => ({ ...prev, [field]: value }))
                 setErrors(prev => ({ ...prev, [field]: undefined }))
-            }, [])
+            }
             
-            const submit = useCallback(() => {
+            const submit = () => {
                 const validationErrors = validate(data)
                 if (Object.keys(validationErrors).length === 0) {
                     setSubmitted(true)
@@ -36,13 +36,13 @@ export const { useCtxState: useFormCtx } = createAutoCtx(
                 } else {
                     setErrors(validationErrors)
                 }
-            }, [data, validate])
+            }
             
-            const reset = useCallback(() => {
+            const reset = () => {
                 setData({ name: '', email: '', age: '' })
                 setErrors({})
                 setSubmitted(false)
-            }, [])
+            }
 
             return {
                 formId,
@@ -54,5 +54,6 @@ export const { useCtxState: useFormCtx } = createAutoCtx(
                 reset,
             }
         }
-    )
+    ),
+    5000
 )

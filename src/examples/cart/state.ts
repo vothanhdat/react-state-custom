@@ -1,5 +1,5 @@
 import { createRootCtx, createAutoCtx } from '../../index'
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 
 export interface CartItem {
     id: string
@@ -24,7 +24,7 @@ export const { useCtxState: useCartCtx } = createAutoCtx(
             const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
             const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
 
-            const addItem = useCallback((product: typeof PRODUCTS[0]) => {
+            const addItem = (product: typeof PRODUCTS[0]) => {
                 setItems(prev => {
                     const existing = prev.find(i => i.id === product.id)
                     if (existing) {
@@ -34,13 +34,13 @@ export const { useCtxState: useCartCtx } = createAutoCtx(
                     }
                     return [...prev, { ...product, quantity: 1 }]
                 })
-            }, [])
+            }
 
-            const removeItem = useCallback((id: string) => {
+            const removeItem = (id: string) => {
                 setItems(prev => prev.filter(i => i.id !== id))
-            }, [])
+            }
 
-            const updateQuantity = useCallback((id: string, quantity: number) => {
+            const updateQuantity = (id: string, quantity: number) => {
                 if (quantity <= 0) {
                     setItems(prev => prev.filter(i => i.id !== id))
                 } else {
@@ -48,9 +48,9 @@ export const { useCtxState: useCartCtx } = createAutoCtx(
                         i.id === id ? { ...i, quantity } : i
                     ))
                 }
-            }, [])
+            }
 
-            const clear = useCallback(() => setItems([]), [])
+            const clear = () => setItems([])
 
             return {
                 userId,
@@ -63,5 +63,6 @@ export const { useCtxState: useCartCtx } = createAutoCtx(
                 clear,
             }
         }
-    )
+    ),
+    5000
 )

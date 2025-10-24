@@ -1,5 +1,5 @@
 import { createRootCtx, createAutoCtx } from '../../index'
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 
 export interface Todo {
     id: string
@@ -14,7 +14,7 @@ export const { useCtxState: useTodoCtx } = createAutoCtx(
             const [todos, setTodos] = useState<Todo[]>([])
             const [input, setInput] = useState('')
 
-            const addTodo = useCallback(() => {
+            const addTodo = () => {
                 if (input.trim()) {
                     setTodos(prev => [...prev, {
                         id: Date.now().toString(),
@@ -23,21 +23,21 @@ export const { useCtxState: useTodoCtx } = createAutoCtx(
                     }])
                     setInput('')
                 }
-            }, [input])
+            }
 
-            const toggleTodo = useCallback((id: string) => {
+            const toggleTodo = (id: string) => {
                 setTodos(prev => prev.map(t =>
                     t.id === id ? { ...t, completed: !t.completed } : t
                 ))
-            }, [])
+            }
 
-            const removeTodo = useCallback((id: string) => {
+            const removeTodo = (id: string) => {
                 setTodos(prev => prev.filter(t => t.id !== id))
-            }, [])
+            }
 
-            const clearCompleted = useCallback(() => {
+            const clearCompleted = () => {
                 setTodos(prev => prev.filter(t => !t.completed))
-            }, [])
+            }
 
             return {
                 listId,
@@ -51,5 +51,5 @@ export const { useCtxState: useTodoCtx } = createAutoCtx(
             }
         }
     ),
-    20000
+    5000
 )
