@@ -2,10 +2,15 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import dts from 'vite-plugin-dts'
 import { analyzer } from 'vite-bundle-analyzer'
+import "babel-plugin-react-compiler"
 
 export default defineConfig({
   plugins: [
-    react(),
+    react({
+      babel: {
+        plugins: ["babel-plugin-react-compiler"]
+      }
+    }),
     dts({
       include: ['src'],
     }),
@@ -35,6 +40,6 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    open:"./dev.html"
+    open: "./dev.html"
   },
 });
