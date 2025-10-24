@@ -153,7 +153,7 @@ export const Playground = () => {
                         'react': '^19.0.0',
                         'react-dom': '^19.0.0',
                         'react-obj-view': '^1.0.4',
-                        'react-state-custom': '^1.0.25',
+                        'react-state-custom': '^1.0.26',
                     },
 
                 }}
