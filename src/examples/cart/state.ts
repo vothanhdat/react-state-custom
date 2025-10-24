@@ -15,54 +15,53 @@ export const PRODUCTS = [
     { id: '4', name: 'Mango', price: 2.5 },
 ]
 
-export const { useCtxState: useCartCtx } = createAutoCtx(
-    createRootCtx(
-        "cart",
-        ({ userId }: { userId: string }) => {
-            const [items, setItems] = useState<CartItem[]>([])
+const useCartState = ({ userId }: { userId: string }) => {
+    const [items, setItems] = useState<CartItem[]>([])
 
-            const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-            const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
+    const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+    const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
 
-            const addItem = (product: typeof PRODUCTS[0]) => {
-                setItems(prev => {
-                    const existing = prev.find(i => i.id === product.id)
-                    if (existing) {
-                        return prev.map(i =>
-                            i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i
-                        )
-                    }
-                    return [...prev, { ...product, quantity: 1 }]
-                })
+    const addItem = (product: typeof PRODUCTS[0]) => {
+        setItems(prev => {
+            const existing = prev.find(i => i.id === product.id)
+            if (existing) {
+                return prev.map(i =>
+                    i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i
+                )
             }
+            return [...prev, { ...product, quantity: 1 }]
+        })
+    }
 
-            const removeItem = (id: string) => {
-                setItems(prev => prev.filter(i => i.id !== id))
-            }
+    const removeItem = (id: string) => {
+        setItems(prev => prev.filter(i => i.id !== id))
+    }
 
-            const updateQuantity = (id: string, quantity: number) => {
-                if (quantity <= 0) {
-                    setItems(prev => prev.filter(i => i.id !== id))
-                } else {
-                    setItems(prev => prev.map(i =>
-                        i.id === id ? { ...i, quantity } : i
-                    ))
-                }
-            }
-
-            const clear = () => setItems([])
-
-            return {
-                userId,
-                items,
-                total: total.toFixed(2),
-                itemCount,
-                addItem,
-                removeItem,
-                updateQuantity,
-                clear,
-            }
+    const updateQuantity = (id: string, quantity: number) => {
+        if (quantity <= 0) {
+            setItems(prev => prev.filter(i => i.id !== id))
+        } else {
+            setItems(prev => prev.map(i =>
+                i.id === id ? { ...i, quantity } : i
+            ))
         }
-    ),
+    }
+
+    const clear = () => setItems([])
+
+    return {
+        userId,
+        items,
+        total: total.toFixed(2),
+        itemCount,
+        addItem,
+        removeItem,
+        updateQuantity,
+        clear,
+    }
+}
+
+export const { useCtxState: useCartCtx } = createAutoCtx(
+    createRootCtx("cart", useCartState),
     5000
 )
