@@ -14,10 +14,10 @@ export default defineConfig({
     dts({
       include: ['src'],
     }),
-    analyzer({
-      analyzerMode: "server",
-      openAnalyzer: true
-    }),
+    // analyzer({
+    //   analyzerMode: "server",
+    //   openAnalyzer: true
+    // }),
   ],
   build: {
     lib: {
