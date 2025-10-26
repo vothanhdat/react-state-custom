@@ -1,3 +1,5 @@
 
 
-export default (({ }) => <>Hello World</>) as React.FC<any>
+export default function App({ }) {
+    return <>Hello World</>
+}

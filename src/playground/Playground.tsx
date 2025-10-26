@@ -1,5 +1,5 @@
-import sdk from '@stackblitz/sdk'
-import { useState, useEffect, useRef } from 'react'
+import sdk, { VM } from '@stackblitz/sdk'
+import { useState, useEffect, useId } from 'react'
 
 // Example files
 import counterState from "../examples/counter/state.ts?raw"
@@ -91,17 +91,16 @@ const examples = {
 }
 
 export const Playground = () => {
+    const elId = useId()
     const [activeExample, setActiveExample] = useState<keyof typeof examples>('counter')
     const example = examples[activeExample]
-    const embedRef = useRef<HTMLDivElement>(null)
-    
+    const [vm, setVM] = useState<VM | null>(null)
 
     useEffect(() => {
-        if (!embedRef.current) return
 
         const project = {
-            title: example.title,
-            description: example.description,
+            title: "",
+            description: "",
             template: 'node' as const,
             files: {
                 '.stackblitzrc': stackblitzrcCode,
@@ -118,26 +117,38 @@ export const Playground = () => {
             settings: {
                 compile: {
                     trigger: 'auto',
-                    clearConsole: false
+                    clearConsole: false,
                 }
             }
         }
 
-        // Clear previous embed
-        embedRef.current.innerHTML = ''
 
-        sdk.embedProject(embedRef.current, project, {
+        sdk.embedProject(elId, project, {
             openFile: 'src/App.tsx',
             height: 600,
             view: 'default',
             hideNavigation: false,
             forceEmbedLayout: true,
-            
-        })
+            theme: "default",
+        }).then(e => setVM(e))
 
 
+    }, [elId])
 
-    }, [example, activeExample])
+    useEffect(() => {
+        if (vm && example) {
+            vm?.applyFsDiff({
+                destroy: [],
+                create: {
+                    'src/state.ts': example.state,
+                    'src/view.tsx': example.view,
+                    'src/App.tsx': example.app,
+                }
+            }).then(() => {
+                vm?.editor.openFile(['src/view.tsx']);
+            })
+        }
+    }, [vm, example])
 
     return (
         <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
@@ -172,8 +183,12 @@ export const Playground = () => {
                     {example.description}
                 </p>
             </div>
-
-            <div ref={embedRef} style={{ height: '600px', border: '1px solid #e0e0e0', borderRadius: '4px' }} />
+            <div style={{ display: 'block', width: "100vw", marginInline: "calc(50% - 50vw)" }}>
+                <div id={elId} style={{
+                    height: '600px', border: '1px solid #e0e0e0', borderRadius: '4px',
+                    width: "100vw", marginInline: "calc(50% - 50vw)", position: "relative",
+                }} />
+            </div>
 
             <div style={{ marginTop: '2rem', padding: '1rem', background: '#f5f5f5', borderRadius: '4px' }}>
                 <h3>How it works:</h3>
