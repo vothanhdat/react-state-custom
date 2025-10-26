@@ -33,7 +33,7 @@ export class Context<D> extends EventTarget {
    * @param name - The name of the context (for debugging).
    */
   constructor(public name: string) {
-    console.log("[CONTEXT] %s", name)
+    // console.log("[CONTEXT] %s", name)
     // this.event.setMaxListeners(100)
     super();
   }
