@@ -2,9 +2,12 @@ import React, { useContext, useMemo } from "react";
 
 export function useHighlight(filterString: string) {
     const highlight = useMemo(
-        () => buildRegex(filterString
-            .toLowerCase()
-            .split(" "), 'gi'),
+        () => filterString
+            ? buildRegex(filterString
+                .trim()
+                .toLowerCase()
+                .split(" "), 'gi')
+            : undefined,
         [filterString]
     );
     return { highlight };

@@ -129,6 +129,7 @@
 
     mark {
         background: orange;
+        padding-inline: 0;
     }
 }
 
