@@ -157,8 +157,8 @@ describe('createAutoCtx', () => {
   })
 
   it('should share instances for identical params', async () => {
+    let renderCount = 0
     const useCounter = () => {
-      let renderCount = 0
       const [count] = React.useState(() => {
         renderCount++
         return renderCount
@@ -183,12 +183,15 @@ describe('createAutoCtx', () => {
       </>
     )
 
+    vi.useRealTimers()
     await waitFor(() => {
       const count1 = screen.getByTestId('count-1').textContent
       const count2 = screen.getByTestId('count-2').textContent
       // Both should have the same count, proving they share the same Root instance
       expect(count1).toBe(count2)
+      expect(count1).toBe('1') // Verify they both show 1, meaning single instance
     }, { timeout: 5000 })
+    vi.useFakeTimers()
   }, 10000)
 
   it('should create separate instances for different params', async () => {
@@ -214,10 +217,12 @@ describe('createAutoCtx', () => {
       </>
     )
 
+    vi.useRealTimers()
     await waitFor(() => {
       expect(screen.getByTestId('value-1').textContent).toBe('10')
       expect(screen.getByTestId('value-2').textContent).toBe('20')
     }, { timeout: 5000 })
+    vi.useFakeTimers()
   }, 10000)
 
   it('should handle unmounting and cleanup', async () => {
@@ -242,6 +247,7 @@ describe('createAutoCtx', () => {
       </>
     )
 
+    vi.useRealTimers()
     await waitFor(() => {
       expect(screen.getByTestId('count').textContent).toBe('99')
     }, { timeout: 5000 })
@@ -254,12 +260,13 @@ describe('createAutoCtx', () => {
       </>
     )
 
-    // Wait for cleanup delay
-    vi.advanceTimersByTime(150)
+    // Wait for cleanup delay - use real timers
+    await new Promise(resolve => setTimeout(resolve, 150))
 
     // Root should be cleaned up after delay
     // Note: This is hard to test directly, but we're verifying no errors occur
     expect(screen.queryByTestId('count')).toBeNull()
+    vi.useFakeTimers()
   }, 10000)
 
   it('should handle rapid mount/unmount cycles', async () => {
@@ -284,6 +291,7 @@ describe('createAutoCtx', () => {
       </>
     )
 
+    vi.useRealTimers()
     await waitFor(() => {
       expect(screen.getByTestId('count').textContent).toBe('88')
     }, { timeout: 5000 })
@@ -296,7 +304,8 @@ describe('createAutoCtx', () => {
       </>
     )
 
-    vi.advanceTimersByTime(25) // Less than unmount delay
+    // Wait less than unmount delay
+    await new Promise(resolve => setTimeout(resolve, 25))
 
     rerender(
       <>
@@ -309,6 +318,7 @@ describe('createAutoCtx', () => {
       // Should still show the same value, Root wasn't actually unmounted
       expect(screen.getByTestId('count').textContent).toBe('88')
     }, { timeout: 5000 })
+    vi.useFakeTimers()
   }, 10000)
 
   it('should handle updates after auto-mounting', async () => {
@@ -342,6 +352,7 @@ describe('createAutoCtx', () => {
       </>
     )
 
+    vi.useRealTimers()
     await waitFor(() => {
       expect(getByTestId('count').textContent).toBe('0')
     }, { timeout: 5000 })
@@ -359,6 +370,7 @@ describe('createAutoCtx', () => {
     await waitFor(() => {
       expect(getByTestId('count').textContent).toBe('2')
     }, { timeout: 5000 })
+    vi.useFakeTimers()
   }, 10000)
 })
 
