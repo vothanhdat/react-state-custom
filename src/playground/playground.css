@@ -254,6 +254,50 @@ body {
   color: white;
 }
 
+.code-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.3);
+  padding-bottom: 0.5rem;
+}
+
+.code-tab {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border: none;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.code-tab:hover {
+  background: rgba(102, 126, 234, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.code-tab.active {
+  background: rgba(102, 126, 234, 0.3);
+  color: white;
+  font-weight: 600;
+}
+
+.code-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
 .code-block {
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   padding: 1rem 1.25rem;

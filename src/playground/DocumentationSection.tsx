@@ -1,6 +1,19 @@
-import { INSTALLATION_CODE, BASIC_USAGE_CODE } from './code-snippets'
+import { useState, useEffect } from 'react'
+import { INSTALLATION_CODE, CODE_EXAMPLES, CodeExample } from './code-snippets'
 
 export const DocumentationSection = () => {
+    const [activeTab, setActiveTab] = useState<string>('basic')
+    const activeExample = CODE_EXAMPLES.find(ex => ex.id === activeTab) || CODE_EXAMPLES[0]
+
+    // Re-highlight code when tab changes
+    useEffect(() => {
+        if (typeof window !== 'undefined' && (window as any).Prism) {
+            setTimeout(() => {
+                (window as any).Prism.highlightAll()
+            }, 50)
+        }
+    }, [activeTab])
+
     return (
         <>
             <div className="installation-section">
@@ -12,9 +25,20 @@ export const DocumentationSection = () => {
                     <pre><code className="language-bash">{INSTALLATION_CODE}</code></pre>
                 </div>
 
-                <h3 style={{ marginTop: '2rem' }}>Basic Usage</h3>
+                <h3 style={{ marginTop: '2rem' }}>Usage Examples</h3>
+                <div className="code-tabs">
+                    {CODE_EXAMPLES.map((example) => (
+                        <button
+                            key={example.id}
+                            onClick={() => setActiveTab(example.id)}
+                            className={`code-tab ${activeTab === example.id ? 'active' : ''}`}
+                        >
+                            {example.label}
+                        </button>
+                    ))}
+                </div>
                 <div className="code-block">
-                    <pre><code className="language-typescript">{BASIC_USAGE_CODE}</code></pre>
+                    <pre><code className="language-typescript">{activeExample.code}</code></pre>
                 </div>
 
                 <div className="feature-grid">
