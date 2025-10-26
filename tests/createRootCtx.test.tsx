@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import React from 'react'
 import { createRootCtx } from '../src/state-utils/createRootCtx'
 import { useDataSubscribe } from '../src/state-utils/ctx'
@@ -101,10 +101,11 @@ describe('createRootCtx', () => {
     expect(getByTestId('count').textContent).toBe('0')
 
     // Click the increment button
-    getByTestId('increment').click()
-
-    // Note: This might need async handling depending on how updates propagate
-    await new Promise(resolve => setTimeout(resolve, 10))
+    await act(async () => {
+      getByTestId('increment').click()
+      // Note: This might need async handling depending on how updates propagate
+      await new Promise(resolve => setTimeout(resolve, 10))
+    })
 
     expect(getByTestId('count').textContent).toBe('1')
   })

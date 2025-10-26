@@ -1,6 +1,6 @@
 import { debounce, memoize } from "./utils";
 import { useEffect, useMemo, useState } from "react"
-import { useArrayHash } from "./useArrayHash"
+import { useArrayChangeId } from "./useArrayChangeId"
 
 
 
@@ -262,7 +262,7 @@ export const useDataSourceMultiple = <D, T extends readonly (keyof D)[]>(
         ctx.data[key] != value && ctx.publish(key, value)
       }
     }
-  }, [ctx, useArrayHash(entries.flat())])
+  }, [ctx, useArrayChangeId(entries.flat())])
 
   useRegistryChecker(ctx, ...entries.map(e => e[0]) as any)
 

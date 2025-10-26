@@ -67,8 +67,8 @@ Tests for Auto Context system:
 - State updates after auto-mounting
 - Edge cases: Some timing and lifecycle tests need refinement
 
-#### `tests/useArrayHash.test.ts` (11 tests, 6 passing ⚠️)
-Tests for useArrayHash utility:
+#### `tests/useArrayChangeId.test.ts` (11 tests, 6 passing ⚠️)
+Tests for useArrayChangeId utility:
 - Hash generation for arrays
 - Change detection (length, elements, references)
 - Object and nested array handling
@@ -126,7 +126,7 @@ Added coverage output and vitest cache directories:
 ✅ tests/createRootCtx.test.tsx: 6 tests
 ✅ tests/useQuickSubscribe.test.ts: 11 tests (all passing)
 ⚠️ tests/createAutoCtx.test.tsx: 12 tests (7 passing, 5 edge cases)
-⚠️ tests/useArrayHash.test.ts: 11 tests (6 passing, 5 edge cases)
+⚠️ tests/useArrayChangeId.test.ts: 11 tests (6 passing, 5 edge cases)
 ```
 
 ### Test Coverage Areas
@@ -145,7 +145,7 @@ Added coverage output and vitest cache directories:
 - ✅ Auto context system (`createAutoCtx`) - 12 tests
 - ✅ AutoRootCtx component lifecycle
 - ✅ Reference counting and cleanup
-- ✅ Utility hooks (useArrayHash, useQuickSubscribe) - 22 tests
+- ✅ Utility hooks (useArrayChangeId, useQuickSubscribe) - 22 tests
 - ⚠️ Some edge cases need refinement (10 tests)
 
 **Planned (Priority: Medium)**
@@ -205,7 +205,7 @@ yarn test -t "should publish and notify"
 ## Next Steps
 
 1. **Add Auto Context Tests**: Test `createAutoCtx` and `AutoRootCtx` lifecycle
-2. **Add Utility Hook Tests**: Test `useArrayHash`, `useQuickSubscribe`, `useRefValue`
+2. **Add Utility Hook Tests**: Test `useArrayChangeId`, `useQuickSubscribe`, `useRefValue`
 3. **Add Integration Tests**: Test complex multi-context scenarios
 4. **Add Example Tests**: Ensure all examples work correctly
 5. **Set up CI**: Add GitHub Actions workflow for automated testing

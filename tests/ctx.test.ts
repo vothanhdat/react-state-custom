@@ -155,7 +155,9 @@ describe('useDataSource', () => {
   it('should publish value on mount', () => {
     const ctx = getContext('source-context')
     
-    renderHook(() => useDataSource(ctx, 'count', 42))
+    act(() => {
+      renderHook(() => useDataSource(ctx, 'count', 42))
+    })
 
     expect(ctx.data.count).toBe(42)
   })
@@ -170,7 +172,9 @@ describe('useDataSource', () => {
 
     expect(ctx.data.count).toBe(10)
 
-    rerender({ value: 20 })
+    act(() => {
+      rerender({ value: 20 })
+    })
 
     expect(ctx.data.count).toBe(20)
   })
@@ -186,7 +190,9 @@ describe('useDataSource', () => {
 
     expect(publishSpy).toHaveBeenCalledTimes(1)
 
-    rerender({ value: 5 })
+    act(() => {
+      rerender({ value: 5 })
+    })
 
     // Should still be 1 because value didn't change
     expect(publishSpy).toHaveBeenCalledTimes(1)
@@ -252,13 +258,15 @@ describe('useDataSourceMultiple', () => {
   it('should publish multiple key-value pairs', () => {
     const ctx = getContext('multi-source-context')
     
-    renderHook(() => 
-      useDataSourceMultiple(
-        ctx,
-        ['count', 10] as const,
-        ['name', 'test'] as const
+    act(() => {
+      renderHook(() => 
+        useDataSourceMultiple(
+          ctx,
+          ['count', 10] as const,
+          ['name', 'test'] as const
+        )
       )
-    )
+    })
 
     expect(ctx.data.count).toBe(10)
     expect(ctx.data.name).toBe('test')

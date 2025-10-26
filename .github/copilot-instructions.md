@@ -28,14 +28,14 @@
 - Used in demo (`src/dev.tsx`, `src/examples/`) with `react-obj-view` for rich object inspection.
 
 ## Subscription Patterns
-- `useDataSourceMultiple(ctx, ...entries)` expects stable `[key, value]` tuples; internal `useArrayHash` hashes length and reference equality only.
+- `useDataSourceMultiple(ctx, ...entries)` expects stable `[key, value]` tuples; internal `useArrayChangeId` tracks array changes via shallow comparison.
 - Use `useDataSubscribe(ctx, key, debounceMs)` or `useDataSubscribeMultiple(ctx, ...keys)` for keyed reads; debounce variants batch updates when values bounce.
 - `useDataSubscribeWithTransform` recomputes the transformed shape only on change; memoize the `transform` fn to avoid churn.
 - `useQuickSubscribe(ctx)` returns a proxy over `ctx.data`; destructure needed fields immediately during render and avoid storing the proxy for later use.
 
 ## Utilities and Gotchas
 - Value comparisons are shallow; mutate objects before republishing or provide new references so `publish` sees changes.
-- `useArrayHash`/`useObjectHash` generate random hashes when array/object shape changes; they do not deep-compare nested content.
+- `useArrayChangeId`/`useObjectHash` generate random identifiers when array/object shape changes; they do not deep-compare nested content.
 - The reserved `'auto-ctx'` namespace powers `AutoRootCtx`; do not manually reuse this context name.
 
 ## Examples

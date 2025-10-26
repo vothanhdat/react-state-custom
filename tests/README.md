@@ -48,7 +48,7 @@ yarn test:coverage
   - Error boundary wrapping
 
 - **Utility Hooks** 
-  - `useArrayHash.test.ts`
+  - `useArrayChangeId.test.ts`
   - `useQuickSubscribe.test.ts`
   - `useRefValue.test.ts`
 
@@ -170,7 +170,7 @@ yarn test:ui
 ✅ Root context creation (6 tests)
 ✅ useCtxState and useCtxStateStrict hooks
 ✅ Auto context system (12 tests - 7 passing, 5 edge cases)
-✅ useArrayHash utility (11 tests - 6 passing, 5 edge cases)
+✅ useArrayChangeId utility (11 tests - 6 passing, 5 edge cases)
 ✅ useQuickSubscribe utility (11 tests - all passing)
 ⏳ useRefValue utility (TODO)
 ⏳ Integration tests (TODO)
