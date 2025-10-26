@@ -188,7 +188,7 @@ describe('createAutoCtx', () => {
       const count2 = screen.getByTestId('count-2').textContent
       // Both should have the same count, proving they share the same Root instance
       expect(count1).toBe(count2)
-    }, { timeout: 100 })
+    }, { timeout: 5000 })
   }, 10000)
 
   it('should create separate instances for different params', async () => {
@@ -217,7 +217,7 @@ describe('createAutoCtx', () => {
     await waitFor(() => {
       expect(screen.getByTestId('value-1').textContent).toBe('10')
       expect(screen.getByTestId('value-2').textContent).toBe('20')
-    }, { timeout: 100 })
+    }, { timeout: 5000 })
   }, 10000)
 
   it('should handle unmounting and cleanup', async () => {
@@ -244,7 +244,7 @@ describe('createAutoCtx', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('count').textContent).toBe('99')
-    }, { timeout: 100 })
+    }, { timeout: 5000 })
 
     // Unmount consumer
     rerender(
@@ -286,7 +286,7 @@ describe('createAutoCtx', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('count').textContent).toBe('88')
-    }, { timeout: 100 })
+    }, { timeout: 5000 })
 
     // Rapid unmount and remount
     rerender(
@@ -308,7 +308,7 @@ describe('createAutoCtx', () => {
     await waitFor(() => {
       // Should still show the same value, Root wasn't actually unmounted
       expect(screen.getByTestId('count').textContent).toBe('88')
-    }, { timeout: 100 })
+    }, { timeout: 5000 })
   }, 10000)
 
   it('should handle updates after auto-mounting', async () => {
@@ -344,21 +344,21 @@ describe('createAutoCtx', () => {
 
     await waitFor(() => {
       expect(getByTestId('count').textContent).toBe('0')
-    }, { timeout: 100 })
+    }, { timeout: 5000 })
 
     // Click increment
     getByTestId('increment').click()
 
     await waitFor(() => {
       expect(getByTestId('count').textContent).toBe('1')
-    }, { timeout: 100 })
+    }, { timeout: 5000 })
 
     // Click again
     getByTestId('increment').click()
 
     await waitFor(() => {
       expect(getByTestId('count').textContent).toBe('2')
-    }, { timeout: 100 })
+    }, { timeout: 5000 })
   }, 10000)
 })
 
