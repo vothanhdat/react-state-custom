@@ -1,5 +1,5 @@
-import { Sandpack } from '@codesandbox/sandpack-react'
-import { useState } from 'react'
+import sdk from '@stackblitz/sdk'
+import { useState, useEffect, useRef } from 'react'
 
 
 import counterState from "../examples/counter/state.ts?raw"
@@ -98,6 +98,111 @@ const examples = {
 export const Playground = () => {
     const [activeExample, setActiveExample] = useState<keyof typeof examples>('counter')
     const example = examples[activeExample]
+    const embedRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        if (!embedRef.current) return
+
+        const project = {
+            title: example.title,
+            description: example.description,
+            template: 'node' as const,
+            files: {
+                'src/state.ts': example.state,
+                'src/view.tsx': example.view,
+                'src/App.tsx': example.app,
+                'src/dataview.tsx': devToolCode,
+                'src/main.tsx': `import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import App from './App.tsx'
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)`,
+                'index.html': `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${example.title}</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>`,
+                'package.json': JSON.stringify({
+                    name: 'react-state-custom-example',
+                    private: true,
+                    version: '0.0.0',
+                    type: 'module',
+                    scripts: {
+                        dev: 'vite',
+                        build: 'tsc && vite build',
+                        preview: 'vite preview'
+                    },
+                    dependencies: {
+                        'react': '^19.0.0',
+                        'react-dom': '^19.0.0',
+                        'react-obj-view': '^1.0.4',
+                        'react-state-custom': '^1.0.26',
+                    },
+                    devDependencies: {
+                        '@types/react': '^19.0.0',
+                        '@types/react-dom': '^19.0.0',
+                        '@vitejs/plugin-react': '^4.3.4',
+                        'typescript': '^5.6.3',
+                        'vite': '^6.0.1',
+                    }
+                }, null, 2),
+                'vite.config.ts': `import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+})`,
+                'tsconfig.json': JSON.stringify({
+                    compilerOptions: {
+                        target: 'ES2020',
+                        useDefineForClassFields: true,
+                        lib: ['ES2020', 'DOM', 'DOM.Iterable'],
+                        module: 'ESNext',
+                        skipLibCheck: true,
+                        moduleResolution: 'bundler',
+                        allowImportingTsExtensions: true,
+                        resolveJsonModule: true,
+                        isolatedModules: true,
+                        noEmit: true,
+                        jsx: 'react-jsx',
+                        strict: true,
+                        noUnusedLocals: true,
+                        noUnusedParameters: true,
+                        noFallthroughCasesInSwitch: true
+                    },
+                    include: ['src']
+                }, null, 2)
+            },
+            settings: {
+                compile: {
+                    trigger: 'auto',
+                    clearConsole: false
+                }
+            }
+        }
+
+        // Clear previous embed
+        embedRef.current.innerHTML = ''
+
+        sdk.embedProject(embedRef.current, project, {
+            openFile: 'src/App.tsx',
+            height: 600,
+            view: 'default',
+            hideNavigation: false,
+            forceEmbedLayout: true
+        })
+    }, [example, activeExample])
 
     return (
         <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
@@ -133,31 +238,7 @@ export const Playground = () => {
                 </p>
             </div>
 
-
-            <Sandpack
-                template="react-ts"
-                theme="light"
-                files={{
-                    '/state.ts': example.state,
-                    '/view.tsx': example.view,
-                    '/App.tsx': example.app,
-                    '/dataview.tsx': devToolCode,
-                }}
-                options={{
-                    showTabs: true,
-                    showLineNumbers: true,
-                    editorHeight: 600,
-                }}
-                customSetup={{
-                    dependencies: {
-                        'react': '^19.0.0',
-                        'react-dom': '^19.0.0',
-                        'react-obj-view': '^1.0.4',
-                        'react-state-custom': '^1.0.26',
-                    },
-
-                }}
-            />
+            <div ref={embedRef} style={{ height: '600px', border: '1px solid #e0e0e0', borderRadius: '4px' }} />
 
             <div style={{ marginTop: '2rem', padding: '1rem', background: '#f5f5f5', borderRadius: '4px' }}>
                 <h3>How it works:</h3>
