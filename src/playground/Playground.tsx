@@ -1,7 +1,7 @@
 import sdk from '@stackblitz/sdk'
 import { useState, useEffect, useRef } from 'react'
 
-
+// Example files
 import counterState from "../examples/counter/state.ts?raw"
 import counterView from "../examples/counter/view.tsx?raw"
 import counterApp from "../examples/counter/app.tsx?raw"
@@ -18,19 +18,14 @@ import cartState from "../examples/cart/state.ts?raw"
 import cartView from "../examples/cart/view.tsx?raw"
 import cartApp from "../examples/cart/app.tsx?raw"
 
-const devToolCode = `
-
-import { ObjectView } from "react-obj-view"
-import "react-obj-view/dist/react-obj-view.css"
-
-export const DataView: DataViewComponent = ({ name, value }) => {
-  return <ObjectView
-    {...{ name, value }}
-    expandLevel={1}
-  />
-}
-
-`
+// Shared project files
+import dataviewCode from "./files/dataview.tsx?raw"
+import mainCode from "./files/main.tsx?raw"
+import indexHtmlTemplate from "./files/index.html?raw"
+import packageJsonCode from "./files/package.json?raw"
+import viteConfigCode from "./files/vite.config.ts?raw"
+import tsconfigCode from "./files/tsconfig.json?raw"
+import stackblitzrcCode from "./files/stackblitzrc.json?raw"
 
 
 const updateImport = (code: string) => {
@@ -99,6 +94,7 @@ export const Playground = () => {
     const [activeExample, setActiveExample] = useState<keyof typeof examples>('counter')
     const example = examples[activeExample]
     const embedRef = useRef<HTMLDivElement>(null)
+    
 
     useEffect(() => {
         if (!embedRef.current) return
@@ -108,86 +104,16 @@ export const Playground = () => {
             description: example.description,
             template: 'node' as const,
             files: {
-                '.stackblitzrc': JSON.stringify({
-                    installDependencies: false,
-                    startCommand: 'pnpm install && pnpm run dev'
-                }, null, 2),
+                '.stackblitzrc': stackblitzrcCode,
                 'src/state.ts': example.state,
                 'src/view.tsx': example.view,
                 'src/App.tsx': example.app,
-                'src/dataview.tsx': devToolCode,
-                'src/main.tsx': `import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import App from './App.tsx'
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)`,
-                'index.html': `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${example.title}</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>`,
-                'package.json': JSON.stringify({
-                    name: 'react-state-custom-example',
-                    private: true,
-                    version: '0.0.0',
-                    type: 'module',
-                    scripts: {
-                        dev: 'vite',
-                        build: 'tsc && vite build',
-                        preview: 'vite preview'
-                    },
-                    dependencies: {
-                        'react': '^19.0.0',
-                        'react-dom': '^19.0.0',
-                        'react-obj-view': '^1.0.4',
-                        'react-state-custom': '^1.0.26',
-                    },
-                    devDependencies: {
-                        '@types/react': '^19.0.0',
-                        '@types/react-dom': '^19.0.0',
-                        '@vitejs/plugin-react': '^4.3.4',
-                        'typescript': '^5.6.3',
-                        'vite': '^6.0.1',
-                    },
-                    packageManager: 'pnpm@9.0.0'
-                }, null, 2),
-                'vite.config.ts': `import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-
-export default defineConfig({
-  plugins: [react()],
-})`,
-                'tsconfig.json': JSON.stringify({
-                    compilerOptions: {
-                        target: 'ES2020',
-                        useDefineForClassFields: true,
-                        lib: ['ES2020', 'DOM', 'DOM.Iterable'],
-                        module: 'ESNext',
-                        skipLibCheck: true,
-                        moduleResolution: 'bundler',
-                        allowImportingTsExtensions: true,
-                        resolveJsonModule: true,
-                        isolatedModules: true,
-                        noEmit: true,
-                        jsx: 'react-jsx',
-                        strict: true,
-                        noUnusedLocals: true,
-                        noUnusedParameters: true,
-                        noFallthroughCasesInSwitch: true
-                    },
-                    include: ['src']
-                }, null, 2)
+                'src/dataview.tsx': dataviewCode,
+                'src/main.tsx': mainCode,
+                'index.html': indexHtmlTemplate.replace('{{TITLE}}', example.title),
+                'package.json': packageJsonCode,
+                'vite.config.ts': viteConfigCode,
+                'tsconfig.json': tsconfigCode,
             },
             settings: {
                 compile: {
@@ -205,8 +131,12 @@ export default defineConfig({
             height: 600,
             view: 'default',
             hideNavigation: false,
-            forceEmbedLayout: true
+            forceEmbedLayout: true,
+            
         })
+
+
+
     }, [example, activeExample])
 
     return (
