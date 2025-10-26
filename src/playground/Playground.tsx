@@ -108,6 +108,10 @@ export const Playground = () => {
             description: example.description,
             template: 'node' as const,
             files: {
+                '.stackblitzrc': JSON.stringify({
+                    installDependencies: false,
+                    startCommand: 'pnpm install && pnpm run dev'
+                }, null, 2),
                 'src/state.ts': example.state,
                 'src/view.tsx': example.view,
                 'src/App.tsx': example.app,
@@ -155,7 +159,8 @@ createRoot(document.getElementById('root')!).render(
                         '@vitejs/plugin-react': '^4.3.4',
                         'typescript': '^5.6.3',
                         'vite': '^6.0.1',
-                    }
+                    },
+                    packageManager: 'pnpm@9.0.0'
                 }, null, 2),
                 'vite.config.ts': `import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
