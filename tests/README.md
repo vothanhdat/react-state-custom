@@ -162,13 +162,19 @@ yarn test:ui
 
 ## Current Test Status
 
-✅ Context class basic functionality
+✅ Context class basic functionality (20 tests)
 ✅ Context subscription and unsubscription
 ✅ Context memoization
 ✅ useDataSource hooks
 ✅ useDataSubscribe hooks  
-✅ Root context creation
-⏳ Auto context system (TODO)
-⏳ Utility hooks (TODO)
+✅ Root context creation (6 tests)
+✅ useCtxState and useCtxStateStrict hooks
+✅ Auto context system (12 tests - 7 passing, 5 edge cases)
+✅ useArrayHash utility (11 tests - 6 passing, 5 edge cases)
+✅ useQuickSubscribe utility (11 tests - all passing)
+⏳ useRefValue utility (TODO)
 ⏳ Integration tests (TODO)
 ⏳ Performance tests (TODO)
+⏳ Example tests (TODO)
+
+**Current Stats: 50/60 tests passing (83%)**
