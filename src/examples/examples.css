@@ -1,0 +1,201 @@
+/* Example Components Styling */
+
+.example-container {
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+}
+
+.example-container h3 {
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+}
+
+.example-container h4 {
+    font-size: 1rem;
+}
+
+/* Counter Example */
+.counter-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.counter-display {
+    min-width: 3rem;
+    text-align: center;
+    font-weight: 600;
+}
+
+/* Todo Example */
+.todo-input-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.todo-input-group input {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.todo-list {
+    list-style: none;
+    padding: 0;
+}
+
+.todo-item {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    align-items: center;
+}
+
+.todo-item input[type="checkbox"] {
+    margin: 0;
+}
+
+.todo-text {
+    flex: 1;
+}
+
+.todo-text.completed {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+.todo-item button {
+    padding: 0.25rem 0.5rem;
+    margin: 0;
+}
+
+/* Form Example */
+.form-success-message {
+    padding: 0.75rem;
+    background: var(--pico-form-element-valid-border-color, #d4edda);
+    color: var(--pico-ins-color, #155724);
+    border-radius: var(--pico-border-radius, 0.25rem);
+    margin-bottom: 1rem;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.form-error {
+    color: var(--pico-form-element-invalid-border-color, #dc3545);
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Timer Example */
+.timer-display {
+    font-size: 1.5rem;
+    font-family: var(--pico-font-family-monospace, monospace);
+    margin-bottom: 1rem;
+    text-align: center;
+    font-weight: 600;
+}
+
+.timer-controls {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+/* Cart Example */
+.cart-products {
+    margin-bottom: 1.5rem;
+}
+
+.cart-products h4 {
+    margin-bottom: 0.75rem;
+}
+
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.5rem;
+}
+
+.cart-section {
+    margin-top: 1.5rem;
+}
+
+.cart-section h4 {
+    margin-bottom: 0.75rem;
+}
+
+.cart-empty {
+    color: var(--pico-muted-color, #6c757d);
+    font-style: italic;
+}
+
+.cart-list {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 1rem;
+}
+
+.cart-item {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    align-items: center;
+}
+
+.cart-item-name {
+    flex: 1;
+}
+
+.cart-item input[type="number"] {
+    width: 4rem;
+    padding: 0.25rem;
+    margin: 0;
+}
+
+.cart-item button {
+    padding: 0.25rem 0.5rem;
+    margin: 0;
+}
+
+.cart-total {
+    border-top: 1px solid var(--pico-muted-border-color, #dee2e6);
+    padding-top: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.cart-clear {
+    width: 100%;
+}
+
+/* App descriptions */
+.example-description {
+    color: var(--pico-muted-color, #6c757d);
+    font-size: 0.8125rem;
+    margin-top: 0.5rem;
+}
+
+/* Smaller buttons in examples */
+.example-container button {
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+}
+
+.example-container input,
+.example-container select {
+    font-size: 0.875rem;
+}

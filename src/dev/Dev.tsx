@@ -45,128 +45,36 @@ export const Dev = () => {
   const example = examples[selectedExample]
 
   return (
-    <>
-      
-      <div style={{
-        minHeight: '100vh',
-        backgroundColor: '#f5f5f5',
-        padding: '20px',
-      }}>
-        <div style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
-        }}>
-          {/* Header */}
-          <header style={{
-            backgroundColor: 'white',
-            padding: '20px',
-            borderRadius: '8px',
-            marginBottom: '20px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          }}>
-            <h1 style={{
-              margin: '0 0 10px 0',
-              fontSize: '2rem',
-              fontWeight: '700',
-              color: '#333',
-            }}>
-              React State Custom
-            </h1>
-            <p style={{
-              margin: 0,
-              color: '#666',
-              fontSize: '1rem',
-            }}>
-              Interactive examples demonstrating state management patterns
-            </p>
-          </header>
+    <main className="container">
+      <header>
+        <hgroup>
+          <h1>React State Custom</h1>
+          <p>Interactive examples demonstrating state management patterns</p>
+        </hgroup>
+      </header>
 
-          {/* Example selector */}
-          <div style={{
-            backgroundColor: 'white',
-            padding: '20px',
-            borderRadius: '8px',
-            marginBottom: '20px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          }}>
-            <h2 style={{
-              margin: '0 0 15px 0',
-              fontSize: '1.25rem',
-              fontWeight: '600',
-              color: '#333',
-            }}>
-              Select Example
-            </h2>
-            <div style={{
-              display: 'flex',
-              gap: '10px',
-              flexWrap: 'wrap',
-            }}>
-              {(Object.keys(examples) as ExampleKey[]).map((key) => (
-                <button
-                  key={key}
-                  onClick={() => setSelectedExample(key)}
-                  style={{
-                    padding: '10px 20px',
-                    fontSize: '1rem',
-                    fontWeight: '500',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    backgroundColor: selectedExample === key ? '#007bff' : '#e9ecef',
-                    color: selectedExample === key ? 'white' : '#333',
-                    transition: 'all 0.2s',
-                    boxShadow: selectedExample === key ? '0 2px 4px rgba(0,123,255,0.3)' : 'none',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (selectedExample !== key) {
-                      e.currentTarget.style.backgroundColor = '#dee2e6'
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (selectedExample !== key) {
-                      e.currentTarget.style.backgroundColor = '#e9ecef'
-                    }
-                  }}
-                >
-                  {examples[key].title}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Example content */}
-          <div style={{
-            backgroundColor: 'white',
-            padding: '20px',
-            borderRadius: '8px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          }}>
-            <h2 style={{
-              margin: '0 0 10px 0',
-              fontSize: '1.5rem',
-              fontWeight: '600',
-              color: '#333',
-            }}>
-              {example.title}
-            </h2>
-            <p style={{
-              margin: '0 0 20px 0',
-              color: '#666',
-              fontSize: '0.95rem',
-              lineHeight: '1.5',
-            }}>
-              {example.description}
-            </p>
-            <div style={{
-              borderTop: '1px solid #e9ecef',
-              paddingTop: '20px',
-            }}>
-              {example.component}
-            </div>
-          </div>
+      <section>
+        <h2>Select Example</h2>
+        <div className="grid">
+          {(Object.keys(examples) as ExampleKey[]).map((key) => (
+            <button
+              key={key}
+              onClick={() => setSelectedExample(key)}
+              className={selectedExample === key ? 'contrast' : 'secondary'}
+            >
+              {examples[key].title}
+            </button>
+          ))}
         </div>
-      </div>
-    </>
+      </section>
+
+      <article>
+        <header>
+          <h2>{example.title}</h2>
+          <p>{example.description}</p>
+        </header>
+        {example.component}
+      </article>
+    </main>
   )
 }

@@ -6,6 +6,7 @@ import { Example } from './examples'
 import devToolCode from "./files/src/dev-tool.tsx?raw"
 import errorWrapperCode from "./files/src/error-wrapper.tsx?raw"
 import mainCode from "./files/src/main.tsx?raw"
+import examplesCss from "../examples/examples.css?raw"
 import indexHtmlTemplate from "./files/index.html?raw"
 import packageJsonCode from "./files/package.json?raw"
 import viteConfigCode from "./files/vite.config.ts?raw"
@@ -36,6 +37,7 @@ export const StackBlitzEditor = ({ example }: StackBlitzEditorProps) => {
                 'src/state.ts': example.state,
                 'src/view.tsx': example.view,
                 'src/App.tsx': example.app,
+                'examples.css': examplesCss,
                 'src/dev-tool.tsx': devToolCode,
                 'src/error-wrapper.tsx': errorWrapperCode,
                 'src/main.tsx': mainCode,

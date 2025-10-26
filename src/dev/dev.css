@@ -1,16 +1,24 @@
-* {
-  box-sizing: border-box;
+/* Dev UI custom styles */
+
+.container {
+    font-size: 0.9375rem;
 }
 
-body {
+.container h1 {
+    font-size: 1.75rem;
+}
+
+.container h2 {
+    font-size: 1.25rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.5rem;
+}
+
+.grid button {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-button {
-  font-family: inherit;
+  font-size: 0.875rem;
 }

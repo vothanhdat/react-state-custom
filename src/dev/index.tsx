@@ -7,6 +7,7 @@ import 'react-obj-view/dist/react-obj-view.css'
 import { DevToolContainer } from '../dev-tool/DevTool'
 import { StrictMode } from 'react'
 import { ErrorBoundary } from "react-error-boundary";
+import '../examples/examples.css'
 
 
 // Custom data view component

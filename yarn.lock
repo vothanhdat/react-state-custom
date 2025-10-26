@@ -627,6 +627,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@picocss/pico@npm:^2.1.1":
+  version: 2.1.1
+  resolution: "@picocss/pico@npm:2.1.1"
+  checksum: 10c0/7a088119538765937abd8effcfb348ea4a768101c21c4e139c28f28019dd3a47478ea0ddbff5bc1d76f10c50c98741f73f6e27ad52b1abd50a27f3840f2d330a
+  languageName: node
+  linkType: hard
+
 "@pkgjs/parseargs@npm:^0.11.0":
   version: 0.11.0
   resolution: "@pkgjs/parseargs@npm:0.11.0"
@@ -2260,6 +2267,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "react-state-custom@workspace:."
   dependencies:
+    "@picocss/pico": "npm:^2.1.1"
     "@stackblitz/sdk": "npm:^1.11.0"
     "@types/react": "npm:^19.2.2"
     "@types/react-dom": "npm:19"

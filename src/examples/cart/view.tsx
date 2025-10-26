@@ -1,43 +1,42 @@
 import { useQuickSubscribe } from '../../index'
 import { useCartCtx, PRODUCTS } from './state'
+import '../examples.css'
 
 export const CartExample = ({ userId = "user1" }: { userId?: string }) => {
     const { items, total, itemCount, addItem, removeItem, updateQuantity, clear } =
         useQuickSubscribe(useCartCtx({ userId }))
 
     return (
-        <div style={{ padding: '1rem', border: '1px solid #ccc', marginBottom: '1rem' }}>
+        <article className="example-container">
             <h3>Shopping Cart ({userId})</h3>
-            <div style={{ marginBottom: '1rem' }}>
+            <div className="cart-products">
                 <h4>Products:</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                <div className="product-grid">
                     {PRODUCTS.map(product => (
                         <button
                             key={product.id}
                             onClick={() => addItem?.(product)}
-                            style={{ padding: '0.5rem' }}
                         >
                             {product.name} - ${product.price.toFixed(2)}
                         </button>
                     ))}
                 </div>
             </div>
-            <div>
+            <div className="cart-section">
                 <h4>Cart ({itemCount ?? 0} items):</h4>
                 {(items?.length ?? 0) === 0 ? (
-                    <p style={{ color: '#666' }}>Cart is empty</p>
+                    <p className="cart-empty">Cart is empty</p>
                 ) : (
                     <>
-                        <ul style={{ listStyle: 'none', padding: 0 }}>
+                        <ul className="cart-list">
                             {items?.map(item => (
-                                <li key={item.id} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
-                                    <span style={{ flex: 1 }}>{item.name}</span>
+                                <li key={item.id} className="cart-item">
+                                    <span className="cart-item-name">{item.name}</span>
                                     <span>${item.price.toFixed(2)}</span>
                                     <input
                                         type="number"
                                         value={item.quantity}
                                         onChange={(e) => updateQuantity?.(item.id, parseInt(e.target.value) || 0)}
-                                        style={{ width: '3rem', padding: '0.25rem' }}
                                         min="0"
                                     />
                                     <span>${(item.price * item.quantity).toFixed(2)}</span>
@@ -45,17 +44,17 @@ export const CartExample = ({ userId = "user1" }: { userId?: string }) => {
                                 </li>
                             ))}
                         </ul>
-                        <div style={{ borderTop: '1px solid #ccc', paddingTop: '0.5rem', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                        <div className="cart-total">
                             <span>Total:</span>
                             <span>${total}</span>
                         </div>
-                        <button onClick={clear} style={{ marginTop: '0.5rem', width: '100%' }}>
+                        <button onClick={clear} className="cart-clear">
                             Clear Cart
                         </button>
                     </>
                 )}
             </div>
-        </div>
+        </article>
     )
 }
 

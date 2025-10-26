@@ -1,52 +1,58 @@
 import { useQuickSubscribe } from '../../index'
 import { useFormCtx } from './state'
+import '../examples.css'
 
 export const FormExample = ({ formId = "user-form" }: { formId?: string }) => {
     const { data, errors, submitted, updateField, submit, reset } = 
         useQuickSubscribe(useFormCtx({ formId }))
 
     return (
-        <div style={{ padding: '1rem', border: '1px solid #ccc', marginBottom: '1rem' }}>
+        <article className="example-container">
             <h3>Form ({formId})</h3>
             {submitted && (
-                <div style={{ padding: '0.5rem', background: '#d4edda', color: '#155724', marginBottom: '1rem' }}>
+                <div className="form-success-message">
                     Form submitted successfully!
                 </div>
             )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                    <label style={{ display: 'block', marginBottom: '0.25rem' }}>Name:</label>
+            <form onSubmit={(e) => { e.preventDefault(); submit?.(); }}>
+                <div className="form-group">
+                    <label htmlFor={`name-${formId}`}>Name:</label>
                     <input
+                        id={`name-${formId}`}
                         value={data?.name ?? ''}
                         onChange={(e) => updateField?.('name', e.target.value)}
-                        style={{ width: '100%', padding: '0.25rem' }}
+                        aria-invalid={errors?.name ? 'true' : undefined}
                     />
-                    {errors?.name && <div style={{ color: 'red', fontSize: '0.875rem' }}>{errors.name}</div>}
+                    {errors?.name && <div className="form-error">{errors.name}</div>}
                 </div>
-                <div>
-                    <label style={{ display: 'block', marginBottom: '0.25rem' }}>Email:</label>
+                <div className="form-group">
+                    <label htmlFor={`email-${formId}`}>Email:</label>
                     <input
+                        id={`email-${formId}`}
+                        type="email"
                         value={data?.email ?? ''}
                         onChange={(e) => updateField?.('email', e.target.value)}
-                        style={{ width: '100%', padding: '0.25rem' }}
+                        aria-invalid={errors?.email ? 'true' : undefined}
                     />
-                    {errors?.email && <div style={{ color: 'red', fontSize: '0.875rem' }}>{errors.email}</div>}
+                    {errors?.email && <div className="form-error">{errors.email}</div>}
                 </div>
-                <div>
-                    <label style={{ display: 'block', marginBottom: '0.25rem' }}>Age:</label>
+                <div className="form-group">
+                    <label htmlFor={`age-${formId}`}>Age:</label>
                     <input
+                        id={`age-${formId}`}
+                        type="number"
                         value={data?.age ?? ''}
                         onChange={(e) => updateField?.('age', e.target.value)}
-                        style={{ width: '100%', padding: '0.25rem' }}
+                        aria-invalid={errors?.age ? 'true' : undefined}
                     />
-                    {errors?.age && <div style={{ color: 'red', fontSize: '0.875rem' }}>{errors.age}</div>}
+                    {errors?.age && <div className="form-error">{errors.age}</div>}
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button onClick={submit}>Submit</button>
-                    <button onClick={reset}>Reset</button>
+                <div className="form-actions">
+                    <button type="submit">Submit</button>
+                    <button type="button" onClick={reset}>Reset</button>
                 </div>
-            </div>
-        </div>
+            </form>
+        </article>
     )
 }
 
