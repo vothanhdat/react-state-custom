@@ -23,19 +23,7 @@ const updateImport = (code: string) => {
 }
 
 const injectRootCtx = (code: string) => {
-    return [
-        `import { AutoRootCtx, DevToolContainer } from 'react-state-custom';`,
-        `import 'react-state-custom/dist/react-state-custom.css';`,
-        `import { DataView } from './dataview.tsx';`,
-        code
-            .replaceAll(
-                `{/* <AutoRootCtx/> */}`,
-                `<AutoRootCtx/>`
-            ).replaceAll(
-                `{/* <DevToolContainer Component={DataView} /> */}`,
-                `<DevToolContainer Component={DataView} style={{ left:"20px", bottom:"10px", right:"unset"}}/>`,
-            )
-    ].join("\n")
+   return code
 }
 
 export interface Example {
@@ -52,28 +40,28 @@ export const examples = {
         description: 'A simple counter demonstrating basic state management with increment, decrement, and reset operations.',
         state: updateImport(counterState),
         view: updateImport(counterView),
-        app: injectRootCtx(updateImport(counterApp)),
+        app: updateImport(counterApp),
     },
     todo: {
         title: 'Todo List Example',
         description: 'Multiple independent todo lists showing how contexts can be scoped by parameters.',
         state: updateImport(todoState),
         view: updateImport(todoView),
-        app: injectRootCtx(updateImport(todoApp)),
+        app: updateImport(todoApp),
     },
     form: {
         title: 'Form Example',
         description: 'Form validation example with multiple independent form instances. Shows real-time validation and error handling.',
         state: updateImport(formState),
         view: updateImport(formView),
-        app: injectRootCtx(updateImport(formApp)),
+        app: updateImport(formApp),
     },
     timer: {
         title: 'Timer Example',
         description: 'Multiple independent timers with millisecond precision demonstrating side effects.',
         state: updateImport(timerState),
         view: updateImport(timerView),
-        app: injectRootCtx(updateImport(timerApp)),
+        app: updateImport(timerApp),
     },
     cart: {
         title: 'Shopping Cart Example',

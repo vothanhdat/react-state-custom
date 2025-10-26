@@ -3,7 +3,7 @@ import { useEffect, useId, useState } from 'react'
 import { Example } from './examples'
 
 // Shared project files
-import dataviewCode from "./files/dataview.tsx?raw"
+import devToolCode from "./files/dev-tool.tsx?raw"
 import mainCode from "./files/main.tsx?raw"
 import indexHtmlTemplate from "./files/index.html?raw"
 import packageJsonCode from "./files/package.json?raw"
@@ -35,7 +35,7 @@ export const StackBlitzEditor = ({ example }: StackBlitzEditorProps) => {
                 'src/state.ts': example.state,
                 'src/view.tsx': example.view,
                 'src/App.tsx': example.app,
-                'src/dataview.tsx': dataviewCode,
+                'src/dev-tool.tsx': devToolCode,
                 'src/main.tsx': mainCode,
                 'index.html': indexHtmlTemplate.replace('{{TITLE}}', example.title),
                 'package.json': packageJsonCode,
@@ -58,7 +58,7 @@ export const StackBlitzEditor = ({ example }: StackBlitzEditorProps) => {
                 view: 'default',
                 hideNavigation: false,
                 forceEmbedLayout: true,
-                theme: "default",
+                theme: "light",
             }).then(e => {
                 setVM(e)
                 setIsLoading(false)
