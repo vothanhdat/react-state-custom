@@ -4,6 +4,7 @@ import React from 'react'
 import { createAutoCtx, AutoRootCtx } from '../src/state-utils/createAutoCtx'
 import { createRootCtx } from '../src/state-utils/createRootCtx'
 import { useDataSubscribe } from '../src/state-utils/ctx'
+import { withRealTimers } from './utils'
 
 describe('AutoRootCtx', () => {
   it('should render without crashing', () => {
@@ -183,16 +184,16 @@ describe('createAutoCtx', () => {
       </>
     )
 
-    vi.useRealTimers()
-    await waitFor(() => {
-      const count1 = screen.getByTestId('count-1').textContent
-      const count2 = screen.getByTestId('count-2').textContent
-      // Both should have the same count, proving they share the same Root instance
-      expect(count1).toBe(count2)
-      expect(count1).toBe('1') // Verify they both show 1, meaning single instance
-    }, { timeout: 5000 })
-    vi.useFakeTimers()
-  }, 10000)
+    await withRealTimers(async () => {
+      await waitFor(() => {
+        const count1 = screen.getByTestId('count-1').textContent
+        const count2 = screen.getByTestId('count-2').textContent
+        // Both should have the same count, proving they share the same Root instance
+        expect(count1).toBe(count2)
+        expect(count1).toBe('1') // Verify they both show 1, meaning single instance
+      }, { timeout: 5000 })
+    })
+  }, 5000)
 
   it('should create separate instances for different params', async () => {
     const useStore = ({ id }: { id: number }) => {
@@ -217,13 +218,13 @@ describe('createAutoCtx', () => {
       </>
     )
 
-    vi.useRealTimers()
-    await waitFor(() => {
-      expect(screen.getByTestId('value-1').textContent).toBe('10')
-      expect(screen.getByTestId('value-2').textContent).toBe('20')
-    }, { timeout: 5000 })
-    vi.useFakeTimers()
-  }, 10000)
+    await withRealTimers(async () => {
+      await waitFor(() => {
+        expect(screen.getByTestId('value-1').textContent).toBe('10')
+        expect(screen.getByTestId('value-2').textContent).toBe('20')
+      }, { timeout: 5000 })
+    })
+  }, 5000)
 
   it('should handle unmounting and cleanup', async () => {
     const useCounter = () => {
@@ -247,27 +248,27 @@ describe('createAutoCtx', () => {
       </>
     )
 
-    vi.useRealTimers()
-    await waitFor(() => {
-      expect(screen.getByTestId('count').textContent).toBe('99')
-    }, { timeout: 5000 })
+    await withRealTimers(async () => {
+      await waitFor(() => {
+        expect(screen.getByTestId('count').textContent).toBe('99')
+      }, { timeout: 5000 })
 
-    // Unmount consumer
-    rerender(
-      <>
-        <AutoRootCtx />
-        <Consumer show={false} />
-      </>
-    )
+      // Unmount consumer
+      rerender(
+        <>
+          <AutoRootCtx />
+          <Consumer show={false} />
+        </>
+      )
 
-    // Wait for cleanup delay - use real timers
-    await new Promise(resolve => setTimeout(resolve, 150))
+      // Wait for cleanup delay - use real timers
+      await new Promise(resolve => setTimeout(resolve, 150))
 
-    // Root should be cleaned up after delay
-    // Note: This is hard to test directly, but we're verifying no errors occur
-    expect(screen.queryByTestId('count')).toBeNull()
-    vi.useFakeTimers()
-  }, 10000)
+      // Root should be cleaned up after delay
+      // Note: This is hard to test directly, but we're verifying no errors occur
+      expect(screen.queryByTestId('count')).toBeNull()
+    })
+  }, 5000)
 
   it('should handle rapid mount/unmount cycles', async () => {
     const useCounter = () => {
@@ -291,35 +292,35 @@ describe('createAutoCtx', () => {
       </>
     )
 
-    vi.useRealTimers()
-    await waitFor(() => {
-      expect(screen.getByTestId('count').textContent).toBe('88')
-    }, { timeout: 5000 })
+    await withRealTimers(async () => {
+      await waitFor(() => {
+        expect(screen.getByTestId('count').textContent).toBe('88')
+      }, { timeout: 5000 })
 
-    // Rapid unmount and remount
-    rerender(
-      <>
-        <AutoRootCtx />
-        <Consumer show={false} />
-      </>
-    )
+      // Rapid unmount and remount
+      rerender(
+        <>
+          <AutoRootCtx />
+          <Consumer show={false} />
+        </>
+      )
 
-    // Wait less than unmount delay
-    await new Promise(resolve => setTimeout(resolve, 25))
+      // Wait less than unmount delay
+      await new Promise(resolve => setTimeout(resolve, 25))
 
-    rerender(
-      <>
-        <AutoRootCtx />
-        <Consumer show={true} />
-      </>
-    )
+      rerender(
+        <>
+          <AutoRootCtx />
+          <Consumer show={true} />
+        </>
+      )
 
-    await waitFor(() => {
-      // Should still show the same value, Root wasn't actually unmounted
-      expect(screen.getByTestId('count').textContent).toBe('88')
-    }, { timeout: 5000 })
-    vi.useFakeTimers()
-  }, 10000)
+      await waitFor(() => {
+        // Should still show the same value, Root wasn't actually unmounted
+        expect(screen.getByTestId('count').textContent).toBe('88')
+      }, { timeout: 5000 })
+    })
+  }, 5000)
 
   it('should handle updates after auto-mounting', async () => {
     const useCounter = () => {
@@ -352,26 +353,26 @@ describe('createAutoCtx', () => {
       </>
     )
 
-    vi.useRealTimers()
-    await waitFor(() => {
-      expect(getByTestId('count').textContent).toBe('0')
-    }, { timeout: 5000 })
+    await withRealTimers(async () => {
+      await waitFor(() => {
+        expect(getByTestId('count').textContent).toBe('0')
+      }, { timeout: 5000 })
 
-    // Click increment
-    getByTestId('increment').click()
+      // Click increment
+      getByTestId('increment').click()
 
-    await waitFor(() => {
-      expect(getByTestId('count').textContent).toBe('1')
-    }, { timeout: 5000 })
+      await waitFor(() => {
+        expect(getByTestId('count').textContent).toBe('1')
+      }, { timeout: 5000 })
 
-    // Click again
-    getByTestId('increment').click()
+      // Click again
+      getByTestId('increment').click()
 
-    await waitFor(() => {
-      expect(getByTestId('count').textContent).toBe('2')
-    }, { timeout: 5000 })
-    vi.useFakeTimers()
-  }, 10000)
+      await waitFor(() => {
+        expect(getByTestId('count').textContent).toBe('2')
+      }, { timeout: 5000 })
+    })
+  }, 5000)
 })
 
 describe('AutoRootCtx error handling', () => {

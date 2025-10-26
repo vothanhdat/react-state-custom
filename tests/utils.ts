@@ -1,4 +1,5 @@
 import { act } from '@testing-library/react'
+import { vi } from 'vitest'
 
 /**
  * Helper to wrap async operations in act()
@@ -7,6 +8,19 @@ export const actAsync = async (fn: () => Promise<void>) => {
   await act(async () => {
     await fn()
   })
+}
+
+/**
+ * Helper to run async code with real timers temporarily
+ * Useful when fake timers are active but async operations need to complete
+ */
+export const withRealTimers = async <T>(fn: () => Promise<T>): Promise<T> => {
+  vi.useRealTimers()
+  try {
+    return await fn()
+  } finally {
+    vi.useFakeTimers()
+  }
 }
 
 /**

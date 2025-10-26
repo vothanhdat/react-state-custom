@@ -6,9 +6,9 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
-    testTimeout: 10000,
-    hookTimeout: 10000,
-    teardownTimeout: 10000,
+    testTimeout: 5000,
+    hookTimeout: 5000,
+    teardownTimeout: 5000,
     watch: false,
     // Use forks pool for better Yarn PnP compatibility with ESM
     pool: 'forks',
