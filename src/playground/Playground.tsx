@@ -27,12 +27,12 @@ export const Playground = () => {
                     onExampleChange={setActiveExample}
                 />
 
-                <div className="example-info">
+                {/* <div className="example-info">
                     <h2 className="example-title">{example.title}</h2>
                     <p className="example-description">
                         {example.description}
                     </p>
-                </div>
+                </div> */}
 
                 <StackBlitzEditor example={example} />
             </div>

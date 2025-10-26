@@ -108,6 +108,7 @@ body {
   flex-wrap: wrap;
   border-bottom: 1px solid #e5e7eb;
   background: #f9fafb;
+  justify-content: center;
 }
 
 .example-button {
