@@ -4,7 +4,7 @@ import { debounce } from "../state-utils/utils"
 import { HightlightWrapper } from "./useHighlight"
 import { DataViewComponent, DataViewDefault } from "./DataViewComponent"
 import { StateLabelRender } from "./StateLabelRender"
-import "./devTool.css"
+import "./DevTool.css"
 
 const cache = getContext.cache
 

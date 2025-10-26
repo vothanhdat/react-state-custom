@@ -14,7 +14,7 @@ export {
 
 export { createRootCtx } from "./state-utils/createRootCtx"
 export { AutoRootCtx, createAutoCtx } from "./state-utils/createAutoCtx"
-export { useArrayHash } from "./state-utils/useArrayHash"
+export { useArrayChangeId } from "./state-utils/useArrayChangeId"
 
 export { useQuickSubscribe } from "./state-utils/useQuickSubscribe"
 
