@@ -1,5 +1,6 @@
 import sdk, { VM } from '@stackblitz/sdk'
 import { useState, useEffect, useId } from 'react'
+import './playground.css'
 
 // Example files
 import counterState from "../examples/counter/state.ts?raw"
@@ -52,6 +53,44 @@ const injectRootCtx = (code: string) => {
     ].join("\n")
 }
 
+// Installation code snippet
+const INSTALLATION_CODE = `# Install via npm
+npm install react-state-custom
+
+# Or with yarn
+yarn add react-state-custom`
+
+// Basic usage code snippet
+const BASIC_USAGE_CODE = `import { createRootCtx } from 'react-state-custom';
+import { useState } from 'react';
+
+// Create a root context with your custom hook
+const useCounterCtx = createRootCtx('counter', () => {
+  const [count, setCount] = useState(0);
+  return { count, setCount };
+});
+
+// Use the context in your components
+function Counter() {
+  const { count, setCount } = useCounterCtx.useCtxState();
+  return (
+    <div>
+      <h1>{count}</h1>
+      <button onClick={() => setCount(count + 1)}>Increment</button>
+    </div>
+  );
+}
+
+// Mount the Root component in your app
+function App() {
+  return (
+    <>
+      <useCounterCtx.Root />
+      <Counter />
+    </>
+  );
+}`
+
 const examples = {
     counter: {
         title: 'Counter Example',
@@ -93,10 +132,22 @@ const examples = {
 export const Playground = () => {
     const elId = useId()
     const [activeExample, setActiveExample] = useState<keyof typeof examples>('counter')
+    const [isLoading, setIsLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
     const example = examples[activeExample]
     const [vm, setVM] = useState<VM | null>(null)
 
+    // Highlight code blocks on mount and when content changes
     useEffect(() => {
+        if (typeof window !== 'undefined' && (window as any).Prism) {
+            (window as any).Prism.highlightAll()
+        }
+    }, [])
+
+    // Initialize StackBlitz once
+    useEffect(() => {
+        setIsLoading(true)
+        setError(null)
 
         const project = {
             title: "",
@@ -122,22 +173,36 @@ export const Playground = () => {
             }
         }
 
+        // Small delay to ensure DOM is ready
+        setTimeout(() => {
 
-        sdk.embedProject(elId, project, {
-            openFile: 'src/App.tsx',
-            height: 600,
-            view: 'default',
-            hideNavigation: false,
-            forceEmbedLayout: true,
-            theme: "default",
-        }).then(e => setVM(e))
+            sdk.embedProject(elId, project, {
+                openFile: 'src/App.tsx',
+                height: 600,
+                view: 'default',
+                hideNavigation: false,
+                forceEmbedLayout: true,
+                theme: "default",
+            }).then(e => {
+                setVM(e)
+                setIsLoading(false)
+            }).catch((error) => {
+                console.error('Failed to embed StackBlitz:', error)
+                setError('Failed to load interactive playground')
+                setIsLoading(false)
+            })
+        }, 100)
 
-
+        // Cleanup function is intentionally not included as StackBlitz VM should persist
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [elId])
 
+    // Update files when example changes
     useEffect(() => {
         if (vm && example) {
-            vm?.applyFsDiff({
+            setIsLoading(true)
+            setError(null)
+            vm.applyFsDiff({
                 destroy: [],
                 create: {
                     'src/state.ts': example.state,
@@ -145,58 +210,147 @@ export const Playground = () => {
                     'src/App.tsx': example.app,
                 }
             }).then(() => {
-                vm?.editor.openFile(['src/view.tsx']);
+                vm.editor.openFile(['src/view.tsx'])
+                setIsLoading(false)
+            }).catch((error) => {
+                console.error('Failed to update example:', error)
+                setError('Failed to update example')
+                setIsLoading(false)
             })
         }
     }, [vm, example])
 
     return (
-        <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
-            <h1>React State Custom - Interactive Playground</h1>
-            <p style={{ color: '#666', marginBottom: '2rem' }}>
-                Edit the code below and see the changes in real-time!
-            </p>
-
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
-                {(Object.keys(examples) as Array<keyof typeof examples>).map((key) => (
-                    <button
-                        key={key}
-                        onClick={() => setActiveExample(key)}
-                        style={{
-                            padding: '0.5rem 1rem',
-                            background: activeExample === key ? '#007bff' : '#e0e0e0',
-                            color: activeExample === key ? 'white' : 'black',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            textTransform: 'capitalize'
-                        }}
-                    >
-                        {key}
-                    </button>
-                ))}
-            </div>
-
-            <div style={{ marginBottom: '1rem' }}>
-                <h2>{example.title}</h2>
-                <p style={{ color: '#666', fontSize: '0.875rem' }}>
-                    {example.description}
+        <div className="playground-container">
+            <header className="playground-header">
+                <h1 className="playground-title">React State Custom</h1>
+                <p className="playground-subtitle">
+                    A hook-first state management library for React 19
                 </p>
-            </div>
-            <div style={{ display: 'block', width: "100vw", marginInline: "calc(50% - 50vw)" }}>
-                <div id={elId} style={{
-                    height: '600px', border: '1px solid #e0e0e0', borderRadius: '4px',
-                    width: "100vw", marginInline: "calc(50% - 50vw)", position: "relative",
-                }} />
+
+                <div className="playground-links">
+                    <a
+                        href="https://github.com/vothanhdat/react-state-custom"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="playground-link"
+                    >
+                        <svg viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                        </svg>
+                        GitHub
+                    </a>
+                    <a
+                        href="https://www.npmjs.com/package/react-state-custom"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="playground-link"
+                    >
+                        <svg viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M0 0v16h16V0H0zm13 13H8v-2H5v2H3V3h10v10z" />
+                        </svg>
+                        NPM Package
+                    </a>
+                    <a
+                        href="https://github.com/vothanhdat/react-state-custom/blob/master/API_DOCUMENTATION.md"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="playground-link"
+                    >
+                        <svg viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3.797a1.5 1.5 0 0 1 1.06.44l.707.707A.5.5 0 0 0 8.418 2.5H14.5A1.5 1.5 0 0 1 16 4v7a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 11V4a1.5 1.5 0 0 1 1-1.41V2.5zm1 .5v8.5h12V4H2z" />
+                        </svg>
+                        Documentation
+                    </a>
+                </div>
+            </header>
+
+            <div className="content-card">
+                <div className="example-selector">
+                    {(Object.keys(examples) as Array<keyof typeof examples>).map((key) => (
+                        <button
+                            key={key}
+                            onClick={() => setActiveExample(key)}
+                            className={`example-button ${activeExample === key ? 'active' : ''}`}
+                        >
+                            {key}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="example-info">
+                    <h2 className="example-title">{example.title}</h2>
+                    <p className="example-description">
+                        {example.description}
+                    </p>
+                </div>
+
+                <div className="stackblitz-container">
+                    {isLoading && (
+                        <div className="loading-skeleton">
+                            <div className="loading-spinner"></div>
+                            <div className="loading-text">Loading interactive playground...</div>
+                        </div>
+                    )}
+                    {error && (
+                        <div className="loading-skeleton" style={{ background: '#fee' }}>
+                            <div style={{ color: '#c00', fontSize: '1rem', fontWeight: 500 }}>
+                                ⚠️ {error}
+                            </div>
+                            <div style={{ color: '#666', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                                Please try refreshing the page
+                            </div>
+                        </div>
+                    )}
+                    <div>
+                        <div id={elId} className="stackblitz-wrapper" key="stackblitz-wrapper" />
+                    </div>
+                </div>
             </div>
 
-            <div style={{ marginTop: '2rem', padding: '1rem', background: '#f5f5f5', borderRadius: '4px' }}>
-                <h3>How it works:</h3>
-                <ul style={{ marginLeft: '1.5rem' }}>
-                    <li><code>createRootCtx</code> - Creates a context with a custom hook</li>
-                    <li><code>createAutoCtx</code> - Automatically manages context lifecycle</li>
-                    <li><code>useQuickSubscribe</code> - Subscribes to all context values via proxy</li>
-                    <li>Multiple instances share the same context when parameters match</li>
+            <div className="installation-section">
+                <h3>Quick Start</h3>
+                <p style={{ color: 'rgba(255, 255, 255, 0.9)', marginBottom: '1rem' }}>
+                    Install the package and start building:
+                </p>
+                <div className="code-block">
+                    <pre><code className="language-bash">{INSTALLATION_CODE}</code></pre>
+                </div>
+
+                <h3 style={{ marginTop: '2rem' }}>Basic Usage</h3>
+                <div className="code-block">
+                    <pre><code className="language-typescript">{BASIC_USAGE_CODE}</code></pre>
+                </div>
+
+                <div className="feature-grid">
+                    <div className="feature-card">
+                        <h4>🎯 Type-Safe</h4>
+                        <p>Full TypeScript support with automatic type inference</p>
+                    </div>
+                    <div className="feature-card">
+                        <h4>⚡ Performance</h4>
+                        <p>Fine-grained reactivity with selective subscriptions</p>
+                    </div>
+                    <div className="feature-card">
+                        <h4>🔧 Flexible</h4>
+                        <p>Works with any custom React hook</p>
+                    </div>
+                    <div className="feature-card">
+                        <h4>🎨 Developer Tools</h4>
+                        <p>Built-in DevTools for debugging state</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="info-section">
+                <h3>Key Concepts</h3>
+                <ul>
+                    <li><code>createRootCtx</code> - Creates a context from any custom hook</li>
+                    <li><code>createAutoCtx</code> - Automatically manages context lifecycle based on usage</li>
+                    <li><code>useQuickSubscribe</code> - Subscribe to context values via a convenient proxy</li>
+                    <li><code>useDataSource</code> / <code>useDataSourceMultiple</code> - Publish data to contexts</li>
+                    <li><code>useDataSubscribe</code> / <code>useDataSubscribeMultiple</code> - Subscribe to specific keys</li>
+                    <li>Multiple component instances automatically share state when parameters match</li>
                 </ul>
             </div>
         </div>
