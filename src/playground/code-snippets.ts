@@ -36,39 +36,51 @@ function App() {
   );
 }`
 
-// With DevTools and Error Boundary
-export const DEVTOOLS_CODE = `import { createAutoCtx, AutoRootCtx, DevToolContainer } from 'react-state-custom';
-import { ErrorBoundary } from 'react-error-boundary';
+// With DevTools
+export const DEVTOOLS_CODE = `import { AutoRootCtx, DevToolContainer } from 'react-state-custom';
 import 'react-state-custom/dist/react-state-custom.css';
-import { useState } from 'react';
-
-const useAppState = createAutoCtx(
-  createRootCtx('app', () => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(false);
-    return { user, setUser, loading, setLoading };
-  })
-);
-
-function ErrorFallback({ error, resetErrorBoundary }) {
-  return (
-    <div role="alert">
-      <p>Something went wrong:</p>
-      <pre>{error.message}</pre>
-      <button onClick={resetErrorBoundary}>Try again</button>
-    </div>
-  );
-}
 
 function App() {
   return (
-    <ErrorBoundary FallbackComponent={ErrorFallback}>
+    <>
       <AutoRootCtx />
       <DevToolContainer 
         style={{ right: '20px', bottom: '20px' }}
       />
       <YourApp />
+    </>
+  );
+}`
+
+// With Error Boundary Wrapper
+export const ERROR_WRAPPER_CODE = `import { AutoRootCtx } from 'react-state-custom';
+import { ErrorBoundary } from 'react-error-boundary';
+import 'react-state-custom/dist/react-state-custom.css';
+
+// Create a reusable error wrapper component
+const ErrorWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const fallbackRender = ({ error, resetErrorBoundary }) => (
+    <div role="alert" style={{ padding: '2em' }}>
+      <h2>Something went wrong:</h2>
+      <pre style={{ color: 'red' }}>{error.message}</pre>
+      <button onClick={resetErrorBoundary}>Try again</button>
+    </div>
+  );
+
+  return (
+    <ErrorBoundary fallbackRender={fallbackRender} onReset={() => {}}>
+      {children}
     </ErrorBoundary>
+  );
+};
+
+// Pass ErrorWrapper to AutoRootCtx to wrap all root contexts
+function App() {
+  return (
+    <>
+      <AutoRootCtx Wrapper={ErrorWrapper} />
+      <YourApp />
+    </>
   );
 }`
 
@@ -130,6 +142,7 @@ export type CodeExample = {
 
 export const CODE_EXAMPLES: CodeExample[] = [
   { id: 'basic', label: 'Basic Usage', code: BASIC_USAGE_CODE },
-  { id: 'devtools', label: 'With DevTools', code: DEVTOOLS_CODE },
+  { id: 'devtools', label: 'DevTools', code: DEVTOOLS_CODE },
+  { id: 'error', label: 'Error Boundary', code: ERROR_WRAPPER_CODE },
   { id: 'best', label: 'Best Practices', code: BEST_PRACTICES_CODE },
 ]
