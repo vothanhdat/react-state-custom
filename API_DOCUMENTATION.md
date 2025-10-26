@@ -27,7 +27,7 @@ A powerful React library for managing shared state and context with TypeScript s
    - [DevToolContainer](#devtoolcontainer)
    - [DataViewComponent](#dataviewcomponent)
 7. [Utility Hooks](#utility-hooks)
-   - [useArrayHash](#usearrayhash)
+   - [useArrayChangeId](#usearraychangeid)
    - [useQuickSubscribe](#usequicksubscribe)
 8. [Usage Patterns](#usage-patterns)
 9. [Examples](#examples)
@@ -666,31 +666,31 @@ const CustomDataView: DataViewComponent = ({ name, value }) => {
 
 ## Utility Hooks
 
-### useArrayHash
+### useArrayChangeId
 
-A custom hook that computes a stable hash for an array of values.
+A custom hook that generates a stable change identifier for an array of values. The identifier changes only when the array's contents differ from the previous call.
 
 **Type Definition:**
 ```typescript
-function useArrayHash(e: any[]): string
+function useArrayChangeId(e: any[]): string
 ```
 
 **Parameters:**
-- `e` - The input array to hash
+- `e` - The input array to track
 
 **Returns:**
-- A string hash that updates when the array changes
+- A string identifier that updates when the array changes (via shallow comparison)
 
 **Example:**
 ```typescript
 function OptimizedComponent({ items }: { items: any[] }) {
-  // Get stable hash for the array
-  const itemsHash = useArrayHash(items);
+  // Get stable change identifier for the array
+  const itemsChangeId = useArrayChangeId(items);
   
-  // Only recalculate when hash changes
+  // Only recalculate when the identifier changes
   const processedItems = useMemo(() => {
     return items.map(item => expensiveProcessing(item));
-  }, [itemsHash]);
+  }, [itemsChangeId]);
   
   return <div>{processedItems.length} items processed</div>;
 }

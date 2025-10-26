@@ -30,7 +30,11 @@
     "build:demo": "vite build --config vite.config.dev.ts",
     "dev": "vite",
     "dev:playground": "vite --config vite.config.dev.ts",
-    "test": "echo \"No tests specified\" && exit 0",
+    "test": "vitest run --config vitest.config.test.ts",
+    "test:watch": "vitest --config vitest.config.test.ts",
+    "test:ui": "vitest --ui --config vitest.config.test.ts",
+    "test:coverage": "vitest run --coverage --config vitest.config.test.ts",
+    "test:run": "vitest run --config vitest.config.test.ts",
     "preview": "vite preview --config vite.config.dev.ts",
     "prepublishOnly": "yarn build"
   },
@@ -49,10 +53,17 @@
     "react-dom": "19"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jsdom": "^27",
     "@types/react": "^19.2.2",
     "@types/react-dom": "19",
     "@vitejs/plugin-react": "^5.0.0",
+    "@vitest/coverage-v8": "^4.0.3",
+    "@vitest/ui": "^4.0.3",
     "babel-plugin-react-compiler": "^1.0.0",
+    "jsdom": "^27.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-error-boundary": "^6.0.0",
@@ -61,7 +72,8 @@
     "typescript": "^5.8.3",
     "vite": "7",
     "vite-bundle-analyzer": "^1.1.0",
-    "vite-plugin-dts": "^4.5.4"
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^4.0.3"
   },
   "packageManager": "yarn@4.6.0+sha512.5383cc12567a95f1d668fbe762dfe0075c595b4bfff433be478dbbe24e05251a8e8c3eb992a986667c1d53b6c3a9c85b8398c35a960587fbd9fa3a0915406728",
   "dependencies": {
