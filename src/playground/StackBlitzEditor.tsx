@@ -4,6 +4,7 @@ import { Example } from './examples'
 
 // Shared project files
 import devToolCode from "./files/dev-tool.tsx?raw"
+import errorWrapperCode from "./files/error-wrapper.tsx?raw"
 import mainCode from "./files/main.tsx?raw"
 import indexHtmlTemplate from "./files/index.html?raw"
 import packageJsonCode from "./files/package.json?raw"
@@ -36,6 +37,7 @@ export const StackBlitzEditor = ({ example }: StackBlitzEditorProps) => {
                 'src/view.tsx': example.view,
                 'src/App.tsx': example.app,
                 'src/dev-tool.tsx': devToolCode,
+                'src/error-wrapper.tsx': errorWrapperCode,
                 'src/main.tsx': mainCode,
                 'index.html': indexHtmlTemplate.replace('{{TITLE}}', example.title),
                 'package.json': packageJsonCode,
