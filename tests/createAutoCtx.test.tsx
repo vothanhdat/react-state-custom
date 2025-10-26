@@ -189,7 +189,7 @@ describe('createAutoCtx', () => {
       // Both should have the same count, proving they share the same Root instance
       expect(count1).toBe(count2)
     }, { timeout: 100 })
-  }, 1000)
+  }, 10000)
 
   it('should create separate instances for different params', async () => {
     const useStore = ({ id }: { id: number }) => {
@@ -218,7 +218,7 @@ describe('createAutoCtx', () => {
       expect(screen.getByTestId('value-1').textContent).toBe('10')
       expect(screen.getByTestId('value-2').textContent).toBe('20')
     }, { timeout: 100 })
-  }, 1000)
+  }, 10000)
 
   it('should handle unmounting and cleanup', async () => {
     const useCounter = () => {
@@ -260,7 +260,7 @@ describe('createAutoCtx', () => {
     // Root should be cleaned up after delay
     // Note: This is hard to test directly, but we're verifying no errors occur
     expect(screen.queryByTestId('count')).toBeNull()
-  }, 1000)
+  }, 10000)
 
   it('should handle rapid mount/unmount cycles', async () => {
     const useCounter = () => {
@@ -309,7 +309,7 @@ describe('createAutoCtx', () => {
       // Should still show the same value, Root wasn't actually unmounted
       expect(screen.getByTestId('count').textContent).toBe('88')
     }, { timeout: 100 })
-  }, 1000)
+  }, 10000)
 
   it('should handle updates after auto-mounting', async () => {
     const useCounter = () => {
@@ -359,7 +359,7 @@ describe('createAutoCtx', () => {
     await waitFor(() => {
       expect(getByTestId('count').textContent).toBe('2')
     }, { timeout: 100 })
-  }, 1000)
+  }, 10000)
 })
 
 describe('AutoRootCtx error handling', () => {

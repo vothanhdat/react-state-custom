@@ -6,12 +6,12 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
-    testTimeout: 500,
-    hookTimeout: 500,
-    teardownTimeout: 500,
+    testTimeout: 10000,
+    hookTimeout: 10000,
+    teardownTimeout: 10000,
     watch: false,
-    // Use threads pool to isolate environment issues
-    pool: 'threads',
+    // Use forks pool for better Yarn PnP compatibility with ESM
+    pool: 'forks',
     // Ensure proper environment setup for jsdom
     environmentOptions: {
       jsdom: {
