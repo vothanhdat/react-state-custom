@@ -57,6 +57,45 @@ describe('useQuickSubscribe', () => {
     })
   })
 
+  it('should avoid re-rendering for non-accessed keys', async () => {
+    const ctx = getContext('quick-selective-rerender-test') as Context<{
+      count: number
+      label: string
+    }>
+
+    act(() => {
+      ctx.publish('count', 1)
+      ctx.publish('label', 'first')
+    })
+
+    let renderCount = 0
+    const { result } = renderHook(() => {
+      renderCount++
+      const data = useQuickSubscribe(ctx)
+      return data.count
+    })
+
+    const initialRenderCount = renderCount
+
+    act(() => {
+      ctx.publish('label', 'second')
+    })
+
+    await new Promise(resolve => setTimeout(resolve, 20))
+
+    expect(renderCount).toBe(initialRenderCount)
+
+    act(() => {
+      ctx.publish('count', 2)
+    })
+
+    await waitFor(() => {
+      expect(result.current).toBe(2)
+    })
+
+    expect(renderCount).toBeGreaterThan(initialRenderCount)
+  })
+
   it('should update when accessed properties change', async () => {
     const ctx = getContext('quick-update-test') as Context<{
       count: number

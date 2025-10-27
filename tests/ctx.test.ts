@@ -252,6 +252,36 @@ describe('useDataSubscribe', () => {
       expect(result.current).toBe(3)
     }, { timeout: 200 })
   })
+
+  it('should not re-render when non-subscribed keys change', async () => {
+    const ctx = getContext('subscribe-selective-context') as Context<{ count: number; name: string }>
+    let renderCount = 0
+
+    const { result } = renderHook(() => {
+      renderCount++
+      return useDataSubscribe(ctx, 'count')
+    })
+
+    const initialRenderCount = renderCount
+
+    act(() => {
+      ctx.publish('name', 'alice')
+    })
+
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    expect(renderCount).toBe(initialRenderCount)
+
+    act(() => {
+      ctx.publish('count', 10)
+    })
+
+    await waitFor(() => {
+      expect(result.current).toBe(10)
+    })
+
+    expect(renderCount).toBeGreaterThan(initialRenderCount)
+  })
 })
 
 describe('useDataSourceMultiple', () => {
