@@ -53,7 +53,7 @@ export const AutoRootCtx: React.FC<{ Wrapper?: React.FC<any>, debugging?: boolea
   const subscribeRoot = useCallback(
     (contextName: string, useStateFn: Function, params: any, timeToCleanState = 0) => {
 
-      const recordKey = contextName + '?' + paramsToId(params)
+      const recordKey = [contextName, paramsToId(params)].filter(Boolean).join("?")
 
 
       setState(state => ({

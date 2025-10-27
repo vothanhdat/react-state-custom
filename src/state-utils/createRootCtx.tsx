@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react"
 import { useDataContext, useDataSourceMultiple, type Context } from "./ctx"
+import { paramsToId } from "./paramsToId"
 // import { debugObjTime } from "./debugObjTime"
 
 
@@ -34,13 +35,9 @@ import { useDataContext, useDataSourceMultiple, type Context } from "./ctx"
  */
 export const createRootCtx = <U extends object, V extends object>(name: string, useFn: (e: U) => V) => {
 
-  const getCtxName = (e: U) => [
-    name,
-    ...Object
-      .entries(e ?? {})
-      .sort((e, f) => e[0].localeCompare(f[0]))
-      .flat()
-  ].join("-")
+  const getCtxName = (e: U) => [name, paramsToId(e)]
+    .filter(Boolean)
+    .join("?");
 
   const ctxMountedCheck = new Set<string>()
 
