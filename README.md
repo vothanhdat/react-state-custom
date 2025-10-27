@@ -37,7 +37,7 @@ function useCounterState() {
 // 2. Create shared context (one line!)
 const { useCtxState } = createAutoCtx(createRootCtx('counter', useCounterState));
 
-// 3. Add AutoRootCtx to your app root
+// 3. Add AutoRootCtx to your app root (mount it once near the top of your tree)
 function App() {
   return (
     <>
@@ -61,6 +61,8 @@ function Counter() {
   );
 }
 ```
+
+> ℹ️ `AutoRootCtx` accepts optional `Wrapper` and `debugging` props. Pass an ErrorBoundary-like component through `Wrapper` to isolate failures, or set `debugging` to `true` to render raw state snapshots in the DOM (handy alongside React DevTools when tracking updates).
 
 **That's it!** No reducers, no actions, no providers to wrap—just hooks.
 
@@ -94,7 +96,7 @@ const { user, loading } = useDataSubscribeMultiple(ctx, 'user', 'loading');
 ```
 
 ### 3. **Automatic Context Management**
-With `AutoRootCtx`, state contexts are automatically created and destroyed as needed. No manual provider management.
+With `AutoRootCtx`, state contexts are automatically created and destroyed as needed. Mount it once near your application root, optionally providing a `Wrapper` (for error boundaries) or enabling `debugging` to render live state snapshots in the DOM—useful context when pairing with React DevTools. No manual provider management required.
 
 ### 4. **TypeScript First**
 Full type inference and type safety throughout. Your IDE knows exactly what's in your state.
@@ -288,17 +290,19 @@ function useUserState({ userId }: { userId: string }) {
   // State logic here
 }
 
-const { useCtxState: useUserState } = createAutoCtx(
+const { useCtxState: useUserCtxState } = createAutoCtx(
   createRootCtx('user', useUserState)
 );
 
 // Different instances for different users
 function UserProfile({ userId }) {
-  const ctx = useUserState({ userId }); // Automatic instance per userId
+  const ctx = useUserCtxState({ userId }); // Automatic instance per userId
   const { user } = useQuickSubscribe(ctx);
   return <div>{user?.name}</div>;
 }
 ```
+
+> Need to avoid rapid mount/unmount churn? Pass a second argument to `createAutoCtx` (for example `createAutoCtx(rootCtx, 200)`) to keep instances alive for a few extra milliseconds before disposal.
 
 ### Debounced Subscriptions
 Optimize performance for frequently changing values:
