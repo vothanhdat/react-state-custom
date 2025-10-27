@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { createAutoCtx, AutoRootCtx } from '../src/state-utils/createAutoCtx'
 import { createRootCtx } from '../src/state-utils/createRootCtx'
@@ -358,15 +358,15 @@ describe('createAutoCtx', () => {
         expect(getByTestId('count').textContent).toBe('0')
       }, { timeout: 5000 })
 
-      // Click increment
-      getByTestId('increment').click()
+      // Click increment via RTL helper so the update is wrapped in act
+      fireEvent.click(getByTestId('increment'))
 
       await waitFor(() => {
         expect(getByTestId('count').textContent).toBe('1')
       }, { timeout: 5000 })
 
       // Click again
-      getByTestId('increment').click()
+      fireEvent.click(getByTestId('increment'))
 
       await waitFor(() => {
         expect(getByTestId('count').textContent).toBe('2')
