@@ -173,4 +173,84 @@ describe('Integration scenarios', () => {
       })
     })
   })
+
+  it('allows one context to derive values from another context', async () => {
+    const useSettingsState = () => {
+      const [theme, setTheme] = React.useState<'light' | 'dark'>('light')
+      const toggleTheme = React.useCallback(() => {
+        setTheme(previous => (previous === 'light' ? 'dark' : 'light'))
+      }, [])
+
+      return { theme, toggleTheme }
+    }
+
+    const settingsRoot = createRootCtx('integration-settings', useSettingsState)
+    const settingsAuto = createAutoCtx(settingsRoot, 10)
+
+    const useSummaryState = () => {
+      const settingsCtx = settingsAuto.useCtxState({})
+      const theme = useDataSubscribe(settingsCtx, 'theme') ?? 'light'
+      return {
+        theme,
+        isDark: theme === 'dark'
+      }
+    }
+
+    const summaryRoot = createRootCtx('integration-summary', useSummaryState)
+    const summaryAuto = createAutoCtx(summaryRoot, 10)
+
+    function ThemeSummary() {
+      const ctx = summaryAuto.useCtxState({})
+      const theme = useDataSubscribe(ctx, 'theme')
+      const isDark = useDataSubscribe(ctx, 'isDark')
+
+      return (
+        <div>
+          <div data-testid="theme">{theme}</div>
+          <div data-testid="isDark">{`${isDark}`}</div>
+        </div>
+      )
+    }
+
+    function ThemeToggle() {
+      const ctx = settingsAuto.useCtxState({})
+      const theme = useDataSubscribe(ctx, 'theme')
+      const toggleTheme = useDataSubscribe(ctx, 'toggleTheme')
+
+      return (
+        <button data-testid="toggle" onClick={() => toggleTheme?.()}>
+          toggle-{theme}
+        </button>
+      )
+    }
+
+    render(
+      <>
+        <AutoRootCtx />
+        <ThemeSummary />
+        <ThemeToggle />
+      </>
+    )
+
+    await withRealTimers(async () => {
+      await waitFor(() => {
+        expect(screen.getByTestId('theme').textContent).toBe('light')
+        expect(screen.getByTestId('isDark').textContent).toBe('false')
+      })
+
+      fireEvent.click(screen.getByTestId('toggle'))
+
+      await waitFor(() => {
+        expect(screen.getByTestId('theme').textContent).toBe('dark')
+        expect(screen.getByTestId('isDark').textContent).toBe('true')
+      })
+
+      fireEvent.click(screen.getByTestId('toggle'))
+
+      await waitFor(() => {
+        expect(screen.getByTestId('theme').textContent).toBe('light')
+        expect(screen.getByTestId('isDark').textContent).toBe('false')
+      })
+    })
+  })
 })
