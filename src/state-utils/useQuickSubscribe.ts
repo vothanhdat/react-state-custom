@@ -44,7 +44,7 @@ export const useQuickSubscribe = <D>(
               allKeys.add(p as keyof D)
               return allCompareValue[p as keyof D] = target[p];
             } else {
-              throw new Error("now allow here")
+              throw new Error("useQuickSubscribe: Cannot access context data outside render phase. Destructure needed properties immediately during render.");
             }
           }
         }

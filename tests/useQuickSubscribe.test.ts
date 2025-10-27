@@ -281,6 +281,23 @@ describe('useQuickSubscribe', () => {
     }).toThrow()
   })
 
+  it('should throw when accessing context data outside render phase', async () => {
+    const ctx = getContext('quick-out-of-phase-test') as Context<{ value: number }>
+
+    act(() => {
+      ctx.publish('value', 123)
+    })
+
+    const { result } = renderHook(() => useQuickSubscribe(ctx))
+
+    await new Promise(resolve => setTimeout(resolve, 10))
+
+    expect(() => {
+      // Accessing after render should hit the guard
+      return result.current.value
+    }).toThrowError('useQuickSubscribe: Cannot access context data outside render phase. Destructure needed properties immediately during render.')
+  })
+
   it('should support destructuring in render', async () => {
     const ctx = getContext('quick-destructure-test') as Context<{
       x: number
