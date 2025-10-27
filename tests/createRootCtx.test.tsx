@@ -68,6 +68,38 @@ describe('createRootCtx', () => {
     expect(screen.getByTestId('value-b').textContent).toBe('b')
   })
 
+  it('should treat props with different key order as the same context', () => {
+    const useStore = ({ a, b }: { a: number; b: number }) => {
+      const [value] = React.useState(() => `${a}:${b}`)
+      return { value }
+    }
+
+    const { Root, useCtxState } = createRootCtx('order-ctx', useStore)
+
+    function ConsumerUnordered() {
+      const ctx = useCtxState({ b: 2, a: 1 })
+      const value = useDataSubscribe(ctx, 'value')
+      return <div data-testid="value-unordered">{value}</div>
+    }
+
+    function ConsumerOrdered() {
+      const ctx = useCtxState({ a: 1, b: 2 })
+      const value = useDataSubscribe(ctx, 'value')
+      return <div data-testid="value-ordered">{value}</div>
+    }
+
+    render(
+      <>
+        <Root a={1} b={2} />
+        <ConsumerUnordered />
+        <ConsumerOrdered />
+      </>
+    )
+
+    expect(screen.getByTestId('value-unordered').textContent).toBe('1:2')
+    expect(screen.getByTestId('value-ordered').textContent).toBe('1:2')
+  })
+
   it('should handle updates from Root', async () => {
     const useCounter = () => {
       const [count, setCount] = React.useState(0)
