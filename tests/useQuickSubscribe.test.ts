@@ -381,4 +381,36 @@ describe('useQuickSubscribe', () => {
     unmount()
     warnSpy.mockRestore()
   })
+
+  it('should re-subscribe when the provided context changes', async () => {
+    const ctxA = getContext('quick-switch-a') as Context<{ value: string }>
+    const ctxB = getContext('quick-switch-b') as Context<{ value: string }>
+
+    act(() => {
+      ctxA.publish('value', 'alpha')
+      ctxB.publish('value', 'beta')
+    })
+
+    const { result, rerender, unmount } = renderHook(
+      ({ ctx }) => {
+        const data = useQuickSubscribe(ctx)
+        return data.value
+      },
+      { initialProps: { ctx: ctxA as Context<{ value: string }> } }
+    )
+
+    expect(result.current).toBe('alpha')
+
+    act(() => {
+      ctxB.publish('value', 'beta-2')
+    })
+
+    rerender({ ctx: ctxB as Context<{ value: string }> })
+
+    await waitFor(() => {
+      expect(result.current).toBe('beta-2')
+    })
+
+    unmount()
+  })
 })

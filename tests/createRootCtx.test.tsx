@@ -143,6 +143,47 @@ describe('createRootCtx', () => {
     expect(screen.getByTestId('value-ordered').textContent).toBe('1:2')
   })
 
+  it('should update useDataSubscribe when switching to a new context', async () => {
+    const useStore = ({ id }: { id: string }) => {
+      const [value] = React.useState(id)
+      return { value }
+    }
+
+    const { Root, useCtxState } = createRootCtx('switch-ctx', useStore)
+
+    function Consumer() {
+      const [currentId, setCurrentId] = React.useState<'a' | 'b'>('a')
+      const ctx = useCtxState({ id: currentId })
+      const value = useDataSubscribe(ctx, 'value')
+
+      return (
+        <div>
+          <div data-testid="value">{value}</div>
+          <button data-testid="switch" onClick={() => setCurrentId('b')}>
+            switch
+          </button>
+        </div>
+      )
+    }
+
+    const { getByTestId } = render(
+      <>
+        <Root id="a" />
+        <Root id="b" />
+        <Consumer />
+      </>
+    )
+
+    expect(getByTestId('value').textContent).toBe('a')
+
+    await act(async () => {
+      getByTestId('switch').click()
+      await new Promise(resolve => setTimeout(resolve, 0))
+    })
+
+    expect(getByTestId('value').textContent).toBe('b')
+  })
+
   it('should handle updates from Root', async () => {
     const useCounter = () => {
       const [count, setCount] = React.useState(0)
