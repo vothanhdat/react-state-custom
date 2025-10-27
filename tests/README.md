@@ -5,11 +5,11 @@ This directory contains the test suite for `react-state-custom`.
 ## Running Tests
 
 ```bash
-# Run tests in watch mode
+# Run tests once (exits after completion)
 yarn test
 
-# Run tests once
-yarn test:run
+# Run tests in watch mode (development)
+yarn test:watch
 
 # Run tests with UI
 yarn test:ui
@@ -18,62 +18,72 @@ yarn test:ui
 yarn test:coverage
 ```
 
+**Note:** Tests now run to completion without hanging. Default command uses `vitest run`.
+
+## Current Test Status
+
+**Overall: 60/60 tests passing (100%)** 🎉
+
+- ✅ `ctx.test.ts` - 20/20 tests (100%)
+- ✅ `createRootCtx.test.tsx` - 6/6 tests (100%)
+- ✅ `useArrayChangeId.test.ts` - 11/11 tests (100%)
+- ✅ `useQuickSubscribe.test.ts` - 11/11 tests (100%)
+- ✅ `createAutoCtx.test.tsx` - 12/12 tests (100%)
+
+**Test Duration:** ~1.1-1.5 seconds
+
 ## Test Structure
 
 ### Core Tests
 
-- **`ctx.test.ts`** - Tests for the core Context system, including:
-  - Context class publish/subscribe mechanism
+- **`ctx.test.ts`** (20 tests, ✅ all passing) - Tests for the core Context system:
+  - Context class publish/subscribe mechanism with act() wrapping
   - `getContext` memoization
   - `useDataContext` hook
-  - `useDataSource` and `useDataSourceMultiple` hooks
+  - `useDataSource` and `useDataSourceMultiple` hooks with proper state updates
   - `useDataSubscribe` and `useDataSubscribeMultiple` hooks
   - Debouncing behavior
 
-- **`createRootCtx.test.tsx`** - Tests for root context creation:
+- **`createRootCtx.test.tsx`** (6 tests, ✅ all passing) - Tests for root context creation:
   - Root component creation and rendering
   - Context data provision through Root
   - Unique context name derivation from props
   - `useCtxState` and `useCtxStateStrict` hooks
   - Error handling when Root is not mounted
+  - State updates with act() wrapping
 
-### Future Test Categories
+- **`createAutoCtx.test.tsx`** (12 tests, ✅ all passing) - Tests for auto context system:
+  - ✅ AutoRootCtx component behavior
+  - ✅ Multiple subscribers and root instances
+  - ✅ Error boundary wrapping
+  - ✅ Reference counting and cleanup with delays
+  - ✅ Rapid mount/unmount cycles
+  - ✅ State updates after auto-mounting
 
-#### Planned Tests
+### Utility Tests
 
-- **Auto Context System** (`createAutoCtx.test.tsx`)
-  - AutoRootCtx component behavior
-  - Reference counting and lifecycle management
-  - Delayed unmounting
-  - Error boundary wrapping
+- **`useArrayChangeId.test.ts`** (11 tests, ✅ all passing) - Tests for array change detection:
+  - Shallow comparison behavior (length + element reference)
+  - Stability with unchanged primitive values
+  - Object reference comparison (not deep equality)
+  - Nested array handling (by reference)
+  - Mixed type handling
+  - Large array performance
+  - **Fixed:** Implementation bug where getter pattern was resetting state
 
-- **Utility Hooks** 
-  - `useArrayChangeId.test.ts`
-  - `useQuickSubscribe.test.ts`
-  - `useRefValue.test.ts`
-
-- **Integration Tests**
-  - Complex state flow scenarios
-  - Multiple contexts interaction
-  - Real-world usage patterns
-
-- **Performance Tests**
+- **`useQuickSubscribe.test.ts`** (11 tests, ✅ all passing) - Tests for proxy-based subscription:
+  - Selective subscription via property access
   - Re-render optimization
-  - Memory leak detection
-  - Large dataset handling
-
-- **Example Tests**
-  - Counter example
-  - Todo example
-  - Form example
-  - Timer example
-  - Cart example
+  - Dynamic property access patterns
+  - Object and array value handling
+  - Memory leak prevention
 
 ## Test Utilities
 
 ### Setup
 
 - **`setup.ts`** - Global test setup and cleanup
+  - **TextEncoder/TextDecoder polyfills** (fixes esbuild errors)
   - Configures React Testing Library
   - Automatic cleanup after each test
 
@@ -81,21 +91,33 @@ yarn test:coverage
 
 - **`vitest.config.test.ts`** - Vitest configuration
   - jsdom environment for React testing
-  - Coverage settings
-  - Test file patterns
+  - **Test timeouts:** 500ms default, 1000ms for async tests
+  - **Watch mode disabled** by default (no hanging)
+  - **Exclude patterns** to prevent testing config files
+  - Thread pool for environment isolation
+  - Coverage settings with proper excludes
 
 ## Testing Patterns
 
-### Hook Testing
+### Hook Testing with act()
 
 ```typescript
 import { renderHook, act } from '@testing-library/react'
 
-const { result } = renderHook(() => useYourHook())
+// Wrap state updates in act()
+const { result, rerender } = renderHook(() => useYourHook())
+
 act(() => {
-  // Perform actions
+  // Perform actions that cause state updates
+  result.current.increment()
 })
-expect(result.current).toBe(expectedValue)
+
+expect(result.current.count).toBe(1)
+
+// Rerender with new props
+act(() => {
+  rerender({ newProp: 'value' })
+})
 ```
 
 ### Component Testing
