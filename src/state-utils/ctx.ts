@@ -151,7 +151,7 @@ const useRegistryChecker = (ctx: Context<any> | undefined, ...names: string[]) =
     () => {
       if (ctx) {
         if (names.some(name => ctx.registry.has(name))) {
-          console.error(stack)
+          // console.error(stack)
         }
         names.forEach(e => ctx.registry.add(e))
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, waitFor, renderHook } from '@testing-library/react'
 import React from 'react'
 import { createRootCtx } from '../src/state-utils/createRootCtx'
 import { useDataSubscribe } from '../src/state-utils/ctx'
@@ -66,6 +66,49 @@ describe('createRootCtx', () => {
 
     expect(screen.getByTestId('value-a').textContent).toBe('a')
     expect(screen.getByTestId('value-b').textContent).toBe('b')
+  })
+
+  it('should allow useCtxState to subscribe before Root mounts', async () => {
+    const useStore = () => {
+      const [value] = React.useState('ready')
+      return { value }
+    }
+
+    const { Root, useCtxState } = createRootCtx('pre-mount-ctx', useStore)
+
+    const hook = renderHook(() => {
+      const ctx = useCtxState({})
+      return useDataSubscribe(ctx, 'value')
+    })
+
+    expect(hook.result.current).toBeUndefined()
+
+    const rootRenderer = render(<Root />)
+
+    await waitFor(() => {
+      expect(hook.result.current).toBe('ready')
+    })
+
+    rootRenderer.unmount()
+    hook.unmount()
+  })
+
+  it('should throw when mounting duplicate Roots with identical props', () => {
+    const useStore = () => {
+      const [value] = React.useState(1)
+      return { value }
+    }
+
+    const { Root } = createRootCtx('duplicate-ctx', useStore)
+
+    expect(() =>
+      render(
+        <>
+          <Root />
+          <Root />
+        </>
+      )
+    ).toThrowError('RootContext duplicate-ctx are mounted more than once')
   })
 
   it('should treat props with different key order as the same context', () => {
