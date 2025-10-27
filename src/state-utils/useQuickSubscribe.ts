@@ -46,7 +46,12 @@ export const useQuickSubscribe = <D>(
             } else {
               throw new Error("useQuickSubscribe: Cannot access context data outside render phase. Destructure needed properties immediately during render.");
             }
-          }
+          },
+          ownKeys(t) {
+            console.warn(`useQuickSubscribe: Rest object operations aren't recommended as they bypass selective subscription and may cause performance issues`);
+            return Reflect.ownKeys(t);            // unchanged behavior
+          },
+
         }
       ) as any
 

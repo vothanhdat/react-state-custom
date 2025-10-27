@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { Context, getContext } from '../src/state-utils/ctx'
 import { useQuickSubscribe } from '../src/state-utils/useQuickSubscribe'
@@ -156,6 +156,39 @@ describe('useQuickSubscribe', () => {
 
     await waitFor(() => {
       expect(result.current).toBe(3)
+    })
+  })
+
+  it('should support computed key destructuring when key changes', async () => {
+    const ctx = getContext('quick-computed-destructure-test') as Context<{
+      alpha: number
+      beta: number
+    }>
+
+    act(() => {
+      ctx.publish('alpha', 1)
+      ctx.publish('beta', 2)
+    })
+
+    const { result, rerender } = renderHook(
+      ({ key }) => {
+        const data = useQuickSubscribe(ctx)
+        const { [key]: current } = data
+        return current
+      },
+      { initialProps: { key: 'alpha' as 'alpha' | 'beta' } }
+    )
+
+    expect(result.current).toBe(1)
+
+    act(() => {
+      ctx.publish('beta', 20)
+    })
+
+    rerender({ key: 'beta' })
+
+    await waitFor(() => {
+      expect(result.current).toBe(20)
     })
   })
 
@@ -326,5 +359,26 @@ describe('useQuickSubscribe', () => {
     await waitFor(() => {
       expect(result.current.x).toBe(10)
     })
+  })
+
+  it('should warn when spreading the quick subscribe result', () => {
+    const ctx = getContext('quick-rest-warning-test') as Context<{ foo: number }>
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    act(() => {
+      ctx.publish('foo', 1)
+    })
+
+    const { unmount } = renderHook(() => {
+      const data = useQuickSubscribe(ctx)
+      return { ...data }
+    })
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      'useQuickSubscribe: Rest object operations aren\'t recommended as they bypass selective subscription and may cause performance issues'
+    )
+
+    unmount()
+    warnSpy.mockRestore()
   })
 })
