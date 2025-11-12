@@ -69,7 +69,6 @@
     "react-dom": "^19.2.0",
     "react-error-boundary": "^6.0.0",
     "react-obj-view": "^1.0.5",
-  "react-state-custom": "^1.0.28",
     "typescript": "^5.8.3",
     "vite": "7",
     "vite-bundle-analyzer": "^1.1.0",
