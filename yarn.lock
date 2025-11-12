@@ -2990,7 +2990,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-state-custom@npm:^1.0.24, react-state-custom@workspace:.":
+"react-state-custom@workspace:.":
   version: 0.0.0-use.local
   resolution: "react-state-custom@workspace:."
   dependencies:
@@ -3011,7 +3011,6 @@ __metadata:
     react-dom: "npm:^19.2.0"
     react-error-boundary: "npm:^6.0.0"
     react-obj-view: "npm:^1.0.5"
-    react-state-custom: "npm:^1.0.24"
     typescript: "npm:^5.8.3"
     vite: "npm:7"
     vite-bundle-analyzer: "npm:^1.1.0"
