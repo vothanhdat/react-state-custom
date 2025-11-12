@@ -1,13 +1,13 @@
 import { useEffect, useState, Fragment, useCallback, useMemo, Activity } from "react"
 import { useDataContext, useDataSourceMultiple, useDataSubscribe, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
-import { paramsToId } from "./paramsToId"
+import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
 
 
 
 const DebugState = ({ }) => <></>
 
-const StateRunner: React.FC<{ useStateFn: Function, params: any, debugging: boolean }> = ({ useStateFn, params, debugging }) => {
+const StateRunner: React.FC<{ useStateFn: Function, params: ParamsToIdRecord, debugging: boolean }> = ({ useStateFn, params, debugging }) => {
   const state = useStateFn(params)
   return debugging ? <DebugState {...state} /> : <></>
 }
@@ -43,7 +43,7 @@ export const AutoRootCtx: React.FC<{ Wrapper?: React.FC<any>, debugging?: boolea
 
   const [state, setState] = useState<Record<string, {
     useStateFn: Function,
-    params: any,
+    params: ParamsToIdRecord,
     // paramKey: string,
     counter: number,
     keepUntil?: number
@@ -51,7 +51,7 @@ export const AutoRootCtx: React.FC<{ Wrapper?: React.FC<any>, debugging?: boolea
 
 
   const subscribeRoot = useCallback(
-    (contextName: string, useStateFn: Function, params: any, timeToCleanState = 0) => {
+  (contextName: string, useStateFn: Function, params: ParamsToIdRecord, timeToCleanState = 0) => {
 
       const recordKey = [contextName, paramsToId(params)].filter(Boolean).join("?")
 
@@ -145,7 +145,7 @@ export const AutoRootCtx: React.FC<{ Wrapper?: React.FC<any>, debugging?: boolea
  * ```
  * AutoRootCtx will subscribe/unsubscribe instances per unique params and render the appropriate Root under the hood.
  */
-export const createAutoCtx = <U extends object, V extends object,>(
+export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<string, unknown>>(
   { useRootState, getCtxName, name }: ReturnType<typeof createRootCtx<U, V>>,
   timeToClean = 0
 ) => {

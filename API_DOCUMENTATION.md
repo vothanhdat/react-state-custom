@@ -382,6 +382,7 @@ function DevToolContainer(props: {
 ```
 
 - Togglable overlay; pass `Component` to customize how values render (defaults to JSON).
+- Docks to the bottom of the viewport and exposes resizable panes (via `@uiw/react-split`) so you can balance app viewport and inspector real estate on the fly.
 - Import `react-state-custom/dist/react-state-custom.css` to get the required styles.
 - Works best alongside `<AutoRootCtx />` so all contexts are represented.
 

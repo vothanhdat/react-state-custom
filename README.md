@@ -269,6 +269,8 @@ function App() {
 }
 ```
 
+The toggle reveals a bottom-docked inspector that now uses resizable split panes powered by `@uiw/react-split`. Drag the gutter to adjust how much space the context list or detail view occupies while keeping your application visible above.
+
 **Custom data viewer with rich object visualization:**
 ```typescript
 import { DataViewComponent } from 'react-state-custom';

@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react"
 import { useDataContext, useDataSourceMultiple, type Context } from "./ctx"
-import { paramsToId } from "./paramsToId"
+import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
 // import { debugObjTime } from "./debugObjTime"
 
 
@@ -33,7 +33,7 @@ import { paramsToId } from "./paramsToId"
  * - Prefer stable, primitive props to avoid collisions; if you need automation, pair with `createAutoCtx` and
  *   mount a single <AutoRootCtx Wrapper={ErrorBoundary} /> at the app root so you don't manually mount `Root`.
  */
-export const createRootCtx = <U extends object, V extends object>(name: string, useFn: (e: U) => V) => {
+export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<string, unknown>>(name: string, useFn: (e: U) => V) => {
 
   const getCtxName = (e: U) => [name, paramsToId(e)]
     .filter(Boolean)

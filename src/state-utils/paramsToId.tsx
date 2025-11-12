@@ -1,5 +1,6 @@
 
-
+export type ParamsToIdRecord = Record<string, string | number | bigint | boolean | null | undefined>
+export type ParamsToIdInput = ParamsToIdRecord | undefined
 
 /**
  * Converts a parameters object into a deterministic string identifier.
@@ -22,7 +23,7 @@
  * paramsToId() // Returns ""
  * ```
  */
-export const paramsToId = (params: Record<string, string | number | bigint | boolean | null | undefined> | undefined = undefined) => Object
+export const paramsToId = (params: ParamsToIdInput = undefined) => Object
   .keys(params ?? {})
   .sort()
   .map(key => {
