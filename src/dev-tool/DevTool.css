@@ -10,54 +10,37 @@
     bottom: 30px;
     right: 30px;
     transition: opacity 0.3s;
+    
 
-    &[data-active="true"] {
-        opacity: 0;
-        pointer-events: none;
-    }
 }
 
-
 .react-state-dev-container {
-
-    align-items: stretch;
-    font-size: 12px;
-    color: var(--rs-color);
-    background-color: var(--rs-bg-color);
-    border-top: solid var(--rs-color) 1px;
     position: fixed;
-    bottom: 0px;
     right: 0px;
     left: 0px;
-    opacity: 0;
+    top: 0px;
+    height: 100%;
     pointer-events: none;
-    transition: opacity 0.3s, transform 0.3s;
-    transform: translateY(100%);
-    padding: 0.5em;
-
-    &[data-active="true"] {
-        opacity: 1;
-        pointer-events: all;
-        transform: translateY(0%);
-    }
 
     .close-btn {
         position: absolute;
-        top: 0px;
+        bottom: calc(100% + 5px);
         right: 0px;
     }
+   
+}
+
+.react-state-dev-panel {
+    pointer-events: all;
+
 
     .main-panel {
         display: flex;
         flex-direction: row;
-        gap: 1em;
-        padding: 1em;
-        resize: vertical;
-        height: 350px;
-        min-height: 200px;
-        max-height: 60vh;
-        overflow: hidden;
-        justify-items: stretch;
+        gap: 0.5em;
+        padding: 0.5em;
+        align-content: stretch;
+        height: 100%;
 
         .state-list {
             max-width: 50%;
@@ -65,7 +48,6 @@
             width: 200px;
             overflow: auto;
             align-self: stretch;
-            resize: horizontal;
 
             .state-filter {
                 padding: 0.2em 0.5em;
@@ -122,8 +104,6 @@
         .state-view {
             flex: 1;
             overflow: auto;
-            border-inline-start: solid 3px #8888;
-            padding-inline-start: 1em;
         }
     }
 
@@ -133,3 +113,9 @@
     }
 }
 
+.react-state-dev-container {
+    .w-split-bar {
+        pointer-events: all;
+    }
+
+}

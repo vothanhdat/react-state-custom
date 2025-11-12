@@ -4,6 +4,7 @@ import { debounce } from "../state-utils/utils"
 import { HightlightWrapper } from "./useHighlight"
 import { DataViewComponent, DataViewDefault } from "./DataViewComponent"
 import { StateLabelRender } from "./StateLabelRender"
+import Split from "@uiw/react-split"
 import "./DevTool.css"
 
 const cache = getContext.cache
@@ -37,7 +38,7 @@ export const DevToolState: React.FC<{ Component: DataViewComponent }> = ({ Compo
     )
 
 
-    return <div className="main-panel">
+    return <Split mode="horizontal" className="main-panel">
         <div className="state-list">
             <input
                 placeholder="Type to Filter ..."
@@ -57,7 +58,7 @@ export const DevToolState: React.FC<{ Component: DataViewComponent }> = ({ Compo
         <div className="state-view" >
             <StateView dataKey={selectedKey} key={selectedKey} Component={Component} />
         </div>
-    </div>
+    </Split>
 }
 
 export const StateView: React.FC<{ dataKey: string, Component: DataViewComponent }> = ({ dataKey, Component = DataViewDefault }) => {

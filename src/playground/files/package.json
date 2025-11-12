@@ -11,7 +11,7 @@
   "dependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-obj-view": "^1.0.4",
+    "react-obj-view": "^1.0.5",
     "react-state-custom": "^1.0.27"
   },
   "devDependencies": {
