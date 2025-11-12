@@ -1168,6 +1168,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@uiw/react-split@npm:^5.9.3":
+  version: 5.9.3
+  resolution: "@uiw/react-split@npm:5.9.3"
+  peerDependencies:
+    react: ">=16.8.0"
+    react-dom: ">=16.8.0"
+  checksum: 10c0/3300dbbec68ad8759cc525de27dc37af5e8b693cb4f35896b1023461013e0563d5675ddd783b771f3207569dd16e0983a8d75c405d07d206b14a196b13d24a16
+  languageName: node
+  linkType: hard
+
 "@vitejs/plugin-react@npm:^5.0.0":
   version: 5.0.0
   resolution: "@vitejs/plugin-react@npm:5.0.0"
@@ -2961,13 +2971,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-obj-view@npm:^1.0.4":
-  version: 1.0.4
-  resolution: "react-obj-view@npm:1.0.4"
+"react-obj-view@npm:^1.0.5":
+  version: 1.0.5
+  resolution: "react-obj-view@npm:1.0.5"
+  dependencies:
+    react-virtuoso: "npm:^4.14.1"
   peerDependencies:
     react: 19
     react-dom: 19
-  checksum: 10c0/ccff2fefcb75ec5994584e9ce78d4515e7027c1ff02f78d069368965a6c5d190b08ef26373d48056bc9e358031072fd4355eed8d15ef48a402a9abab92e55348
+  checksum: 10c0/6a67d87d4e904193f27b974d05c8acceaf753aa3307f70fb5b017feb1c47a5ddc7219ca8dd837a4f1e21f5cabd2309e8a088560d2b97966a43ae711f91c4156b
   languageName: node
   linkType: hard
 
@@ -2989,6 +3001,7 @@ __metadata:
     "@types/jsdom": "npm:^27"
     "@types/react": "npm:^19.2.2"
     "@types/react-dom": "npm:19"
+    "@uiw/react-split": "npm:^5.9.3"
     "@vitejs/plugin-react": "npm:^5.0.0"
     "@vitest/coverage-v8": "npm:^4.0.3"
     "@vitest/ui": "npm:^4.0.3"
@@ -2997,7 +3010,7 @@ __metadata:
     react: "npm:^19.2.0"
     react-dom: "npm:^19.2.0"
     react-error-boundary: "npm:^6.0.0"
-    react-obj-view: "npm:^1.0.4"
+    react-obj-view: "npm:^1.0.5"
     react-state-custom: "npm:^1.0.24"
     typescript: "npm:^5.8.3"
     vite: "npm:7"
@@ -3009,6 +3022,16 @@ __metadata:
     react-dom: 19
   languageName: unknown
   linkType: soft
+
+"react-virtuoso@npm:^4.14.1":
+  version: 4.14.1
+  resolution: "react-virtuoso@npm:4.14.1"
+  peerDependencies:
+    react: ">=16 || >=17 || >= 18 || >= 19"
+    react-dom: ">=16 || >=17 || >= 18 || >=19"
+  checksum: 10c0/1a9287e787b14f670475928f87e2d482da6d295b3de379a0a66d25e5bd570b63d0c130860abd3b897d663e0aab427278adbc3511637b0eea6f2e40c1e1e40923
+  languageName: node
+  linkType: hard
 
 "react@npm:^19.2.0":
   version: 19.2.0
