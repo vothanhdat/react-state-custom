@@ -11,15 +11,15 @@ import { ErrorBoundary } from "react-error-boundary";
 
 // Custom data view component
 const DataView: DataViewComponent = ({ name, value }) => {
-    return <ObjectView {...{ name, value }} expandLevel={1} />
+    return <ObjectView {...{ name, valueGetter: () => value }} expandLevel={5} />
 }
 
 const fallbackRender = ({ error, resetErrorBoundary }: any) => {
     return (
-        <div role="alert" style={{padding:"2em"}}>
+        <div role="alert" style={{ padding: "2em" }}>
             <p>Something went wrong:</p>
-            <ObjectView value={error} expandLevel={3} />
-            <br/>
+            <ObjectView valueGetter={() => error} expandLevel={5} />
+            <br />
             <button onClick={resetErrorBoundary}>Close</button>
         </div>
     );
@@ -36,7 +36,7 @@ const ErrorWrapper: React.FC<{ children: any }> = ({ children }: any) => {
 createRoot(document.getElementById('root')!)
     .render(<>
         <StrictMode>
-            <AutoRootCtx Wrapper={ErrorWrapper} debugging={true}/>
+            <AutoRootCtx Wrapper={ErrorWrapper} debugging={true} />
             <ErrorWrapper>
                 <Dev />
             </ErrorWrapper>

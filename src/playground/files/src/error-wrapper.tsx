@@ -1,23 +1,28 @@
-import { ErrorBoundary } from "react-error-boundary";
-import { ObjectView } from "react-obj-view";
-import "react-state-custom/dist/react-state-custom.css"
-
+import { ErrorBoundary } from 'react-error-boundary';
+import { ObjectView } from 'react-obj-view';
+import 'react-state-custom/dist/react-state-custom.css';
 
 const fallbackRender = ({ error, resetErrorBoundary }: any) => {
     return (
-        <div role="alert" style={{padding:"2em"}}>
+        <div role="alert" style={{ padding: '2em' }}>
             <p>Something went wrong:</p>
-            <ObjectView value={error} expandLevel={3} />
-            <br/>
+            <ObjectView
+                valueGetter={() => error}
+                expandLevel={3}
+                nonEnumerable
+            />
+            <br />
             <button onClick={resetErrorBoundary}>Close</button>
         </div>
     );
-}
+};
 
-export const ErrorWrapper: React.FC<{ children: any }> = ({ children }: any) => {
-    return <ErrorBoundary
-        fallbackRender={fallbackRender}
-        onReset={() => { }}>
-        {children}
-    </ErrorBoundary>
-}
+export const ErrorWrapper: React.FC<{ children: any }> = ({
+    children,
+}: any) => {
+    return (
+        <ErrorBoundary fallbackRender={fallbackRender} onReset={() => { }}>
+            {children}
+        </ErrorBoundary>
+    );
+};
