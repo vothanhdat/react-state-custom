@@ -87,7 +87,7 @@ export const StackBlitzEditor = ({ example }: StackBlitzEditorProps) => {
                     'src/App.tsx': example.app,
                 }
             }).then(() => {
-                vm.editor.openFile(['src/view.tsx'])
+                vm.editor.openFile(['src/state.ts'])
                 setIsLoading(false)
             }).catch((error) => {
                 console.error('Failed to update example:', error)
