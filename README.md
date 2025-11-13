@@ -20,7 +20,52 @@ npm install react-state-custom
 
 React State Custom lets you write state management code that feels natural—because it **is** just React hooks. Use the same hooks you already know (`useState`, `useEffect`, etc.) to create powerful, shared state without learning new paradigms.
 
+### When `useState` + `useEffect` Fall Short
+
+Even though React hooks are flexible, they start to hurt once state crosses component boundaries:
+
+- **Prop drilling & manual providers** – every time state needs to be shared, you create a context, memoize values, and remember to wrap trees.
+- **Coarse-grained re-renders** – updating one property forces every subscriber of that context to render, even if they don't consume the changed field.
+- **Lifecycle bookkeeping** – you manually manage instance lifetimes, clean up effects, and guard against components mounting before providers.
+- **Zero visibility** – there's no built-in way to inspect shared state, throttle noisy updates, or keep debugging breadcrumbs.
+
+React State Custom keeps your favorite hooks but layers on automatic context lifecycles, selective subscriptions, and built-in tooling so you can stay productive as your app grows.
+
 ## ⚡ Quick Example
+
+### Without React State Custom (manual context plumbing)
+
+```typescript
+const CounterContext = createContext<{
+  count: number;
+  increment: () => void;
+  decrement: () => void;
+} | null>(null);
+
+function CounterProvider({ children }: { children: React.ReactNode }) {
+  const [count, setCount] = useState(0);
+  const value = useMemo(
+    () => ({
+      count,
+      increment: () => setCount(c => c + 1),
+      decrement: () => setCount(c => c - 1),
+    }),
+    [count]
+  );
+
+  return <CounterContext.Provider value={value}>{children}</CounterContext.Provider>;
+}
+
+function useCounter() {
+  const ctx = useContext(CounterContext);
+  if (!ctx) throw new Error('CounterProvider missing');
+  return ctx;
+}
+```
+
+Every consumer re-renders whenever anything in `value` changes, you have to remember to wrap parts of the tree with `CounterProvider`, and tearing this pattern down for parameterized instances gets messy fast.
+
+### With React State Custom (hook-first store)
 
 ```typescript
 import { createRootCtx, createAutoCtx, useQuickSubscribe, AutoRootCtx } from 'react-state-custom';
@@ -64,6 +109,8 @@ function Counter() {
 
 > ℹ️ `AutoRootCtx` accepts optional `Wrapper` and `debugging` props. Pass an ErrorBoundary-like component through `Wrapper` to isolate failures, or set `debugging` to `true` to render raw state snapshots in the DOM (handy alongside React DevTools when tracking updates).
 
+`useQuickSubscribe` keeps `Counter` focused on `count`, so even if this context grows with more fields later, the component only re-renders when `count` changes.
+
 **That's it!** No reducers, no actions, no providers to wrap—just hooks.
 
 ## 🎯 Key Features
@@ -104,18 +151,18 @@ Full type inference and type safety throughout. Your IDE knows exactly what's in
 ### 5. **Tiny Bundle Size**
 ~10KB gzipped. No dependencies except React.
 
-## 🆚 Comparison with Redux & Zustand
+## 🆚 Comparison with Hooks, Redux & Zustand
 
-| Feature | React State Custom | Redux | Zustand |
-|---------|-------------------|-------|---------|
-| **Bundle Size** | ~10KB | ~50KB (with toolkit) | ~1KB |
-| **Learning Curve** | ✅ Minimal (just hooks) | ❌ High (actions, reducers, middleware) | ✅ Low |
-| **Boilerplate** | ✅ None | ❌ Heavy | ✅ Minimal |
-| **Type Safety** | ✅ Full inference | ⚠️ Requires setup | ✅ Good |
-| **Selective Re-renders** | ✅ Built-in | ⚠️ Requires selectors | ✅ Built-in |
-| **DevTools** | ✅ Built-in UI | ✅ Redux DevTools | ✅ DevTools support |
-| **Async Support** | ✅ Native (hooks) | ⚠️ Requires middleware | ✅ Native |
-| **Context Composition** | ✅ Automatic | ❌ Manual | ⚠️ Manual store combination |
+| Feature | React State Custom | Plain Hooks (Context) | Redux | Zustand |
+|---------|-------------------|-----------------------|-------|---------|
+| **Bundle Size** | ~10KB | 0KB (just React) | ~50KB (with toolkit) | ~1KB |
+| **Learning Curve** | ✅ Minimal (just hooks) | ⚠️ Familiar APIs, but patterns are DIY | ❌ High (actions, reducers, middleware) | ✅ Low |
+| **Boilerplate** | ✅ None | ❌ Manual providers + prop drilling | ❌ Heavy | ✅ Minimal |
+| **Type Safety** | ✅ Full inference | ⚠️ Custom per-context typing | ⚠️ Requires setup | ✅ Good |
+| **Selective Re-renders** | ✅ Built-in | ❌ Context update = every consumer renders | ⚠️ Requires selectors | ✅ Built-in |
+| **DevTools** | ✅ Built-in UI | ❌ None | ✅ Redux DevTools | ✅ DevTools support |
+| **Async Support** | ✅ Native (hooks) | ✅ Native (hooks) | ⚠️ Requires middleware | ✅ Native |
+| **Context Composition** | ✅ Automatic | ❌ Manual provider trees | ❌ Manual | ⚠️ Manual store combination |
 
 ### When to Use React State Custom
 
