@@ -274,10 +274,10 @@ export const useDataSourceMultiple = <D, T extends readonly (keyof D)[]>(
  * @param keys - Keys to subscribe to.
  * @returns An object with the current values for the keys.
  */
-export const useDataSubscribeMultiple = <D, K extends (keyof D)[]>(
+export const useDataSubscribeMultiple = <D, K extends readonly (keyof D)[]>(
   ctx: Context<D> | undefined,
   ...keys: K
-): { [i in keyof K]: D[K[i]] | undefined } => {
+): { [P in K[number]]: D[P] | undefined } => {
   const [, setCounter] = useState(0)
 
   const returnValues = keys.map(key => ctx?.data?.[key])
