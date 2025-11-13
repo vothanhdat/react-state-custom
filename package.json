@@ -1,6 +1,6 @@
 {
   "name": "react-state-custom",
-  "version": "1.0.28",
+  "version": "1.0.29",
   "description": "The `react-state-custom` library provides a powerful set of tools for managing shared state in React applications",
   "type": "module",
   "main": "dist/index.umd.js",
