@@ -61,6 +61,8 @@ export const StackBlitzEditor = ({ example }: StackBlitzEditorProps) => {
                 hideNavigation: false,
                 forceEmbedLayout: true,
                 theme: "light",
+                hideExplorer: true,
+                terminalHeight: 5
             }).then(e => {
                 setVM(e)
                 setIsLoading(false)
@@ -87,7 +89,7 @@ export const StackBlitzEditor = ({ example }: StackBlitzEditorProps) => {
                     'src/App.tsx': example.app,
                 }
             }).then(() => {
-                vm.editor.openFile(['src/state.ts'])
+                vm.editor.openFile(['src/state.ts','src/view.tsx'])
                 setIsLoading(false)
             }).catch((error) => {
                 console.error('Failed to update example:', error)
