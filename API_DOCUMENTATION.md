@@ -2,6 +2,8 @@
 
 a hook-first state management toolkit for React 19 applications. Every export surfaces typed utilities for wiring headless state containers, publishing updates, and consuming them with fine-grained subscriptions.
 
+> First time here? Skim the “Quick Start (2 minutes)” section in `README.md` before diving into the API surface.
+
 🎮 **[Try the Live Demo →](https://vothanhdat.github.io/react-state-custom/)**
 
 ---
@@ -258,6 +260,8 @@ function useQuickSubscribe<D>(
 const { total, items } = useQuickSubscribe(cartCtx)
 ```
 
+> ⚠️ The proxy intentionally throws when accessed outside of render. Always destructure the fields you need synchronously during render and avoid passing the proxy to refs, effects, or callbacks.
+
 ---
 
 ## Root Context Factory
@@ -285,6 +289,7 @@ Key behaviors:
 - Context name = `name` plus serialized, sorted props (for example `user-state-userId-123`).
 - The generated `Root` publishes every key returned by `useFn` via `useDataSourceMultiple`.
 - Duplicate `Root` mounts with the same resolved name throw (stack trace captured at mount).
+- Props passed to `Root`/`useCtxState` must be primitives (string/number/boolean/bigint/null/undefined); `paramsToId` rejects objects so context IDs remain deterministic.
 - `useCtxStateStrict` throws if the `Root` is missing; `useCtxState` schedules a delayed `console.error` instead (1 s).
 
 ```tsx
@@ -384,6 +389,7 @@ function DevToolContainer(props: {
 - Togglable overlay; pass `Component` to customize how values render (defaults to JSON).
 - Docks to the bottom of the viewport and exposes resizable panes (via `@uiw/react-split`) so you can balance app viewport and inspector real estate on the fly.
 - Import `react-state-custom/dist/react-state-custom.css` to get the required styles.
+- Provide `children` to override the floating toggle button label (defaults to "Toggle Dev Tool").
 - Works best alongside `<AutoRootCtx />` so all contexts are represented.
 
 ```tsx

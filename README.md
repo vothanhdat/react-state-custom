@@ -2,7 +2,7 @@
 
 **Simple. Powerful. TypeScript-first.**
 
-A lightweight React state management library that combines the simplicity of React hooks with the power of event-driven subscriptions. No boilerplate, no complexity—just pure, performant state management.
+A lightweight global React state management library that combines the simplicity of React hooks with the power of event-driven subscriptions. No boilerplate, no complexity—just pure, performant state management.
 
 [![Demo](https://img.shields.io/badge/Demo-Live-blue?style=flat-square)](https://vothanhdat.github.io/react-state-custom/)
 [![npm version](https://img.shields.io/npm/v/react-state-custom?style=flat-square)](https://www.npmjs.com/package/react-state-custom)
@@ -14,11 +14,55 @@ npm install react-state-custom
 
 🎮 **[Try the Live Demo →](https://vothanhdat.github.io/react-state-custom/)**
 
+## Quick Start (2 minutes)
+
+If you already know how to write a component with `useState`, you're moments away from sharing that state everywhere.
+
+1. **Write a plain hook** – encapuslate data fetching, derived values, and actions inside a normal React hook.
+2. **Create a root context** – `createRootCtx('feature', useFeatureState)` publishes the hook output into a context namespace.
+3. **Let AutoRoot manage lifecycles** – `createAutoCtx(rootCtx, 150)` registers the store with `<AutoRootCtx />` and (optionally) keeps it alive for a short grace period after the last subscriber unmounts.
+4. **Mount `<AutoRootCtx />` once** – drop it near the top of your tree (wrap it with your own `ErrorBoundary` if desired).
+5. **Consume anywhere** – call the generated `useCtxState` hook and destructure data via `useQuickSubscribe` or any `useDataSubscribe*` helper.
+
+```tsx
+const useFeatureState = ({ featureId }: { featureId: string }) => {
+  const [value, setValue] = useState(0)
+  const double = useMemo(() => value * 2, [value])
+  return { value, double, increment: () => setValue(v => v + 1) }
+}
+
+const featureRoot = createRootCtx('feature', useFeatureState)
+export const { useCtxState: useFeatureCtx } = createAutoCtx(featureRoot, 250)
+
+function AppShell() {
+  return (
+    <>
+      <AutoRootCtx Wrapper={ErrorBoundary} debugging={import.meta.env.DEV} />
+      <Routes />
+    </>
+  )
+}
+
+function FeatureMeter({ featureId }: { featureId: string }) {
+  const ctx = useFeatureCtx({ featureId })
+  const { value, double, increment } = useQuickSubscribe(ctx)
+  return (
+    <section>
+      <strong>{value}</strong>
+      <em>{double}</em>
+      <button onClick={increment}>Add</button>
+    </section>
+  )
+}
+```
+
+That’s the entire workflow—no reducers, actions, or provider trees.
+
 ## Why React State Custom?
 
 **Zero Boilerplate** • **Type-Safe** • **Selective Re-renders** • **Hook-Based** • **~10KB Bundle**
 
-React State Custom lets you write state management code that feels natural—because it **is** just React hooks. Use the same hooks you already know (`useState`, `useEffect`, etc.) to create powerful, shared state without learning new paradigms.
+React State Custom lets you write state management code that feels natural—because it **is** just React hooks. Use the same hooks you already know (`useState`, `useEffect`, etc.) to create powerful, shared global state without learning new paradigms.
 
 ### When `useState` + `useEffect` Fall Short
 
@@ -113,6 +157,45 @@ function Counter() {
 
 **That's it!** No reducers, no actions, no providers to wrap—just hooks.
 
+## Core Concepts in Plain English
+
+- **Contexts on demand** – `Context` extends `EventTarget`, so every state update is just an event dispatch. `getContext` memoizes instances per name and `useDataContext` automatically bumps a counter so unused contexts self-evict shortly after the last consumer unmounts.
+- **Publishers** – `useDataSource` and `useDataSourceMultiple` publish inside effects to keep renders pure. A registry guards against duplicate publishers fighting over the same key so you get actionable errors instead of stale data.
+- **Subscribers** – `useDataSubscribe*` hooks cover single, multiple, debounced, and transformed reads. `useQuickSubscribe` proxies the backing data object so each component subscribes only to the properties it touches.
+- **Root factories** – `createRootCtx` runs your headless hook exactly once per parameter set, publishes every returned key, and throws if two roots try to mount with the same resolved name. Parameters are serialized via `paramsToId`, so stick to primitive props (string/number/boolean/bigint/null/undefined) to keep IDs deterministic.
+- **Auto orchestration** – Mount `<AutoRootCtx />` once and wire each root through `createAutoCtx`. The auto root listens for subscription requests, mounts/destroys the corresponding root on demand, and optionally keeps them alive for a configurable `timeToClean` window to smooth thrashing.
+- **Dev tooling** – `DevToolContainer` watches the memoized context cache, flashes updates in place, and lets you plug in custom renderers so you can diff state right beside your UI.
+
+## Core Building Blocks (copy & paste ready)
+
+Familiarity beats theory, so here are the primitives you’ll reach for most often:
+
+### 1. Context – event-driven store
+```typescript
+const ctx = useDataContext<MyState>('my-state');
+```
+
+### 2. Data source – publish values
+```typescript
+useDataSource(ctx, 'count', count);
+```
+
+### 3. Subscribers – pick exact fields
+```typescript
+const count = useDataSubscribe(ctx, 'count');
+const { count, name } = useDataSubscribeMultiple(ctx, 'count', 'name');
+```
+
+### 4. Root context – run your hook once
+```typescript
+const { Root, useCtxState } = createRootCtx('my-state', useMyState);
+```
+
+### 5. Auto context – mount roots for you
+```typescript
+const { useCtxState } = createAutoCtx(rootContext);
+```
+
 ## 🎯 Key Features
 
 ### 1. **Just React Hooks**
@@ -141,6 +224,8 @@ const { user } = useDataSubscribeMultiple(ctx, 'user');
 // Or subscribe to multiple fields
 const { user, loading } = useDataSubscribeMultiple(ctx, 'user', 'loading');
 ```
+
+> ⚠️ `useQuickSubscribe` proxies are only readable during render. Destructure the properties you need immediately and avoid storing the proxy in refs, effects, or callbacks.
 
 ### 3. **Automatic Context Management**
 With `AutoRootCtx`, state contexts are automatically created and destroyed as needed. Mount it once near your application root, optionally providing a `Wrapper` (for error boundaries) or enabling `debugging` to render live state snapshots in the DOM—useful context when pairing with React DevTools. No manual provider management required.
@@ -268,35 +353,9 @@ function ProtectedRoute({ children }) {
 // React State Custom: just write a hook! ✨
 ```
 
-## 📚 Core Concepts
-
-### 1. **Context** - Event-driven state container
-```typescript
-const ctx = useDataContext<MyState>('my-state');
-```
-
-### 2. **Data Source** - Publish values to context
-```typescript
-useDataSource(ctx, 'count', count);
-```
-
-### 3. **Data Subscription** - Subscribe to specific values
-```typescript
-const count = useDataSubscribe(ctx, 'count');
-const { count, name } = useDataSubscribeMultiple(ctx, 'count', 'name');
-```
-
-### 4. **Root Context** - Lifecycle-managed context
-```typescript
-const { Root, useCtxState } = createRootCtx('my-state', useMyState);
-```
-
-### 5. **Auto Context** - Automatic instance management
-```typescript
-const { useCtxState } = createAutoCtx(rootContext);
-```
-
 ## 🚀 Advanced Features
+
+Once you have a store running, layer in these power-ups as needed.
 
 ### Developer Tools
 Visual debugging component to inspect all your context data in real-time:
@@ -331,6 +390,8 @@ const CustomDataView: DataViewComponent = ({ name, value }) => {
 <DevToolContainer Component={CustomDataView} />
 ```
 
+Pass `children` to `DevToolContainer` to customize the floating toggle button label (for example `<DevToolContainer>State Inspector</DevToolContainer>`), and import `react-state-custom/dist/react-state-custom.css` once to pick up the overlay styles.
+
 ### Parameterized Contexts
 Create multiple instances of the same state with different parameters:
 
@@ -352,6 +413,8 @@ function UserProfile({ userId }) {
 ```
 
 > Need to avoid rapid mount/unmount churn? Pass a second argument to `createAutoCtx` (for example `createAutoCtx(rootCtx, 200)`) to keep instances alive for a few extra milliseconds before disposal.
+
+> ⚠️ The props you pass to `createRootCtx`/`useCtxState` must be composed of primitive values (string, number, boolean, bigint, null, or undefined). Objects are rejected so context names stay deterministic—pass IDs instead of raw objects.
 
 ### Debounced Subscriptions
 Optimize performance for frequently changing values:
@@ -429,10 +492,10 @@ yarn preview
 
 ## 🎓 Learning Path
 
-1. **Start Simple** - Use `createRootCtx` + `createAutoCtx` for basic state
-2. **Add Subscriptions** - Use `useDataSubscribeMultiple` for selective re-renders
-3. **Optimize** - Add debouncing and transformations as needed
-4. **Scale** - Create parameterized contexts for dynamic instances
+1. **Follow the Quick Start** – build one shared store end-to-end.
+2. **Layer on subscriptions** – swap `useQuickSubscribe` for the more specific `useDataSubscribe*` hooks where it makes sense.
+3. **Optimize when needed** – introduce debounced/transform subscriptions and `createAutoCtx` grace periods to smooth noisy stores.
+4. **Scale up** – add parameterized contexts (one store per ID) and wire the DevTool overlay for visibility.
 
 ## 📦 Installation
 
