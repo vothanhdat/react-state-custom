@@ -6,8 +6,12 @@ import "react-obj-view/dist/react-obj-view.css"
 
 const DataView: DataViewComponent = ({ name, value }) => {
   return <ObjectView
-    {...{ name, valueGetter: () => value, expandLevel: 5 }}
-    expandLevel={1}
+    valueGetter={() => value}
+    expandLevel={5}
+    name={name}
+    showLineNumbers
+    // nonEnumerable
+    includeSymbols
   />
 }
 

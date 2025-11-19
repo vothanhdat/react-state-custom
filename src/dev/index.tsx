@@ -9,9 +9,15 @@ import { StrictMode } from 'react'
 import { ErrorBoundary } from "react-error-boundary";
 
 
-// Custom data view component
 const DataView: DataViewComponent = ({ name, value }) => {
-    return <ObjectView {...{ name, valueGetter: () => value }} expandLevel={5} />
+    return <ObjectView
+        valueGetter={() => value}
+        expandLevel={5}
+        name={name}
+        showLineNumbers
+        // nonEnumerable
+        includeSymbols
+    />
 }
 
 const fallbackRender = ({ error, resetErrorBoundary }: any) => {

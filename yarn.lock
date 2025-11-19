@@ -2971,15 +2971,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-obj-view@npm:^1.0.5":
-  version: 1.0.5
-  resolution: "react-obj-view@npm:1.0.5"
-  dependencies:
-    react-virtuoso: "npm:^4.14.1"
+"react-obj-view@npm:^1.1.1":
+  version: 1.1.1
+  resolution: "react-obj-view@npm:1.1.1"
   peerDependencies:
     react: 19
     react-dom: 19
-  checksum: 10c0/6a67d87d4e904193f27b974d05c8acceaf753aa3307f70fb5b017feb1c47a5ddc7219ca8dd837a4f1e21f5cabd2309e8a088560d2b97966a43ae711f91c4156b
+  checksum: 10c0/19d239e5a7517e9a69c307649806237baa11c5da5880b8fb87512b867068f29d5d693755ac840568c7fcb133b1f190bc13ded04890f2522c7e9525e45b0d807c
   languageName: node
   linkType: hard
 
@@ -3010,7 +3008,7 @@ __metadata:
     react: "npm:^19.2.0"
     react-dom: "npm:^19.2.0"
     react-error-boundary: "npm:^6.0.0"
-    react-obj-view: "npm:^1.0.5"
+    react-obj-view: "npm:^1.1.1"
     typescript: "npm:^5.8.3"
     vite: "npm:7"
     vite-bundle-analyzer: "npm:^1.1.0"
@@ -3021,16 +3019,6 @@ __metadata:
     react-dom: 19
   languageName: unknown
   linkType: soft
-
-"react-virtuoso@npm:^4.14.1":
-  version: 4.14.1
-  resolution: "react-virtuoso@npm:4.14.1"
-  peerDependencies:
-    react: ">=16 || >=17 || >= 18 || >= 19"
-    react-dom: ">=16 || >=17 || >= 18 || >=19"
-  checksum: 10c0/1a9287e787b14f670475928f87e2d482da6d295b3de379a0a66d25e5bd570b63d0c130860abd3b897d663e0aab427278adbc3511637b0eea6f2e40c1e1e40923
-  languageName: node
-  linkType: hard
 
 "react@npm:^19.2.0":
   version: 19.2.0

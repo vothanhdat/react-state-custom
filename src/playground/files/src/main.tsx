@@ -10,7 +10,9 @@ import { ErrorWrapper } from './error-wrapper.tsx'
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AutoRootCtx Wrapper={ErrorWrapper}/>
-    <App />
-    <DevToolToggleBtn />
+    <ErrorWrapper>
+      <App />
+      <DevToolToggleBtn />
+    </ErrorWrapper>
   </StrictMode>,
 )
