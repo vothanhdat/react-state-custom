@@ -432,3 +432,107 @@ describe('AutoRootCtx error handling', () => {
     }
   })
 })
+
+describe('createAutoCtx with AttatchedComponent', () => {
+  it('should render AttatchedComponent alongside the state runner', async () => {
+    const useCounter = () => {
+      const [count] = React.useState(42)
+      return { count }
+    }
+
+    const rootCtx = createRootCtx('attached-test', useCounter)
+    
+    const AttatchedComponent: React.FC<{}> = () => {
+      return <div data-testid="attached">Attached Component Rendered</div>
+    }
+    
+    const autoCtx = createAutoCtx(rootCtx, 0, AttatchedComponent)
+
+    function Consumer() {
+      const ctx = autoCtx.useCtxState({})
+      const count = useDataSubscribe(ctx, 'count')
+      return <div data-testid="count">{count}</div>
+    }
+
+    render(
+      <>
+        <AutoRootCtx />
+        <Consumer />
+      </>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('count').textContent).toBe('42')
+      expect(screen.getByTestId('attached').textContent).toBe('Attached Component Rendered')
+    })
+  })
+
+  it('should pass params to AttatchedComponent', async () => {
+    const useStore = ({ id }: { id: string }) => {
+      const [value] = React.useState(`value-${id}`)
+      return { value }
+    }
+
+    const rootCtx = createRootCtx('attached-params-test', useStore)
+    
+    const AttatchedComponent: React.FC<{ id: string }> = ({ id }) => {
+      return <div data-testid={`attached-${id}`}>ID: {id}</div>
+    }
+    
+    const autoCtx = createAutoCtx(rootCtx, 0, AttatchedComponent)
+
+    function Consumer({ id }: { id: string }) {
+      const ctx = autoCtx.useCtxState({ id })
+      const value = useDataSubscribe(ctx, 'value')
+      return <div data-testid={`value-${id}`}>{value}</div>
+    }
+
+    render(
+      <>
+        <AutoRootCtx />
+        <Consumer id="test-id" />
+      </>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('value-test-id').textContent).toBe('value-test-id')
+      expect(screen.getByTestId('attached-test-id').textContent).toBe('ID: test-id')
+    })
+  })
+
+  it('should render multiple AttatchedComponents for different params', async () => {
+    const useStore = ({ id }: { id: string }) => {
+      const [value] = React.useState(`value-${id}`)
+      return { value }
+    }
+
+    const rootCtx = createRootCtx('attached-multi-test', useStore)
+    
+    const AttatchedComponent: React.FC<{ id: string }> = ({ id }) => {
+      return <div data-testid={`attached-${id}`}>Attached: {id}</div>
+    }
+    
+    const autoCtx = createAutoCtx(rootCtx, 0, AttatchedComponent)
+
+    function Consumer({ id }: { id: string }) {
+      const ctx = autoCtx.useCtxState({ id })
+      const value = useDataSubscribe(ctx, 'value')
+      return <div data-testid={`value-${id}`}>{value}</div>
+    }
+
+    render(
+      <>
+        <AutoRootCtx />
+        <Consumer id="a" />
+        <Consumer id="b" />
+      </>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('value-a').textContent).toBe('value-a')
+      expect(screen.getByTestId('value-b').textContent).toBe('value-b')
+      expect(screen.getByTestId('attached-a').textContent).toBe('Attached: a')
+      expect(screen.getByTestId('attached-b').textContent).toBe('Attached: b')
+    })
+  })
+})

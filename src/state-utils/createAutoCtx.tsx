@@ -43,6 +43,7 @@ export const AutoRootCtx: React.FC<{ Wrapper?: React.FC<any>, debugging?: boolea
 
   const [state, setState] = useState<Record<string, {
     useStateFn: Function,
+    AttatchedComponent: React.FC<any> | undefined
     params: ParamsToIdRecord,
     // paramKey: string,
     counter: number,
@@ -51,7 +52,7 @@ export const AutoRootCtx: React.FC<{ Wrapper?: React.FC<any>, debugging?: boolea
 
 
   const subscribeRoot = useCallback(
-  (contextName: string, useStateFn: Function, params: ParamsToIdRecord, timeToCleanState = 0) => {
+    (contextName: string, useStateFn: Function, params: ParamsToIdRecord, timeToCleanState = 0, AttatchedComponent = undefined) => {
 
       const recordKey = [contextName, paramsToId(params)].filter(Boolean).join("?")
 
@@ -59,10 +60,11 @@ export const AutoRootCtx: React.FC<{ Wrapper?: React.FC<any>, debugging?: boolea
       setState(state => ({
         ...state,
         [recordKey]: {
-          ...state[recordKey] ?? { useStateFn, params },
+          ...state[recordKey] ?? { useStateFn, params, AttatchedComponent },
           counter: (state[recordKey]?.counter ?? 0) + 1,
           keepUntil: undefined,
           useStateFn,
+          AttatchedComponent,
         }
       }))
 
@@ -114,8 +116,9 @@ export const AutoRootCtx: React.FC<{ Wrapper?: React.FC<any>, debugging?: boolea
     {Object
       .entries(state)
       .filter(([, { counter, keepUntil = 0 }]) => counter > 0 || keepUntil >= Date.now())
-      .map(([key, { useStateFn, params }]) => <Wrapper key={key}>
+      .map(([key, { useStateFn, params, AttatchedComponent }]) => <Wrapper key={key}>
         <StateRunner key={key} params={params} useStateFn={useStateFn} debugging={debugging} />
+        {AttatchedComponent && <AttatchedComponent key={'attatch_' + key} {...params} />}
       </Wrapper>)}
   </>
 
@@ -147,7 +150,8 @@ export const AutoRootCtx: React.FC<{ Wrapper?: React.FC<any>, debugging?: boolea
  */
 export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<string, unknown>>(
   { useRootState, getCtxName, name }: ReturnType<typeof createRootCtx<U, V>>,
-  timeToClean = 0
+  timeToClean = 0,
+  AttatchedComponent: React.FC<U> | undefined = undefined
 ) => {
 
   return {
@@ -159,8 +163,8 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
       const subscribe = useDataSubscribe(useDataContext<any>("auto-ctx"), "subscribe")
 
       useEffect(
-        () => subscribe?.(name, useRootState, e, timeToClean),
-        [useRootState, subscribe, name, ctxName, timeToClean]
+        () => subscribe?.(name, useRootState, e, timeToClean, AttatchedComponent),
+        [useRootState, subscribe, name, ctxName, timeToClean, AttatchedComponent]
       )
 
       return useDataContext<V>(ctxName)

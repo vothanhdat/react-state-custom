@@ -33,8 +33,10 @@ a hook-first state management toolkit for React 19 applications. Every export su
    - [`DataViewComponent`](#dataviewcomponent)
 7. [Utility Hooks](#utility-hooks)
    - [`useArrayChangeId`](#usearraychangeid)
-8. [Usage Patterns](#usage-patterns)
-9. [Live Examples](#live-examples)
+8. [Types](#types)
+   - [`ParamsToIdRecord`](#paramstoidrecord)
+9. [Usage Patterns](#usage-patterns)
+10. [Live Examples](#live-examples)
 
 ---
 
@@ -187,10 +189,10 @@ const searchQuery = useDataSubscribe(ctx, "query", 250)
 Observes several keys and re-renders when any value differs from the previous snapshot.
 
 ```ts
-function useDataSubscribeMultiple<D, K extends (keyof D)[]>(
+function useDataSubscribeMultiple<D, K extends readonly (keyof D)[]>(
   ctx: Context<D> | undefined,
   ...keys: K
-): { [i in keyof K]: D[K[i]] | undefined }
+): { [P in K[number]]: D[P] | undefined }
 ```
 
 - Aggregates values into an object keyed by the provided names.
@@ -271,7 +273,9 @@ const { total, items } = useQuickSubscribe(cartCtx)
 Creates a headless Root component that runs your hook `useFn(props)` exactly once per parameter set and publishes its return shape into a derived context namespace.
 
 ```ts
-function createRootCtx<U extends object, V extends object>(
+import { ParamsToIdRecord } from 'react-state-custom'
+
+function createRootCtx<U extends ParamsToIdRecord, V extends Record<string, unknown>>(
   name: string,
   useFn: (params: U) => V
 ): {
@@ -347,9 +351,10 @@ function App() {
 Connects a `createRootCtx` factory to `AutoRootCtx`, returning a consumer hook that ensures the corresponding Root is mounted on demand.
 
 ```ts
-function createAutoCtx<U extends object, V extends object>(
+function createAutoCtx<U extends ParamsToIdRecord, V extends Record<string, unknown>>(
   rootCtx: ReturnType<typeof createRootCtx<U, V>>,
-  unmountDelayMs?: number
+  unmountDelayMs?: number,
+  AttatchedComponent?: React.FC<U>
 ): {
   useCtxState(params: U): Context<V>
 }
@@ -357,6 +362,7 @@ function createAutoCtx<U extends object, V extends object>(
 
 - Subscribes to the global `auto-ctx` context and asks `AutoRootCtx` to mount the root.
 - `unmountDelayMs` (default 0) keeps instances alive briefly after the last subscriber disconnects, smoothing mount/unmount thrash.
+- `AttatchedComponent` (optional) is a React component that receives the same params as the state hook. It renders alongside each auto-mounted root instance, useful for side effects, portals, or UI that should live alongside the state.
 - Consumers simply call `useCtxState(params)`; no manual Root mounting required.
 
 ```tsx
@@ -367,6 +373,25 @@ function UserCard({ userId }: { userId: string }) {
   const { profile } = useQuickSubscribe(ctx)
   return <Card>{profile?.name}</Card>
 }
+```
+
+**With AttatchedComponent:**
+
+```tsx
+// A component that logs when a user context is active
+const UserLogger: React.FC<{ userId: string }> = ({ userId }) => {
+  useEffect(() => {
+    console.log(`User ${userId} context mounted`)
+    return () => console.log(`User ${userId} context unmounted`)
+  }, [userId])
+  return null
+}
+
+const { useCtxState: useUserCtx } = createAutoCtx(
+  createRootCtx("user", useUserState),
+  200,
+  UserLogger
+)
 ```
 
 ---
@@ -444,6 +469,33 @@ useEffect(() => {
   // expensive work runs only when the tuple content changes
 }, [changeKey])
 ```
+
+---
+
+## Types
+
+### `ParamsToIdRecord`
+
+Type constraint for parameters passed to `createRootCtx` and `createAutoCtx`. Only primitive values are allowed to ensure deterministic context naming.
+
+```ts
+type ParamsToIdRecord = Record<string, string | number | bigint | boolean | null | undefined>
+```
+
+- Keys must be strings
+- Values must be primitives: `string`, `number`, `bigint`, `boolean`, `null`, or `undefined`
+- Objects, arrays, and functions are **not allowed** and will throw at runtime via `paramsToId`
+
+```tsx
+// ✅ Valid params
+const validParams = { userId: "123", count: 42, active: true }
+
+// ❌ Invalid params (will throw)
+const invalidParams = { user: { id: 123 } } // Objects not allowed
+const invalidParams2 = { callback: () => {} } // Functions not allowed
+```
+
+This constraint ensures that context names remain deterministic and stable across renders, preventing accidental context duplication or collision.
 
 ---
 

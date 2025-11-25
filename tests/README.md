@@ -22,43 +22,48 @@ yarn test:coverage
 
 ## Current Test Status
 
-**Overall: 60/60 tests passing (100%)** 🎉
+**Overall: 76/76 tests passing (100%)** 🎉
 
-- ✅ `ctx.test.ts` - 20/20 tests (100%)
-- ✅ `createRootCtx.test.tsx` - 6/6 tests (100%)
+- ✅ `ctx.test.ts` - 21/21 tests (100%)
+- ✅ `createRootCtx.test.tsx` - 10/10 tests (100%)
 - ✅ `useArrayChangeId.test.ts` - 11/11 tests (100%)
-- ✅ `useQuickSubscribe.test.ts` - 11/11 tests (100%)
-- ✅ `createAutoCtx.test.tsx` - 12/12 tests (100%)
+- ✅ `useQuickSubscribe.test.ts` - 16/16 tests (100%)
+- ✅ `createAutoCtx.test.tsx` - 15/15 tests (100%)
+- ✅ `integration.test.tsx` - 3/3 tests (100%)
 
-**Test Duration:** ~1.1-1.5 seconds
+**Test Duration:** ~1.0-1.2 seconds
 
 ## Test Structure
 
 ### Core Tests
 
-- **`ctx.test.ts`** (20 tests, ✅ all passing) - Tests for the core Context system:
+- **`ctx.test.ts`** (21 tests, ✅ all passing) - Tests for the core Context system:
   - Context class publish/subscribe mechanism with act() wrapping
   - `getContext` memoization
   - `useDataContext` hook
   - `useDataSource` and `useDataSourceMultiple` hooks with proper state updates
   - `useDataSubscribe` and `useDataSubscribeMultiple` hooks
   - Debouncing behavior
+  - Selective re-rendering for non-subscribed keys
 
-- **`createRootCtx.test.tsx`** (6 tests, ✅ all passing) - Tests for root context creation:
+- **`createRootCtx.test.tsx`** (10 tests, ✅ all passing) - Tests for root context creation:
   - Root component creation and rendering
   - Context data provision through Root
   - Unique context name derivation from props
   - `useCtxState` and `useCtxStateStrict` hooks
   - Error handling when Root is not mounted
   - State updates with act() wrapping
+  - Props key ordering normalization
 
-- **`createAutoCtx.test.tsx`** (12 tests, ✅ all passing) - Tests for auto context system:
+- **`createAutoCtx.test.tsx`** (15 tests, ✅ all passing) - Tests for auto context system:
   - ✅ AutoRootCtx component behavior
   - ✅ Multiple subscribers and root instances
   - ✅ Error boundary wrapping
   - ✅ Reference counting and cleanup with delays
   - ✅ Rapid mount/unmount cycles
   - ✅ State updates after auto-mounting
+  - ✅ AttatchedComponent rendering alongside state runner
+  - ✅ AttatchedComponent receives params correctly
 
 ### Utility Tests
 
@@ -71,12 +76,13 @@ yarn test:coverage
   - Large array performance
   - **Fixed:** Implementation bug where getter pattern was resetting state
 
-- **`useQuickSubscribe.test.ts`** (11 tests, ✅ all passing) - Tests for proxy-based subscription:
+- **`useQuickSubscribe.test.ts`** (16 tests, ✅ all passing) - Tests for proxy-based subscription:
   - Selective subscription via property access
   - Re-render optimization
   - Dynamic property access patterns
   - Object and array value handling
   - Memory leak prevention
+  - Re-subscribing to context changes
 
 ## Test Utilities
 
@@ -184,17 +190,17 @@ yarn test:ui
 
 ## Current Test Status
 
-✅ Context class basic functionality (20 tests)
+✅ Context class basic functionality (21 tests)
 ✅ Context subscription and unsubscription
 ✅ Context memoization
 ✅ useDataSource hooks
 ✅ useDataSubscribe hooks  
-✅ Root context creation (6 tests)
+✅ Root context creation (10 tests)
 ✅ useCtxState and useCtxStateStrict hooks
-✅ Auto context system (12 tests - 7 passing, 5 edge cases)
-✅ useArrayChangeId utility (11 tests - 6 passing, 5 edge cases)
-✅ useQuickSubscribe utility (11 tests - all passing)
-⏳ useRefValue utility (TODO)
+✅ Auto context system (15 tests - all passing)
+✅ useArrayChangeId utility (11 tests - all passing)
+✅ useQuickSubscribe utility (16 tests - all passing)
+✅ Integration tests (3 tests - all passing)
 ⏳ Integration tests (TODO)
 ⏳ Performance tests (TODO)
 ⏳ Example tests (TODO)
