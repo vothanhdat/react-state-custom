@@ -2,7 +2,10 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased]
+## [1.0.32] - 2025-11-30
+- Added `createStore` helper function to simplify store creation (combines `createRootCtx` and `createAutoCtx` into one step).
+- Added `useStore` hook to the return value of `createAutoCtx` and `createStore` for easier, proxy-based state consumption.
+- Added documentation for "Composing Stores" pattern (derived state).
 - Added `preState` argument to `createRootCtx` hooks so roots can warm-start from previously published data when they remount (helps AutoRootCtx keep state continuity).
 - Updated documentation to describe the new `useFn(props, preState)` signature and warm-start behavior.
 

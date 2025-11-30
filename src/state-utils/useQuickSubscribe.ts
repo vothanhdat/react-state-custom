@@ -41,6 +41,7 @@ export const useQuickSubscribe = <D>(
         {
           get(target, p) {
             if (isOpenGetter) {
+              // console.log('useQuickSubscribe get', String(p), target[p])
               allKeys.add(p as keyof D)
               return allCompareValue[p as keyof D] = target[p];
             } else {

@@ -10,33 +10,39 @@ a hook-first state management toolkit for React 19 applications. Every export su
 
 ## Contents
 
-1. [Core Context System](#core-context-system)
-   - [`Context`](#context)
-   - [`getContext`](#getcontext)
-   - [`useDataContext`](#usedatacontext)
-2. [Publishing Hooks](#publishing-hooks)
-   - [`useDataSource`](#usedatasource)
-   - [`useDataSourceMultiple`](#usedatasourcemultiple)
-3. [Subscription Hooks](#subscription-hooks)
-   - [`useDataSubscribe`](#usedatasubscribe)
-   - [`useDataSubscribeMultiple`](#usedatasubscribemultiple)
-   - [`useDataSubscribeMultipleWithDebounce`](#usedatasubscribemultiplewithdebounce)
-   - [`useDataSubscribeWithTransform`](#usedatasubscribewithtransform)
-   - [`useQuickSubscribe`](#usequicksubscribe)
-4. [Root Context Factory](#root-context-factory)
-   - [`createRootCtx`](#createrootctx)
-5. [Auto Context System](#auto-context-system)
-   - [`AutoRootCtx`](#autorootctx)
-   - [`createAutoCtx`](#createautoctx)
-6. [Developer Tools](#developer-tools)
-   - [`DevToolContainer`](#devtoolcontainer)
-   - [`DataViewComponent`](#dataviewcomponent)
-7. [Utility Hooks](#utility-hooks)
-   - [`useArrayChangeId`](#usearraychangeid)
-8. [Types](#types)
-   - [`ParamsToIdRecord`](#paramstoidrecord)
-9. [Usage Patterns](#usage-patterns)
-10. [Live Examples](#live-examples)
+- [React State Custom - API Reference](#react-state-custom---api-reference)
+  - [Contents](#contents)
+  - [Core Context System](#core-context-system)
+    - [`Context`](#context)
+    - [`getContext`](#getcontext)
+    - [`useDataContext`](#usedatacontext)
+  - [Publishing Hooks](#publishing-hooks)
+    - [`useDataSource`](#usedatasource)
+    - [`useDataSourceMultiple`](#usedatasourcemultiple)
+  - [Subscription Hooks](#subscription-hooks)
+    - [`useDataSubscribe`](#usedatasubscribe)
+    - [`useDataSubscribeMultiple`](#usedatasubscribemultiple)
+    - [`useDataSubscribeMultipleWithDebounce`](#usedatasubscribemultiplewithdebounce)
+    - [`useDataSubscribeWithTransform`](#usedatasubscribewithtransform)
+    - [`useQuickSubscribe`](#usequicksubscribe)
+  - [Store Factory](#store-factory)
+    - [`createStore`](#createstore)
+  - [Root Context Factory](#root-context-factory)
+    - [`createRootCtx`](#createrootctx)
+  - [Auto Context System](#auto-context-system)
+    - [`AutoRootCtx`](#autorootctx)
+    - [`createAutoCtx`](#createautoctx)
+  - [Developer Tools](#developer-tools)
+    - [`DevToolContainer`](#devtoolcontainer)
+    - [`DataViewComponent`](#dataviewcomponent)
+  - [Utility Hooks](#utility-hooks)
+    - [`useArrayChangeId`](#usearraychangeid)
+  - [Types](#types)
+    - [`ParamsToIdRecord`](#paramstoidrecord)
+  - [Usage Patterns](#usage-patterns)
+    - [Basic Context Wiring](#basic-context-wiring)
+    - [Headless Root + Auto Context](#headless-root--auto-context)
+  - [Live Examples](#live-examples)
 
 ---
 
@@ -266,6 +272,49 @@ const { total, items } = useQuickSubscribe(cartCtx)
 
 ---
 
+## Store Factory
+
+### `createStore`
+
+The all-in-one helper that combines `createRootCtx` and `createAutoCtx` into a single call. This is the recommended way to create stores in most applications.
+
+```ts
+function createStore<U extends ParamsToIdRecord, V extends Record<string, unknown>>(
+  name: string,
+  useFn: (params: U, preState: Partial<V>) => V,
+  timeToClean?: number,
+  AttatchedComponent?: React.FC<U>
+): {
+  useCtxState(params: U): Context<V>
+  useStore(params: U): { [P in keyof V]?: V[P] | undefined }
+}
+```
+
+- **`name`**: Unique namespace for this store.
+- **`useFn`**: The hook that defines your state logic.
+- **`timeToClean`**: Optional delay (ms) before unmounting the store after the last subscriber leaves.
+- **`AttatchedComponent`**: Optional component to render alongside the store (useful for side effects).
+
+Returns an object with:
+- **`useStore`**: A hook that subscribes to the store and returns a proxy for reading state.
+- **`useCtxState`**: A hook that returns the raw `Context` object (for advanced usage).
+
+```tsx
+// 1. Define store
+const { useStore } = createStore('counter', () => {
+  const [count, setCount] = useState(0);
+  return { count, setCount };
+});
+
+// 2. Use in component
+function Counter() {
+  const { count, setCount } = useStore({});
+  return <button onClick={() => setCount(c => c + 1)}>{count}</button>;
+}
+```
+
+---
+
 ## Root Context Factory
 
 ### `createRootCtx`
@@ -358,20 +407,25 @@ function createAutoCtx<U extends ParamsToIdRecord, V extends Record<string, unkn
   AttatchedComponent?: React.FC<U>
 ): {
   useCtxState(params: U): Context<V>
+  useStore(params: U): { [P in keyof V]?: V[P] | undefined }
 }
 ```
 
 - Subscribes to the global `auto-ctx` context and asks `AutoRootCtx` to mount the root.
 - `unmountDelayMs` (default 0) keeps instances alive briefly after the last subscriber disconnects, smoothing mount/unmount thrash.
 - `AttatchedComponent` (optional) is a React component that receives the same params as the state hook. It renders alongside each auto-mounted root instance, useful for side effects, portals, or UI that should live alongside the state.
-- Consumers simply call `useCtxState(params)`; no manual Root mounting required.
+- Consumers simply call `useCtxState(params)` or `useStore(params)`; no manual Root mounting required.
 
 ```tsx
-const { useCtxState: useUserCtx } = createAutoCtx(createRootCtx("user", useUserState), 200)
+const { useCtxState: useUserCtx, useStore: useUserStore } = createAutoCtx(createRootCtx("user", useUserState), 200)
 
 function UserCard({ userId }: { userId: string }) {
+  // Quick access via useStore
+  const { profile } = useUserStore({ userId })
+  
+  // Or manual context access
   const ctx = useUserCtx({ userId })
-  const { profile } = useQuickSubscribe(ctx)
+  // ...
   return <Card>{profile?.name}</Card>
 }
 ```

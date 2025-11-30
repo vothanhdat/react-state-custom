@@ -19,10 +19,9 @@ npm install react-state-custom
 If you already know how to write a component with `useState`, you're moments away from sharing that state everywhere.
 
 1. **Write a plain hook** – encapuslate data fetching, derived values, and actions inside a normal React hook.
-2. **Create a root context** – `createRootCtx('feature', useFeatureState)` publishes the hook output into a context namespace.
-3. **Let AutoRoot manage lifecycles** – `createAutoCtx(rootCtx, 150)` registers the store with `<AutoRootCtx />` and (optionally) keeps it alive for a short grace period after the last subscriber unmounts.
-4. **Mount `<AutoRootCtx />` once** – drop it near the top of your tree (wrap it with your own `ErrorBoundary` if desired).
-5. **Consume anywhere** – call the generated `useCtxState` hook and destructure data via `useQuickSubscribe` or any `useDataSubscribe*` helper.
+2. **Create a store** – `createStore('feature', useFeatureState)` creates a shared store and returns a `useStore` hook.
+3. **Mount `<AutoRootCtx />` once** – drop it near the top of your tree (wrap it with your own `ErrorBoundary` if desired).
+4. **Consume anywhere** – call the generated `useStore` hook to access data and actions.
 
 ```tsx
 const useFeatureState = ({ featureId }: { featureId: string }) => {
@@ -31,8 +30,7 @@ const useFeatureState = ({ featureId }: { featureId: string }) => {
   return { value, double, increment: () => setValue(v => v + 1) }
 }
 
-const featureRoot = createRootCtx('feature', useFeatureState)
-export const { useCtxState: useFeatureCtx } = createAutoCtx(featureRoot, 250)
+export const { useStore: useFeatureStore } = createStore('feature', useFeatureState)
 
 function AppShell() {
   return (
@@ -44,8 +42,7 @@ function AppShell() {
 }
 
 function FeatureMeter({ featureId }: { featureId: string }) {
-  const ctx = useFeatureCtx({ featureId })
-  const { value, double, increment } = useQuickSubscribe(ctx)
+  const { value, double, increment } = useFeatureStore({ featureId })
   return (
     <section>
       <strong>{value}</strong>
@@ -111,8 +108,10 @@ Every consumer re-renders whenever anything in `value` changes, you have to reme
 
 ### With React State Custom (hook-first store)
 
+### With React State Custom (hook-first store)
+
 ```typescript
-import { createRootCtx, createAutoCtx, useQuickSubscribe, AutoRootCtx } from 'react-state-custom';
+import { createStore, AutoRootCtx } from 'react-state-custom';
 
 // 1. Write your state logic using familiar React hooks
 function useCounterState() {
@@ -123,8 +122,8 @@ function useCounterState() {
   return { count, increment, decrement };
 }
 
-// 2. Create shared context (one line!)
-const { useCtxState } = createAutoCtx(createRootCtx('counter', useCounterState));
+// 2. Create shared store (one line!)
+const { useStore } = createStore('counter', useCounterState);
 
 // 3. Add AutoRootCtx to your app root (mount it once near the top of your tree)
 function App() {
@@ -138,8 +137,7 @@ function App() {
 
 // 4. Use anywhere in your app
 function Counter() {
-  const ctx = useCtxState();
-  const { count, increment, decrement } = useQuickSubscribe(ctx);
+  const { count, increment, decrement } = useStore({});
   
   return (
     <div>
@@ -153,7 +151,7 @@ function Counter() {
 
 > ℹ️ `AutoRootCtx` accepts optional `Wrapper` and `debugging` props. Pass an ErrorBoundary-like component through `Wrapper` to isolate failures, or set `debugging` to `true` to render raw state snapshots in the DOM (handy alongside React DevTools when tracking updates).
 
-`useQuickSubscribe` keeps `Counter` focused on `count`, so even if this context grows with more fields later, the component only re-renders when `count` changes.
+`useStore` keeps `Counter` focused on `count`, so even if this context grows with more fields later, the component only re-renders when `count` changes.
 
 **That's it!** No reducers, no actions, no providers to wrap—just hooks.
 
@@ -195,6 +193,16 @@ const { Root, useCtxState } = createRootCtx('my-state', useMyState);
 ### 5. Auto context – mount roots for you
 ```typescript
 const { useCtxState } = createAutoCtx(rootContext);
+```
+
+### 6. Store factory – all in one
+```typescript
+const { useStore } = createStore('my-state', useMyState);
+```
+
+### 6. Store factory – all in one
+```typescript
+const { useStore } = createStore('my-state', useMyState);
 ```
 
 ## 🎯 Key Features
@@ -300,9 +308,7 @@ function useAuthState() {
   return { user, loading, login, logout };
 }
 
-export const { useCtxState: useAuthState } = createAutoCtx(
-  createRootCtx('auth', useAuthState)
-);
+export const { useStore: useAuthStore } = createStore('auth', useAuthState);
 
 // App.tsx
 function App() {
@@ -319,8 +325,7 @@ function App() {
 
 // Header.tsx - Only re-renders when user changes
 function Header() {
-  const ctx = useAuthState();
-  const { user, logout } = useQuickSubscribe(ctx);
+  const { user, logout } = useAuthStore({});
   
   return (
     <header>
@@ -338,7 +343,7 @@ function Header() {
 
 // ProtectedRoute.tsx - Only re-renders when loading or user changes
 function ProtectedRoute({ children }) {
-  const ctx = useAuthState();
+  const ctx = useAuthStore.useCtxState({});
   const { user, loading } = useDataSubscribeMultiple(ctx, 'user', 'loading');
   
   if (loading) return <Spinner />;
@@ -401,21 +406,18 @@ function useUserState({ userId }: { userId: string }) {
   // State logic here
 }
 
-const { useCtxState: useUserCtxState } = createAutoCtx(
-  createRootCtx('user', useUserState)
-);
+const { useStore: useUserStore } = createStore('user', useUserState);
 
 // Different instances for different users
 function UserProfile({ userId }) {
-  const ctx = useUserCtxState({ userId }); // Automatic instance per userId
-  const { user } = useQuickSubscribe(ctx);
+  const { user } = useUserStore({ userId }); // Automatic instance per userId
   return <div>{user?.name}</div>;
 }
 ```
 
-> Need to avoid rapid mount/unmount churn? Pass a second argument to `createAutoCtx` (for example `createAutoCtx(rootCtx, 200)`) to keep instances alive for a few extra milliseconds before disposal.
+> Need to avoid rapid mount/unmount churn? Pass a second argument to `createStore` (for example `createStore('user', useUserState, 200)`) to keep instances alive for a few extra milliseconds before disposal.
 
-> ⚠️ The props you pass to `createRootCtx`/`useCtxState` must be composed of primitive values (string, number, boolean, bigint, null, or undefined). Objects are rejected so context names stay deterministic—pass IDs instead of raw objects.
+> ⚠️ The props you pass to `createStore`/`useStore` must be composed of primitive values (string, number, boolean, bigint, null, or undefined). Objects are rejected so context names stay deterministic—pass IDs instead of raw objects.
 
 ### Debounced Subscriptions
 Optimize performance for frequently changing values:
@@ -444,18 +446,15 @@ Since stores are just hooks, you can subscribe to one store *inside* another. Th
 
 ```typescript
 // 1. Upstream Store
-const { useCtxState: useUserCtx } = createAutoCtx(
-  createRootCtx('user', () => {
-    const [role, setRole] = useState('guest');
-    return { role, setRole };
-  })
-);
+const { useStore: useUserStore } = createStore('user', () => {
+  const [role, setRole] = useState('guest');
+  return { role, setRole };
+});
 
 // 2. Downstream Store (depends on User)
 const useDashboardStore = () => {
   // Subscribe to the upstream store
-  const userCtx = useUserCtx({});
-  const { role } = useQuickSubscribe(userCtx);
+  const { role } = useUserStore({});
 
   // Derive state based on the upstream value
   const permissions = useMemo(() => {
@@ -465,9 +464,7 @@ const useDashboardStore = () => {
   return { permissions };
 };
 
-const { useCtxState: useDashboardCtx } = createAutoCtx(
-  createRootCtx('dashboard', useDashboardStore)
-);
+const { useStore: useDashboardStore } = createStore('dashboard', useDashboardStore);
 ```
 
 ## 🎮 Live Examples

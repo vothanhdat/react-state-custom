@@ -2,6 +2,7 @@ import { useEffect, useState, Fragment, useCallback, useMemo, Activity } from "r
 import { useDataContext, useDataSourceMultiple, useDataSubscribe, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
+import { useQuickSubscribe } from "./useQuickSubscribe"
 
 
 
@@ -154,20 +155,31 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
   AttatchedComponent: React.FC<U> | undefined = undefined
 ) => {
 
-  return {
+  const useCtxState = (e: U): Context<V> => {
 
-    useCtxState: (e: U): Context<V> => {
+    const ctxName = getCtxName(e)
 
-      const ctxName = getCtxName(e)
+    const subscribe = useDataSubscribe(useDataContext<any>("auto-ctx"), "subscribe")
 
-      const subscribe = useDataSubscribe(useDataContext<any>("auto-ctx"), "subscribe")
+    useEffect(
+      () => subscribe?.(name, useRootState, e, timeToClean, AttatchedComponent),
+      [useRootState, subscribe, name, ctxName, timeToClean, AttatchedComponent]
+    )
 
-      useEffect(
-        () => subscribe?.(name, useRootState, e, timeToClean, AttatchedComponent),
-        [useRootState, subscribe, name, ctxName, timeToClean, AttatchedComponent]
-      )
-
-      return useDataContext<V>(ctxName)
-    }
+    return useDataContext<V>(ctxName)
   }
+
+  return {
+    useCtxState,
+    useStore: (e: U) => useQuickSubscribe(useCtxState(e))
+  }
+}
+
+export const createStore = <U extends ParamsToIdRecord, V extends Record<string, unknown>>(
+  name: string,
+  useFn: (params: U, preState: Partial<V>) => V,
+  timeToClean = 0,
+  AttatchedComponent: React.FC<U> | undefined = undefined
+) => {
+  return createAutoCtx(createRootCtx(name, useFn), timeToClean, AttatchedComponent)
 }
