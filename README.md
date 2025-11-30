@@ -163,6 +163,7 @@ function Counter() {
 - **Publishers** – `useDataSource` and `useDataSourceMultiple` publish inside effects to keep renders pure. A registry guards against duplicate publishers fighting over the same key so you get actionable errors instead of stale data.
 - **Subscribers** – `useDataSubscribe*` hooks cover single, multiple, debounced, and transformed reads. `useQuickSubscribe` proxies the backing data object so each component subscribes only to the properties it touches.
 - **Root factories** – `createRootCtx` runs your headless hook exactly once per parameter set, publishes every returned key, and throws if two roots try to mount with the same resolved name. Your hook receives `(props, preState)` so it can rehydrate from the last published values when a root remounts. Parameters are serialized via `paramsToId`, so stick to primitive props (string/number/boolean/bigint/null/undefined) to keep IDs deterministic.
+- **Composable Stores** – Because stores are just hooks, you can subscribe to one store *inside* the logic of another. This enables powerful reactive chains where a derived store automatically updates whenever its upstream dependencies change.
 - **Auto orchestration** – Mount `<AutoRootCtx />` once and wire each root through `createAutoCtx`. The auto root listens for subscription requests, mounts/destroys the corresponding root on demand, and optionally keeps them alive for a configurable `timeToClean` window to smooth thrashing.
 - **Dev tooling** – `DevToolContainer` watches the memoized context cache, flashes updates in place, and lets you plug in custom renderers so you can diff state right beside your UI.
 
@@ -435,6 +436,37 @@ const userStats = useDataSubscribeWithTransform(
     fullName: `${user?.firstName} ${user?.lastName}`,
     isAdmin: user?.role === 'admin'
   })
+);
+```
+
+### Composing Stores (Derived State)
+Since stores are just hooks, you can subscribe to one store *inside* another. This allows you to build reactive dependency chains where a downstream store automatically updates when an upstream store changes.
+
+```typescript
+// 1. Upstream Store
+const { useCtxState: useUserCtx } = createAutoCtx(
+  createRootCtx('user', () => {
+    const [role, setRole] = useState('guest');
+    return { role, setRole };
+  })
+);
+
+// 2. Downstream Store (depends on User)
+const useDashboardStore = () => {
+  // Subscribe to the upstream store
+  const userCtx = useUserCtx({});
+  const { role } = useQuickSubscribe(userCtx);
+
+  // Derive state based on the upstream value
+  const permissions = useMemo(() => {
+    return role === 'admin' ? ['read', 'write', 'delete'] : ['read'];
+  }, [role]);
+
+  return { permissions };
+};
+
+const { useCtxState: useDashboardCtx } = createAutoCtx(
+  createRootCtx('dashboard', useDashboardStore)
 );
 ```
 
