@@ -1,4 +1,4 @@
-import { createRootCtx, createAutoCtx } from '../../index'
+import { createStore } from '../../index'
 import { useEffect, useState } from 'react'
 
 const useTimerState = ({ timerId }: { timerId: string }) => {
@@ -37,7 +37,8 @@ const useTimerState = ({ timerId }: { timerId: string }) => {
     }
 }
 
-export const { useCtxState: useTimerCtx } = createAutoCtx(
-    createRootCtx("timer", useTimerState),
+export const { useStore: useTimerStore } = createStore(
+    "timer",
+    useTimerState,
     5000
 )

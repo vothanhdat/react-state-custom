@@ -1,4 +1,4 @@
-import { createRootCtx, createAutoCtx } from '../../index'
+import { createStore } from '../../index'
 import { useState } from 'react'
 
 export interface CartItem {
@@ -61,7 +61,8 @@ const useCartState = ({ userId }: { userId: string }) => {
     }
 }
 
-export const { useCtxState: useCartCtx } = createAutoCtx(
-    createRootCtx("cart", useCartState),
+export const { useStore: useCartStore } = createStore(
+    "cart",
+    useCartState,
     5000
 )

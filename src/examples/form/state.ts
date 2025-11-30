@@ -1,4 +1,4 @@
-import { createRootCtx, createAutoCtx } from '../../index'
+import { createStore } from '../../index'
 import { useState } from 'react'
 
 export interface FormData {
@@ -52,7 +52,8 @@ const useFormState = ({ formId }: { formId: string }) => {
     }
 }
 
-export const { useCtxState: useFormCtx } = createAutoCtx(
-    createRootCtx("form", useFormState),
+export const { useStore: useFormStore } = createStore(
+    "form",
+    useFormState,
     5000
 )

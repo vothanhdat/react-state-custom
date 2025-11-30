@@ -1,9 +1,8 @@
-import { useQuickSubscribe } from '../../index'
-import { useFormCtx } from './state'
+import { useFormStore } from './state'
 
 export const FormExample = ({ formId = "user-form" }: { formId?: string }) => {
     const { data, errors, submitted, updateField, submit, reset } = 
-        useQuickSubscribe(useFormCtx({ formId }))
+        useFormStore({ formId })
 
     return (
         <div style={{ padding: '1rem', border: '1px solid #ccc', marginBottom: '1rem' }}>

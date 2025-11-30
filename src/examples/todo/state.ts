@@ -1,4 +1,4 @@
-import { createRootCtx, createAutoCtx } from '../../index'
+import { createStore } from '../../index'
 import { useState } from 'react'
 
 export interface Todo {
@@ -48,7 +48,8 @@ const useTodoState = ({ listId }: { listId: string }) => {
     }
 }
 
-export const { useCtxState: useTodoCtx } = createAutoCtx(
-    createRootCtx("todos", useTodoState),
+export const { useStore: useTodoStore } = createStore(
+    "todos",
+    useTodoState,
     5000
 )

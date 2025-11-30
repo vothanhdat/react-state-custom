@@ -1,8 +1,7 @@
-import { useQuickSubscribe } from '../../index'
-import { useCounterCtx } from './state'
+import { useCounterStore } from './state'
 
 export const CounterExample = () => {
-    const { count, increment, decrement, reset } = useQuickSubscribe(useCounterCtx({}))
+    const { count, increment, decrement, reset } = useCounterStore({})
 
     return (
         <div style={{ padding: '1rem', border: '1px solid #ccc', marginBottom: '1rem' }}>

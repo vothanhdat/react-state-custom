@@ -1,9 +1,8 @@
-import { useQuickSubscribe } from '../../index'
-import { useTimerCtx } from './state'
+import { useTimerStore } from './state'
 
 export const TimerExample = ({ timerId = "main-timer" }: { timerId?: string }) => {
     const { formattedTime, isRunning, start, pause, reset } = 
-        useQuickSubscribe(useTimerCtx({ timerId }))
+        useTimerStore({ timerId })
 
     return (
         <div style={{ padding: '1rem', border: '1px solid #ccc', marginBottom: '1rem' }}>

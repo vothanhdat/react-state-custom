@@ -1,9 +1,8 @@
-import { useQuickSubscribe } from '../../index'
-import { useTodoCtx } from './state'
+import { useTodoStore } from './state'
 
 export const TodoExample = ({ listId = "main" }: { listId?: string }) => {
     const { todos, input, setInput, addTodo, toggleTodo, removeTodo, clearCompleted } =
-        useQuickSubscribe(useTodoCtx({ listId }))
+        useTodoStore({ listId })
 
     return (
         <div style={{ padding: '1rem', border: '1px solid #ccc', marginBottom: '1rem' }}>

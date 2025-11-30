@@ -1,9 +1,8 @@
-import { useQuickSubscribe } from '../../index'
-import { useCartCtx, PRODUCTS } from './state'
+import { useCartStore, PRODUCTS } from './state'
 
 export const CartExample = ({ userId = "user1" }: { userId?: string }) => {
     const { items, total, itemCount, addItem, removeItem, updateQuantity, clear } =
-        useQuickSubscribe(useCartCtx({ userId }))
+        useCartStore({ userId })
 
     return (
         <div style={{ padding: '1rem', border: '1px solid #ccc', marginBottom: '1rem' }}>

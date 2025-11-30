@@ -1,4 +1,4 @@
-import { createRootCtx, createAutoCtx } from '../../index'
+import { createStore } from '../../index'
 import { useState } from 'react'
 
 
@@ -17,7 +17,8 @@ const useCounterState = ({ }) => {
 }
 
 
-export const { useCtxState: useCounterCtx } = createAutoCtx(
-    createRootCtx("counter", useCounterState),
+export const { useStore: useCounterStore } = createStore(
+    "counter",
+    useCounterState,
     5000
 )
