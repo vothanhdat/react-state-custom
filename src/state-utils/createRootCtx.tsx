@@ -9,11 +9,15 @@ import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
  *
  * Factory that creates a headless "Root" component and companion hooks for a context namespace.
  * It derives a unique context name from a base `name` and a props object `U`, then publishes
- * a computed state `V` (from `useFn`) to that context.
+ * a computed state `V` (from `useFn`) to that context. `useFn` receives `(props, preState)` where
+ * `preState` is the previously published data for this context (if any), letting you warm start
+ * when a Root remounts (e.g., during AutoRootCtx cleanup/revival).
  *
  * Usage (manual mounting):
  * ```
- * const { Root, useCtxState } = createRootCtx('user-state', useUserState)
+ * const { Root, useCtxState } = createRootCtx('user-state', (props, preState) =>
+ *   useUserState(props, preState)
+ * )
  *  ...
  * // Mount exactly one Root per unique props combination
  * <Root userId={id} />
@@ -33,7 +37,7 @@ import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
  * - Prefer stable, primitive props to avoid collisions; if you need automation, pair with `createAutoCtx` and
  *   mount a single <AutoRootCtx Wrapper={ErrorBoundary} /> at the app root so you don't manually mount `Root`.
  */
-export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<string, unknown>>(name: string, useFn: (e: U) => V) => {
+export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<string, unknown>>(name: string, useFn: (e: U, preState: Partial<V>) => V) => {
 
   const getCtxName = (e: U) => [name, paramsToId(e)]
     .filter(Boolean)
@@ -42,9 +46,9 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
   const ctxMountedCheck = new Set<string>()
 
   const useRootState = (e: U) => {
-    const state = useFn(e)
     const ctxName = getCtxName(e)
     const ctx = useDataContext<V>(ctxName)
+    const state = useFn(e, {...ctx.data})
     const stack = useMemo(() => new Error().stack, [])
 
     useDataSourceMultiple(

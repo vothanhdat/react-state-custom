@@ -270,14 +270,14 @@ const { total, items } = useQuickSubscribe(cartCtx)
 
 ### `createRootCtx`
 
-Creates a headless Root component that runs your hook `useFn(props)` exactly once per parameter set and publishes its return shape into a derived context namespace.
+Creates a headless Root component that runs your hook `useFn(props, preState)` exactly once per parameter set and publishes its return shape into a derived context namespace. `preState` is the previously published data for that context name (if any), useful for rehydrating state after an auto-unmount/remount cycle.
 
 ```ts
 import { ParamsToIdRecord } from 'react-state-custom'
 
 function createRootCtx<U extends ParamsToIdRecord, V extends Record<string, unknown>>(
   name: string,
-  useFn: (params: U) => V
+  useFn: (params: U, preState: Partial<V>) => V
 ): {
   name: string
   getCtxName(params: U): string
@@ -291,6 +291,7 @@ function createRootCtx<U extends ParamsToIdRecord, V extends Record<string, unkn
 Key behaviors:
 
 - Context name = `name` plus serialized, sorted props (for example `user-state-userId-123`).
+- `useFn` receives the last published state (if any) as `preState`, so you can warm start when a Root remounts.
 - The generated `Root` publishes every key returned by `useFn` via `useDataSourceMultiple`.
 - Duplicate `Root` mounts with the same resolved name throw (stack trace captured at mount).
 - Props passed to `Root`/`useCtxState` must be primitives (string/number/boolean/bigint/null/undefined); `paramsToId` rejects objects so context IDs remain deterministic.
