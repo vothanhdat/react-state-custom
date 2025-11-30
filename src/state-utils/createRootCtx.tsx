@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react"
 import { useDataContext, useDataSourceMultiple, type Context } from "./ctx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
+import { DependencyTracker } from "./utils"
 // import { debugObjTime } from "./debugObjTime"
 
 
@@ -48,7 +49,15 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
   const useRootState = (e: U) => {
     const ctxName = getCtxName(e)
     const ctx = useDataContext<V>(ctxName)
-    const state = useFn(e, {...ctx.data})
+    
+    DependencyTracker.enter(ctxName);
+    let state;
+    try {
+      state = useFn(e, { ...ctx.data })
+    } finally {
+      DependencyTracker.leave();
+    }
+
     const stack = useMemo(() => new Error().stack, [])
 
     useDataSourceMultiple(

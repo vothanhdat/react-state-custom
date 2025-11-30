@@ -1,4 +1,4 @@
-import { debounce, memoize } from "./utils";
+import { debounce, memoize, DependencyTracker } from "./utils";
 import { useEffect, useMemo, useState } from "react"
 import { useArrayChangeId } from "./useArrayChangeId"
 
@@ -119,6 +119,7 @@ export type getContext<D> = (e: string) => Context<D>
  * @returns The Context instance.
  */
 export const useDataContext = <D>(name: string = "noname") => {
+  DependencyTracker.addDependency(name);
   const ctx = useMemo(() => getContext(name), [name])
   useEffect(() => {
     ctx.useCounter += 1;

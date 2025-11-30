@@ -41,3 +41,57 @@ export function memoize<T extends (...args: any[]) => any>(
   return cachedFunc
 }
 
+declare var process: any;
+
+export const DependencyTracker = {
+  stack: [] as string[],
+  graph: new Map<string, Set<string>>(),
+
+  enter(name: string) {
+    if (process.env.NODE_ENV === 'production') return;
+    this.stack.push(name);
+  },
+
+  leave() {
+    if (process.env.NODE_ENV === 'production') return;
+    this.stack.pop();
+  },
+
+  addDependency(target: string) {
+    if (process.env.NODE_ENV === 'production') return;
+    const current = this.stack[this.stack.length - 1];
+    if (current && current !== target) {
+      if (!this.graph.has(current)) {
+        this.graph.set(current, new Set());
+      }
+      this.graph.get(current)!.add(target);
+
+      this.checkCycle(current, target);
+    }
+  },
+
+  checkCycle(start: string, target: string) {
+    if (process.env.NODE_ENV === 'production') return;
+    const visited = new Set<string>();
+    const queue = [target];
+
+    while (queue.length > 0) {
+      const node = queue.shift()!;
+      if (node === start) {
+        console.warn(`[react-state-custom] Circular dependency detected: ${start} -> ... -> ${node}`);
+        return;
+      }
+
+      if (visited.has(node)) continue;
+      visited.add(node);
+
+      const neighbors = this.graph.get(node);
+      if (neighbors) {
+        for (const neighbor of neighbors) {
+          queue.push(neighbor);
+        }
+      }
+    }
+  }
+}
+
