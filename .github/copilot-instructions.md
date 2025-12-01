@@ -4,18 +4,23 @@
 - Library build artifacts live in `dist/`; all source utilities reside under `src/state-utils/`.
 - Live demo at https://vothanhdat.github.io/react-state-custom/ showcases interactive examples.
 
+## The "Golden Path" (Preferred API)
+- **`createStore(name, useFn)`**: The primary factory function. Combines `createRootCtx` and `createAutoCtx`.
+- **`useStore(params)`**: The primary consumption hook returned by `createStore`. Returns a reactive proxy.
+- **`AutoRootCtx`**: The global manager component. Must be mounted once at the app root.
+
 ## Context Core
 - `Context` (`src/state-utils/ctx.ts`) extends `EventTarget`; `data` stores the latest values and `publish` fires per-key DOM events when a loose `!=` comparison detects change.
 - `getContext` memoizes by context name; `useDataContext(name)` memoizes the lookup via React `useMemo`.
 - `useDataSource`/`useDataSourceMultiple` publish new values and register keys in `ctx.registry`; duplicate sources log via `useRegistryChecker`.
 
-## Root Contexts
+## Root Contexts (Internal/Advanced)
 - `createRootCtx(name, useFn)` (`src/state-utils/createRootCtx.tsx`) wraps your hook (`useFn`) in a hidden `Root` component that pushes its result into a derived context namespace.
 - Context names come from `name` plus sorted prop key/value pairs; keep props serializable and stable to avoid collisions.
 - `ctxMountedCheck` blocks multiple `Root` instances for the same name; duplicates throw with the original call stack.
 - Use `useCtxStateStrict` to hard-fail when the `Root` is missing, or `useCtxState` to surface a delayed console error instead.
 
-## Auto Context Lifecycle
+## Auto Context Lifecycle (Internal/Advanced)
 - `AutoRootCtx` (`src/state-utils/createAutoCtx.tsx`) maintains a global `'auto-ctx'` context exposing `subscribe(Root, params)` and reference counts for each instance.
 - Mount `<AutoRootCtx Wrapper={YourErrorBoundary}>` once near the app root; it renders requested `Root` components inside the optional wrapper.
 - `createAutoCtx(rootCtx, unmountTime?)` returns `useCtxState(params)` that subscribes through `'auto-ctx'` and hands back `useDataContext` for the resolved name.
@@ -32,6 +37,7 @@
 - Use `useDataSubscribe(ctx, key, debounceMs)` or `useDataSubscribeMultiple(ctx, ...keys)` for keyed reads; debounce variants batch updates when values bounce.
 - `useDataSubscribeWithTransform` recomputes the transformed shape only on change; memoize the `transform` fn to avoid churn.
 - `useQuickSubscribe(ctx)` returns a proxy over `ctx.data`; destructure needed fields immediately during render and avoid storing the proxy for later use.
+- **`useStore`** (from `createStore`) wraps `useQuickSubscribe` automatically.
 
 ## Utilities and Gotchas
 - Value comparisons are shallow; mutate objects before republishing or provide new references so `publish` sees changes.

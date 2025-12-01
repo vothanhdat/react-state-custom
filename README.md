@@ -487,6 +487,7 @@ Each example includes live code editing with syntax highlighting, powered by San
 
 For complete API documentation, examples, and advanced patterns, see:
 - **[API_DOCUMENTATION.md](./API_DOCUMENTATION.md)** - Complete API reference
+- **[AI_CONTEXT.md](./AI_CONTEXT.md)** - Context for AI assistants (Gemini, ChatGPT, etc.)
 - **[Live Demo](https://vothanhdat.github.io/react-state-custom/)** - Interactive examples
 
 ## 🛠️ Development
