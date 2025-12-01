@@ -24,6 +24,9 @@ If you already know how to write a component with `useState`, you're moments awa
 4. **Consume anywhere** – call the generated `useStore` hook to access data and actions.
 
 ```tsx
+import { useState, useMemo } from 'react'
+import { createStore, AutoRootCtx } from 'react-state-custom'
+
 const useFeatureState = ({ featureId }: { featureId: string }) => {
   const [value, setValue] = useState(0)
   const double = useMemo(() => value * 2, [value])
@@ -111,6 +114,7 @@ Every consumer re-renders whenever anything in `value` changes, you have to reme
 ### With React State Custom (hook-first store)
 
 ```typescript
+import { useState } from 'react';
 import { createStore, AutoRootCtx } from 'react-state-custom';
 
 // 1. Write your state logic using familiar React hooks
