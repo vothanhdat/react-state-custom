@@ -2,7 +2,7 @@
 
 **Simple. Powerful. TypeScript-first.**
 
-A lightweight global React state management library that combines the simplicity of React hooks with the power of event-driven subscriptions. No boilerplate, no complexity—just pure, performant state management.
+Turn any React hook into global state. No boilerplate, no complexity—just pure, performant state management.
 
 [![Demo](https://img.shields.io/badge/Demo-Live-blue?style=flat-square)](https://vothanhdat.github.io/react-state-custom/)
 [![npm version](https://img.shields.io/npm/v/react-state-custom?style=flat-square)](https://www.npmjs.com/package/react-state-custom)
