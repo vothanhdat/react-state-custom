@@ -31,14 +31,23 @@ const useCountState = ({ initial = 0 }) => {
 // 2. Create a store
 export const { useStore } = createStore('counter', useCountState)
 
-// 3. Use it anywhere
+// 3. Setup (mount once at root) & Use anywhere
+function App() {
+  return (
+    <>
+      <AutoRootCtx /> {/* 👈 The magic that manages your stores */}
+      <Counter />
+    </>
+  )
+}
+
 function Counter() {
   const { count, increment } = useStore({ initial: 10 })
   return <button onClick={increment}>{count}</button>
 }
 ```
 
-**That's it.** No `Provider` wrapping. No complex setup. Just hooks.
+**That's it.** No `Provider` wrapping per store. No complex setup. Just hooks.
 
 ---
 
