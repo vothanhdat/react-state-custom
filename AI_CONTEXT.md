@@ -1,44 +1,45 @@
-# React State Custom - AI Context & Best Practices
+# React State Custom - AI Context
 
-This document is designed to help AI assistants (Gemini, ChatGPT, Claude, Copilot) understand the preferred patterns and API usage for `react-state-custom`.
+**Target Audience:** AI Assistants (Gemini, ChatGPT, Claude, Copilot)
+**Goal:** Generate idiomatic, high-performance code using `react-state-custom`.
 
-## 🧠 Mental Model
+---
 
-`react-state-custom` is a **hook-first** state management library.
-- **State is just a hook**: You define state logic using standard React hooks (`useState`, `useEffect`, `useMemo`).
-- **Stores are headless components**: The library runs your hook in a hidden component (`Root`) and publishes the results to an event-driven context.
-- **Consumption is selective**: Components subscribe only to the specific fields they need, preventing unnecessary re-renders.
+## 🧠 Mental Model: "It's Just a Hook"
 
-## 🏆 The "Golden Path" (Preferred API)
+`react-state-custom` turns standard React hooks into shared global stores.
 
-Always prefer `createStore` over the lower-level `createRootCtx` / `createAutoCtx` primitives unless specifically requested.
+1.  **Define Logic**: Write a hook (`useState`, `useEffect`, `useMemo`).
+2.  **Share Logic**: Wrap it with `createStore`.
+3.  **Consume Logic**: Use the generated hook in any component.
 
-### 1. Define State (The Hook)
-Write a standard React hook. It receives `params` (props) and `preState` (warm-start data).
+**Key Difference:** Unlike Redux or Zustand, there is no external store object. The "store" is literally a React component running your hook in the background, managed by `AutoRootCtx`.
+
+---
+
+## 🏆 The Golden Path
+
+**Always** follow this pattern unless explicitly asked for low-level primitives.
+
+### 1. The Store (Features/State)
 
 ```typescript
-// state.ts
+// features/counterState.ts
 import { useState } from 'react';
+import { createStore } from 'react-state-custom';
 
-export const useCounterState = ({ initial = 0 }: { initial?: number }) => {
+// 1. Define the hook (Standard React)
+const useCounterState = ({ initial = 0 }: { initial?: number }) => {
   const [count, setCount] = useState(initial);
   const increment = () => setCount(c => c + 1);
   return { count, increment };
 };
-```
 
-### 2. Create Store (The Factory)
-Use `createStore` to generate the store hooks.
-
-```typescript
-// state.ts
-import { createStore } from 'react-state-custom';
-
+// 2. Export the store (One line)
 export const { useStore: useCounterStore } = createStore('counter', useCounterState);
 ```
 
-### 3. Mount Context (The Root)
-Mount `<AutoRootCtx />` **once** near the top of the app.
+### 2. The Root (App Entry)
 
 ```tsx
 // App.tsx
@@ -47,22 +48,22 @@ import { AutoRootCtx } from 'react-state-custom';
 export default function App() {
   return (
     <>
-      <AutoRootCtx />
+      <AutoRootCtx /> {/* 👈 Must be at the top */}
       <MainContent />
     </>
   );
 }
 ```
 
-### 4. Consume State (The Component)
-Use the generated `useStore` hook. It returns a proxy that tracks usage.
+### 3. The Consumer (Components)
 
 ```tsx
-// Counter.tsx
-import { useCounterStore } from './state';
+// components/Counter.tsx
+import { useCounterStore } from '../features/counterState';
 
 export function Counter() {
-  // ⚡️ Only re-renders when 'count' changes
+  // 3. Use the hook
+  // ⚡️ Automatic subscription: re-renders ONLY when 'count' changes.
   const { count, increment } = useCounterStore({ initial: 10 });
   
   return <button onClick={increment}>{count}</button>;
@@ -71,37 +72,41 @@ export function Counter() {
 
 ---
 
-## ✅ Do's and ❌ Don'ts
+## ✅ Best Practices
 
-### ✅ DO
-- **DO** use `createStore` for 95% of use cases.
-- **DO** use `AutoRootCtx` to manage store lifecycles automatically.
-- **DO** keep store parameters simple (primitives like strings/numbers) to ensure stable context IDs.
-- **DO** destructure `useStore` results immediately during render (e.g., `const { data } = useStore(...)`).
-- **DO** use `preState` in your hook if you need to persist state across hot-reloads or auto-remounts.
+-   **Params must be primitives**: Store parameters (`{ id: '123' }`) are serialized to create unique store instances. Avoid passing objects or callbacks as params.
+-   **Destructure immediately**: `const { data } = useStore(...)`. The returned object is a proxy that tracks usage during render.
+-   **No Providers**: Never manually wrap components in providers. `AutoRootCtx` handles everything.
+-   **Keep it simple**: Don't use `createRootCtx` or `createAutoCtx` directly. `createStore` is the only API you usually need.
 
-### ❌ DON'T
-- **DON'T** use `createRootCtx` and `createAutoCtx` manually unless you are building a custom abstraction.
-- **DON'T** pass objects or arrays as store parameters (e.g., `useStore({ user: { id: 1 } })`). Pass IDs instead (`useStore({ userId: 1 })`).
-- **DON'T** store the proxy returned by `useStore` in a `useRef` or `useEffect`. It is designed for render-phase tracking only.
-- **DON'T** manually create `Context` objects via `new Context()` unless you are building a low-level primitive.
+## 🛠️ Common Patterns
 
-## 🛠 API Signatures (Simplified)
+### Async Data (Data Fetching)
 
 ```typescript
-// The main factory function
-function createStore<Params, State>(
-  name: string, 
-  useFn: (params: Params, preState: Partial<State>) => State,
-  timeToClean?: number // Optional: keep-alive time in ms
-): {
-  useStore: (params: Params) => State; // Returns a reactive proxy
-  useCtxState: (params: Params) => Context<State>; // Returns the raw context
-}
+const useUserState = ({ userId }) => {
+  const [data, setData] = useState(null);
 
-// The global manager
-function AutoRootCtx(props: { 
-  Wrapper?: React.ComponentType; // e.g. ErrorBoundary
-  debugging?: boolean; 
-}): JSX.Element;
+  useEffect(() => {
+    fetchUser(userId).then(setData);
+  }, [userId]);
+
+  return { data, isLoading: !data };
+};
+```
+
+### Derived State
+
+Since stores are just hooks, you can use `useMemo` for derived data.
+
+```typescript
+const useCartState = () => {
+  const [items, setItems] = useState([]);
+
+  const total = useMemo(() =>
+    items.reduce((sum, item) => sum + item.price, 0)
+  , [items]);
+
+  return { items, total };
+};
 ```
