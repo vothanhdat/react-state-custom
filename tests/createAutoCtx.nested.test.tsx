@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import React, { useId } from 'react'
+import React from 'react'
 import { createAutoCtx, AutoRootCtx, StateScopeProvider } from '../src/state-utils/createAutoCtx'
 import { createRootCtx } from '../src/state-utils/createRootCtx'
 import { useDataSubscribe } from '../src/state-utils/ctx'
