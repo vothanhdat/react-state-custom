@@ -184,10 +184,14 @@ export const createStore = <U extends ParamsToIdRecord, V extends Record<string,
   return createAutoCtx(createRootCtx(name, useFn), timeToClean, AttatchedComponent)
 }
 
-export const StateScopeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const StateScopeProvider: React.FC<{
+  children: React.ReactNode
+  Wrapper?: React.FC<any>
+  debugging?: boolean
+}> = ({ children, Wrapper, debugging }) => {
   const scopeId = useId()
   return <StateScopeContext.Provider value={scopeId}>
-    <AutoRootCtx />
+    <AutoRootCtx Wrapper={Wrapper} debugging={debugging} />
     {children}
   </StateScopeContext.Provider>
 }
