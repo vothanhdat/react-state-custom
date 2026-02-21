@@ -1,8 +1,10 @@
 import { debounce, memoize, DependencyTracker } from "./utils";
-import { useEffect, useMemo, useState } from "react"
+import { createContext, useContext, useEffect, useMemo, useState } from "react"
 import { useArrayChangeId } from "./useArrayChangeId"
 
 
+
+export const StateScopeContext = createContext<string | null>(null)
 
 const CHANGE_EVENT = "@--change-event"
 
@@ -119,8 +121,10 @@ export type getContext<D> = (e: string) => Context<D>
  * @returns The Context instance.
  */
 export const useDataContext = <D>(name: string = "noname") => {
-  DependencyTracker.addDependency(name);
-  const ctx = useMemo(() => getContext(name), [name])
+  const scopeId = useContext(StateScopeContext)
+  const namespacedName = scopeId ? `${scopeId}/${name}` : name
+  DependencyTracker.addDependency(namespacedName);
+  const ctx = useMemo(() => getContext(namespacedName), [namespacedName])
   useEffect(() => {
     ctx.useCounter += 1;
     return () => {
@@ -128,7 +132,7 @@ export const useDataContext = <D>(name: string = "noname") => {
       if (ctx.useCounter <= 0) {
         setTimeout(() => {
           if (ctx.useCounter <= 0) {
-            getContext.cache.delete(JSON.stringify([name]))
+            getContext.cache.delete(JSON.stringify([namespacedName]))
           }
         }, 100)
       }

@@ -1,5 +1,5 @@
-import { useEffect, useState, Fragment, useCallback, useMemo, Activity } from "react"
-import { useDataContext, useDataSourceMultiple, useDataSubscribe, type Context } from "./ctx"
+import { useEffect, useState, Fragment, useCallback, useMemo, Activity, useId } from "react"
+import { useDataContext, useDataSourceMultiple, useDataSubscribe, StateScopeContext, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
 import { useQuickSubscribe } from "./useQuickSubscribe"
@@ -182,4 +182,12 @@ export const createStore = <U extends ParamsToIdRecord, V extends Record<string,
   AttatchedComponent: React.FC<U> | undefined = undefined
 ) => {
   return createAutoCtx(createRootCtx(name, useFn), timeToClean, AttatchedComponent)
+}
+
+export const StateScopeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const scopeId = useId()
+  return <StateScopeContext.Provider value={scopeId}>
+    <AutoRootCtx />
+    {children}
+  </StateScopeContext.Provider>
 }
