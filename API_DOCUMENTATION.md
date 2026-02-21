@@ -105,27 +105,6 @@ import 'react-state-custom/dist/react-state-custom.css';
 
 ---
 
-## 🎭 State Isolation
-
-### `StateScopeProvider`
-
-A component that creates an isolated state scope for its children. All stores accessed within this provider will be independent of the global scope or parent scopes.
-
-```typescript
-function StateScopeProvider(props: {
-  children: React.ReactNode;
-}): JSX.Element
-```
-
-#### Example
-```tsx
-<StateScopeProvider>
-  <YourIsolatedComponent />
-</StateScopeProvider>
-```
-
----
-
 ## ⚙️ Advanced API (Primitives)
 
 These APIs are used internally by `createStore`. You generally don't need them unless you're building custom abstractions.
