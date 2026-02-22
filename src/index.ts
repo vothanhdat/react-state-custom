@@ -13,7 +13,7 @@ export {
 } from "./state-utils/ctx"
 
 export { createRootCtx } from "./state-utils/createRootCtx"
-export { AutoRootCtx, createAutoCtx, createStore, StateScopeProvider } from "./state-utils/createAutoCtx"
+export { AutoRootCtx, createAutoCtx, createStore } from "./state-utils/createAutoCtx"
 export { useArrayChangeId } from "./state-utils/useArrayChangeId"
 export { paramsToId, type ParamsToIdRecord, type ParamsToIdInput } from "./state-utils/paramsToId"
 
