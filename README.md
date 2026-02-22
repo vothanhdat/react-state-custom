@@ -116,6 +116,30 @@ export default function App() {
 }
 ```
 
+### 🎭 Isolated State
+
+Need to run multiple independent instances of your application or isolate features? Use `StateScopeProvider`.
+
+```tsx
+import { AutoRootCtx, StateScopeProvider } from 'react-state-custom'
+
+function App() {
+  return (
+    <>
+      <AutoRootCtx /> {/* Global Scope */}
+      <MainApp />
+
+      <StateScopeProvider>
+         {/* Isolated Scope - Stores here are independent of Global Scope */}
+         <IsolatedFeature />
+      </StateScopeProvider>
+    </>
+  )
+}
+```
+
+Stores used inside `StateScopeProvider` will be completely isolated from the parent or global scope, even if they share the same store definition.
+
 ---
 
 ## 🆚 Comparison

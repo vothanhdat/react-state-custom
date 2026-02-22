@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from "react"
-import { useDataContext, useDataSourceMultiple, type Context } from "./ctx"
+import { useContext, useEffect, useMemo } from "react"
+import { useDataContext, useDataSourceMultiple, StateScopeContext, type Context } from "./ctx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
 import { DependencyTracker } from "./utils"
 // import { debugObjTime } from "./debugObjTime"
@@ -48,9 +48,11 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
 
   const useRootState = (e: U) => {
     const ctxName = getCtxName(e)
+    const scopeId = useContext(StateScopeContext)
+    const scopedCtxName = scopeId ? `${scopeId}/${ctxName}` : ctxName
     const ctx = useDataContext<V>(ctxName)
     
-    DependencyTracker.enter(ctxName);
+    DependencyTracker.enter(scopedCtxName);
     let state;
     try {
       state = useFn(e, { ...ctx.data })
@@ -66,13 +68,13 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
     )
 
     useEffect(() => {
-      if (ctxMountedCheck.has(ctxName)) {
-        const err = new Error("RootContext " + ctxName + " are mounted more than once")
+      if (ctxMountedCheck.has(scopedCtxName)) {
+        const err = new Error("RootContext " + scopedCtxName + " are mounted more than once")
         err.stack = stack;
         throw err
       }
-      ctxMountedCheck.add(ctxName)
-      return () => { ctxMountedCheck.delete(ctxName) };
+      ctxMountedCheck.add(scopedCtxName)
+      return () => { ctxMountedCheck.delete(scopedCtxName) };
     })
 
     return state;
@@ -100,16 +102,18 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
      */
     useCtxStateStrict: (e: U): Context<V> => {
       const ctxName = getCtxName(e)
+      const scopeId = useContext(StateScopeContext)
+      const scopedCtxName = scopeId ? `${scopeId}/${ctxName}` : ctxName
 
       const stack = useMemo(() => new Error().stack, [])
 
       useEffect(() => {
-        if (!ctxMountedCheck.has(ctxName)) {
-          const err = new Error("RootContext [" + ctxName + "] is not mounted")
+        if (!ctxMountedCheck.has(scopedCtxName)) {
+          const err = new Error("RootContext [" + scopedCtxName + "] is not mounted")
           err.stack = stack;
           throw err
         }
-      }, [ctxName])
+      }, [scopedCtxName])
 
       return useDataContext<V>(ctxName)
     },
@@ -119,17 +123,19 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
      */
     useCtxState: (e: U): Context<V> => {
       const ctxName = getCtxName(e)
+      const scopeId = useContext(StateScopeContext)
+      const scopedCtxName = scopeId ? `${scopeId}/${ctxName}` : ctxName
 
       const stack = useMemo(() => new Error().stack, [])
 
       useEffect(() => {
-        if (!ctxMountedCheck.has(ctxName)) {
-          const err = new Error("RootContext [" + ctxName + "] is not mounted")
+        if (!ctxMountedCheck.has(scopedCtxName)) {
+          const err = new Error("RootContext [" + scopedCtxName + "] is not mounted")
           err.stack = stack;
           let timeout = setTimeout(() => console.error(err), 1000)
           return () => clearTimeout(timeout)
         }
-      }, [ctxMountedCheck.has(ctxName)])
+      }, [ctxMountedCheck.has(scopedCtxName)])
 
       return useDataContext<V>(ctxName)
     }
