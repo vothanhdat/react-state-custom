@@ -96,7 +96,7 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
     const scopeId = useContext(StateScopeContext)
     const scopedCtxName = scopeId ? `${scopeId}/${ctxName}` : ctxName
     const ctx = useDataContext<V>(ctxName)
-    
+
     DependencyTracker.enter(scopedCtxName);
     let rawState: V;
     try {
@@ -146,7 +146,7 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
      * Strict consumer: throws if the corresponding Root for these props isn't mounted.
      * Use in development/tests to fail fast when wiring is incorrect.
      */
-    useCtxStateStrict: (e: U): Context<V> => {
+    useCtxStateStrict: (e: U = {} as U): Context<V> => {
       const ctxName = getCtxName(e)
       const scopeId = useContext(StateScopeContext)
       const scopedCtxName = scopeId ? `${scopeId}/${ctxName}` : ctxName
@@ -167,7 +167,7 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
      * Lenient consumer: schedules a console.error if the Root isn't mounted instead of throwing.
      * Useful in production to avoid hard crashes while still surfacing misconfiguration.
      */
-    useCtxState: (e: U): Context<V> => {
+    useCtxState: (e: U = {} as U): Context<V> => {
       const ctxName = getCtxName(e)
       const scopeId = useContext(StateScopeContext)
       const scopedCtxName = scopeId ? `${scopeId}/${ctxName}` : ctxName

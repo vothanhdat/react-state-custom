@@ -70,18 +70,41 @@ export class StoreErrorBoundary extends React.Component<{ children?: React.React
  * - For each unique params object (by stable stringified key), AutoRootCtx ensures a corresponding Root instance is rendered.
  */
 
+type StoreRecord = {
+  useStateFn: Function,
+  AttatchedComponent: React.FC<any> | undefined
+  params: ParamsToIdRecord,
+  counter: number,
+  keepUntil?: number
+}
+
+/**
+ * Replace (or remove, when `next` is undefined) one record while keeping the object's key order,
+ * returning the same `state` object when nothing changed.
+ *
+ * Key order matters: the records become keyed children of AutoRootCtx. Moving a key (the old
+ * `{ ...rest, [key]: value }` pattern) re-places the child's fiber, and React StrictMode re-runs
+ * effects of re-placed fibers, which made every consumer unsubscribe/resubscribe and move the key
+ * again, an infinite loop.
+ */
+const setRecord = (state: Record<string, StoreRecord>, key: string, next: StoreRecord | undefined) => {
+  if (!(key in state)) {
+    return next ? { ...state, [key]: next } : state
+  }
+  if (next === state[key]) return state
+  const out: Record<string, StoreRecord> = {}
+  for (const k of Object.keys(state)) {
+    if (k !== key) out[k] = state[k]
+    else if (next) out[k] = next
+  }
+  return out
+}
+
 export const AutoRootCtx: React.FC<{ Wrapper?: React.ComponentType<{ children?: React.ReactNode }>, debugging?: boolean }> = ({ Wrapper = StoreErrorBoundary, debugging = false }) => {
 
   const ctx = useDataContext<any>("auto-ctx")
 
-  const [state, setState] = useState<Record<string, {
-    useStateFn: Function,
-    AttatchedComponent: React.FC<any> | undefined
-    params: ParamsToIdRecord,
-    // paramKey: string,
-    counter: number,
-    keepUntil?: number
-  }>>({})
+  const [state, setState] = useState<Record<string, StoreRecord>>({})
 
 
   const subscribeRoot = useCallback(
@@ -89,28 +112,25 @@ export const AutoRootCtx: React.FC<{ Wrapper?: React.ComponentType<{ children?: 
 
       const recordKey = [contextName, paramsToId(params)].filter(Boolean).join("?")
 
-
-      setState(state => ({
-        ...state,
-        [recordKey]: {
-          ...state[recordKey] ?? { useStateFn, params, AttatchedComponent },
-          counter: (state[recordKey]?.counter ?? 0) + 1,
-          keepUntil: undefined,
+      setState(state => {
+        const current = state[recordKey]
+        return setRecord(state, recordKey, {
           useStateFn,
+          params: current?.params ?? params,
           AttatchedComponent,
-        }
-      }))
+          counter: (current?.counter ?? 0) + 1,
+          keepUntil: undefined,
+        })
+      })
 
-      return () => setState(({ [recordKey]: current, ...rest }) => ({
-        ...rest,
-        ...(current?.counter > 1 || timeToCleanState > 0) ? {
-          [recordKey]: {
-            ...current,
-            counter: current.counter - 1,
-            keepUntil: current.counter > 1 ? undefined : (Date.now() + timeToCleanState),
-          }
-        } : {}
-      }))
+      return () => setState(state => {
+        const current = state[recordKey]
+        if (!current) return state
+        const counter = current.counter - 1
+        if (counter > 0) return setRecord(state, recordKey, { ...current, counter, keepUntil: undefined })
+        if (timeToCleanState > 0) return setRecord(state, recordKey, { ...current, counter: 0, keepUntil: Date.now() + timeToCleanState })
+        return setRecord(state, recordKey, undefined)
+      })
 
     },
     []
@@ -149,6 +169,8 @@ export const AutoRootCtx: React.FC<{ Wrapper?: React.ComponentType<{ children?: 
     {Object
       .entries(state)
       .filter(([, { counter, keepUntil = 0 }]) => counter > 0 || keepUntil >= Date.now())
+      // stable order so existing store fibers are never re-placed when records are added/removed
+      .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
       .map(([key, { useStateFn, params, AttatchedComponent }]) => <Wrapper key={key}>
         <StateRunner key={key} params={params} useStateFn={useStateFn} debugging={debugging} />
         {AttatchedComponent && <AttatchedComponent key={'attatch_' + key} {...params} />}
@@ -156,6 +178,39 @@ export const AutoRootCtx: React.FC<{ Wrapper?: React.ComponentType<{ children?: 
   </>
 
 }
+
+/** Options accepted by createStore / createAutoCtx (a bare number is still accepted as `timeToClean`). */
+export type StoreOptions<U extends ParamsToIdRecord, V extends Record<string, unknown>, I extends Partial<V> = {}> = {
+  /** Milliseconds to keep the store alive after its last consumer unmounts. Default 0. */
+  timeToClean?: number
+  /** Component rendered next to the store root, once per store instance (side effects, logging, ...). */
+  AttachedComponent?: React.ComponentType<U>
+  /**
+   * Values consumers read before the store hook has published its first result.
+   * Keys listed here are typed as always present on the `useStore` result.
+   * May be a function of the params.
+   */
+  initialState?: I | ((params: U) => I)
+}
+
+/** `useStore(params)`: `params` can be omitted when the store has no required params. */
+export type StoreParams<U> = {} extends U ? [params?: U] : [params: U]
+
+/** What `useStore` returns: every key optional, except those guaranteed by `initialState`. */
+export type StoreState<V, I> = { [P in keyof V]?: V[P] | undefined } & { [P in keyof I & keyof V]: V[P] }
+
+const normalizeOptions = <U extends ParamsToIdRecord, V extends Record<string, unknown>, I extends Partial<V>>(
+  timeToCleanOrOptions: number | StoreOptions<U, V, I> | undefined,
+  AttatchedComponent: React.ComponentType<U> | undefined
+): Required<Pick<StoreOptions<U, V, I>, "timeToClean">> & Omit<StoreOptions<U, V, I>, "timeToClean"> => {
+  if (typeof timeToCleanOrOptions === "object") {
+    return { timeToClean: 0, AttachedComponent: AttatchedComponent, ...timeToCleanOrOptions }
+  }
+  return { timeToClean: timeToCleanOrOptions ?? 0, AttachedComponent: AttatchedComponent }
+}
+
+/** Contexts that already received their initialState (one seeding per Context instance). */
+const seededContexts = new WeakSet<Context<any>>()
 
 /**
  * createAutoCtx
@@ -181,21 +236,22 @@ export const AutoRootCtx: React.FC<{ Wrapper?: React.ComponentType<{ children?: 
  * ```
  * AutoRootCtx will subscribe/unsubscribe instances per unique params and render the appropriate Root under the hood.
  */
-export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<string, unknown>>(
+export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<string, unknown>, I extends Partial<V> = {}>(
   { useRootState, getCtxName, name }: ReturnType<typeof createRootCtx<U, V>>,
-  timeToClean = 0,
-  AttatchedComponent: React.FC<U> | undefined = undefined
+  timeToCleanOrOptions: number | StoreOptions<U, V, I> = 0,
+  AttatchedComponent: React.ComponentType<U> | undefined = undefined
 ) => {
+  const { timeToClean, AttachedComponent, initialState } = normalizeOptions(timeToCleanOrOptions, AttatchedComponent)
 
-  const useCtxState = (e: U): Context<V> => {
-
+  const useCtxState = (...args: StoreParams<U>): Context<V> => {
+    const e = (args[0] ?? {}) as U
     const ctxName = getCtxName(e)
 
     const subscribe = useDataSubscribe(useDataContext<any>("auto-ctx"), "subscribe")
 
     useEffect(
       () => {
-        if (subscribe) return subscribe(name, useRootState, e, timeToClean, AttatchedComponent)
+        if (subscribe) return subscribe(name, useRootState, e, timeToClean, AttachedComponent)
         if (isProduction) return
         // No AutoRootCtx has published its subscribe fn yet. Give it a moment (it may be
         // mounting in the same pass), then tell the developer instead of failing silently.
@@ -206,25 +262,47 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
         return () => clearTimeout(timeout)
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [useRootState, subscribe, name, ctxName, timeToClean, AttatchedComponent]
+      [useRootState, subscribe, name, ctxName, timeToClean, AttachedComponent]
     )
 
-    return useDataContext<V>(ctxName)
+    const ctx = useDataContext<V>(ctxName)
+
+    // Seed initialState once per Context instance, before anything subscribes, so the very
+    // first render already sees values instead of undefined. No event is dispatched.
+    if (initialState && !seededContexts.has(ctx)) {
+      seededContexts.add(ctx)
+      const seed = (typeof initialState === "function" ? initialState(e) : initialState) as Partial<V>
+      for (const key of Object.keys(seed) as (keyof V)[]) {
+        if (!Object.hasOwn(ctx.data, key)) ctx.data[key] = seed[key]
+      }
+    }
+
+    return ctx
   }
 
   return {
     useCtxState,
-    useStore: (e: U) => useQuickSubscribe(useCtxState(e))
+    useStore: (...args: StoreParams<U>) => useQuickSubscribe(useCtxState(...args)) as StoreState<V, I>
   }
 }
 
-export const createStore = <U extends ParamsToIdRecord, V extends Record<string, unknown>>(
+/**
+ * createStore
+ *
+ * One-step helper: `createRootCtx` + `createAutoCtx`.
+ * ```
+ * const { useStore } = createStore('counter', useCounterState)
+ * const { useStore } = createStore('user', useUserState, { timeToClean: 5000, initialState: { user: null } })
+ * ```
+ * The third argument may be a bare number (`timeToClean`) for backwards compatibility.
+ */
+export const createStore = <U extends ParamsToIdRecord, V extends Record<string, unknown>, I extends Partial<V> = {}>(
   name: string,
   useFn: (params: U, preState: Partial<V>) => V,
-  timeToClean = 0,
-  AttatchedComponent: React.FC<U> | undefined = undefined
+  timeToCleanOrOptions: number | StoreOptions<U, V, I> = 0,
+  AttatchedComponent: React.ComponentType<U> | undefined = undefined
 ) => {
-  return createAutoCtx(createRootCtx(name, useFn), timeToClean, AttatchedComponent)
+  return createAutoCtx<U, V, I>(createRootCtx(name, useFn), timeToCleanOrOptions, AttatchedComponent)
 }
 
 export const StateScopeProvider: React.FC<{

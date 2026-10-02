@@ -48,6 +48,32 @@ describe('AutoRootCtx robustness', () => {
     expect(StoreErrorBoundary).toBeDefined()
   })
 
+  it('a divergent store cycle is capped by React and does not hang or affect other stores', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    let storeB: any
+    let rendersA = 0
+    const storeA = createStore('diverge-A', (_: {}) => { rendersA++; return { a: ((storeB.useStore().b as number) || 0) + 1 } })
+    storeB = createStore('diverge-B', (_: {}) => ({ b: ((storeA.useStore().a as number) || 0) + 1 }))
+    const { useStore: useHealthy } = createStore('healthy', (_: {}) => ({ ok: 'yes' }))
+    const Loop = () => <span data-testid="loop">{String(storeA.useStore().a)}</span>
+    const Healthy = () => <span data-testid="ok">{useHealthy().ok}</span>
+
+    const t0 = Date.now()
+    const { getByTestId } = render(<><AutoRootCtx /><Loop /><Healthy /></>)
+    await tick(100)
+    expect(Date.now() - t0).toBeLessThan(2000)
+
+    // the cascade ran synchronously and React's nested-update limit stopped it
+    const settled = rendersA
+    const shown = getByTestId('loop').textContent
+    expect(settled).toBeGreaterThan(10)
+    await tick(200)
+    expect(rendersA).toBe(settled)
+    expect(getByTestId('loop').textContent).toBe(shown)
+    expect(getByTestId('ok').textContent).toBe('yes')
+  })
+
   it('publishes undefined and removes keys the store hook stops returning', () => {
     const ctx = getContext('removed-keys') as Context<{ a?: number, b?: number }>
     const { rerender } = renderHook(
@@ -73,6 +99,8 @@ describe('AutoRootCtx robustness', () => {
       return null
     }
     render(<><Producer /><Observer /></>)
-    expect(seenInEffect).toEqual([42])
+    // StrictMode runs the effect twice; every observation must already see the published value
+    expect(seenInEffect.length).toBeGreaterThan(0)
+    expect(seenInEffect.every(v => v === 42)).toBe(true)
   })
 })

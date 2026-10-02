@@ -27,10 +27,12 @@ describe('Circular Dependency Detection', () => {
     }
     const storeA = createStore('store-A', useStoreA)
 
-    // Store B depends on Store A
+    // Store B depends on Store A. The values settle (B becomes constant once A exists);
+    // a divergent cycle (A = B + 1, B = A + 1) would be a real infinite loop and is covered
+    // by the runaway-render guard test instead.
     const useStoreB = () => {
       const { countA } = storeA.useStore({})
-      return { countB: (countA || 0) + 1 }
+      return { countB: countA === undefined ? 0 : 10 }
     }
     storeB = createStore('store-B', useStoreB)
 
