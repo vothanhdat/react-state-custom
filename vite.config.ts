@@ -4,6 +4,8 @@ import dts from 'vite-plugin-dts'
 import "babel-plugin-react-compiler"
 
 export default defineConfig({
+  // public/ only serves the demo site (vite.config.dev.ts); keep it out of the npm package.
+  publicDir: false,
   plugins: [
     react({
       babel: {
