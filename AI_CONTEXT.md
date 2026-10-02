@@ -78,6 +78,9 @@ export function Counter() {
 -   **Destructure immediately**: `const { data } = useStore(...)`. The returned object is a proxy that tracks usage during render.
 -   **No Providers**: Never manually wrap components in providers. `AutoRootCtx` handles everything.
 -   **Keep it simple**: Don't use `createRootCtx` or `createAutoCtx` directly. `createStore` is the only API you usually need.
+-   **First render**: store values are `undefined` until the store hook has run once. Pass `createStore(name, useFn, { initialState: {...} })` to avoid that and to get non-optional types for those keys.
+-   **No params**: a store whose hook takes no required params can be consumed as `useStore()`.
+-   **Dev tool** lives in a separate entry: `import { DevToolContainer } from 'react-state-custom/dev-tool'` plus `import 'react-state-custom/style.css'`.
 
 ## 🛠️ Common Patterns
 

@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 ### Fixed
+- `AutoRootCtx` no longer moves a store's record to the end of its state object on unsubscribe. The move re-ordered keyed children, and React StrictMode re-runs effects of re-placed fibers, which made consumers unsubscribe/resubscribe and re-order again: an infinite loop in development with two or more stores. Records keep their position and stores render in a stable sorted order.
+- A divergent store cycle (`A = B + 1`, `B = A + 1`) now runs synchronously and is capped by React's own nested-update limit (reported through `reportError`), instead of spinning forever in the background through timers.
 - Action functions returned from a store hook now keep a stable identity across store renders (each function key gets one wrapper that forwards to the latest closure). Consumers that destructure actions no longer re-render on unrelated key changes.
 - All subscribe hooks (`useQuickSubscribe`, `useDataSubscribe`, `useDataSubscribeWithTransform`, `useDataSubscribeMultiple`, `useDataSubscribeMultipleWithDebounce`) are now built on `useSyncExternalStore`. Updates are delivered synchronously, in one commit, with no tearing between hooks and no stray `setTimeout` in render.
 - Change detection uses `Object.is` everywhere; publishing `0` over `""` or `null` over `undefined` is no longer swallowed.
@@ -14,6 +16,11 @@ All notable changes to this project are documented here.
 - Dev tool: `StateView` reads from the cache instead of creating contexts (no more resurrected stores), grouped list items have keys, `Object.groupBy`/`toSorted` replaced for wider runtime support, typing fixed.
 
 ### Added
+- `createStore` / `createAutoCtx` accept an options object `{ timeToClean, AttachedComponent, initialState }`. A bare number is still accepted as `timeToClean`.
+- `initialState` seeds a store's context before the first consumer render, so values are never `undefined` on first paint. Keys listed in `initialState` are typed as always present on the `useStore` result.
+- `useStore()` / `useCtxState()` can be called without arguments when the store has no required params.
+- Exported types `StoreOptions`, `StoreParams`, `StoreState`.
+- README section on server-side rendering.
 - `StoreErrorBoundary`: the default `Wrapper` of `AutoRootCtx`. A store hook that throws is disabled and logged; every other store keeps running. Pass your own `Wrapper` to override.
 - Keys that a store hook stops returning are now published as `undefined` and removed from the context data.
 
@@ -23,6 +30,13 @@ All notable changes to this project are documented here.
 - Stores publish from `useLayoutEffect` (client) so consumers see the first values before paint instead of one frame later.
 - `StateRunner` is memoized: a consumer mounting or unmounting no longer re-runs every other store's hook.
 - `useQuickSubscribe(undefined)` now returns a proxy whose properties read as `undefined` instead of throwing at creation.
+- Reading the `useStore` proxy outside render no longer throws. It returns the current value, is not tracked, and logs a one-time development warning. Symbol keys pass through untracked.
+- Peer dependency relaxed to `react >=18` / `react-dom >=18` (nothing React 19 specific is used).
+- Tests run under `<StrictMode>`.
+
+### Removed
+- Internal `useRegistryChecker` (dead code). `Context.registry` is kept but deprecated.
+- The dev-only dependency graph forgets a store when its context is evicted, so it no longer grows unbounded.
 
 ## [1.0.33] - 2026-02-22
 - Added `StateScopeProvider` component for isolated nested state — allows subtrees to mount their own independent store instance, preventing state leakage between siblings or nested consumers.

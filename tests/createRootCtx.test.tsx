@@ -101,14 +101,20 @@ describe('createRootCtx', () => {
 
     const { Root } = createRootCtx('duplicate-ctx', useStore)
 
-    expect(() =>
+    // Under StrictMode React may surface effect errors wrapped in an AggregateError
+    let caught: unknown
+    try {
       render(
         <>
           <Root />
           <Root />
         </>
       )
-    ).toThrowError('RootContext duplicate-ctx are mounted more than once')
+    } catch (e) {
+      caught = e
+    }
+    const errors: unknown[] = caught instanceof AggregateError ? caught.errors : [caught]
+    expect(errors.some(e => String((e as Error)?.message).includes('RootContext duplicate-ctx are mounted more than once'))).toBe(true)
   })
 
   it('should treat props with different key order as the same context', () => {

@@ -116,6 +116,21 @@ export default function App() {
 }
 ```
 
+### 🌱 Initial State
+
+Before a store's hook has run for the first time, its values read as `undefined`. Pass `initialState` to give consumers something on the very first render. Keys you list there are typed as always present.
+
+```tsx
+export const { useStore: useUserStore } = createStore('user', useUserState, {
+  initialState: { user: null, isLoading: true },
+  timeToClean: 5000, // keep the store alive 5s after its last consumer unmounts
+})
+
+const { user, isLoading } = useUserStore({ userId }) // never undefined
+```
+
+Stores without required params can be used as `useStore()`.
+
 ### 🎭 Isolated State
 
 Need to run multiple independent instances of your application or isolate features? Use `StateScopeProvider`.
@@ -187,6 +202,12 @@ const useCartTotal = () => {
 ```
 
 ---
+
+## 🖥️ Server-Side Rendering
+
+The store registry is a module-level cache, and store hooks run inside `<AutoRootCtx />`, whose effects never run on the server. Treat the library as **client-side**: on the server consumers see `initialState` (or `undefined`), and hydration then runs the stores.
+
+If you render on a shared server process, wrap each request's tree in its own `<StateScopeProvider>` so nothing leaks between requests.
 
 ## 📦 Installation
 

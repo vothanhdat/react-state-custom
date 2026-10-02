@@ -13,25 +13,31 @@ Complete documentation for the `react-state-custom` API.
 The main entry point. Converts a standard React hook into a shared, auto-managed store.
 
 ```typescript
-function createStore<Params, State>(
+function createStore<Params, State, Initial extends Partial<State> = {}>(
   name: string,
   useFn: (params: Params, preState: Partial<State>) => State,
-  timeToClean?: number,
-  AttachedComponent?: React.FC<Params>
+  options?: number | {
+    timeToClean?: number;
+    AttachedComponent?: React.ComponentType<Params>;
+    initialState?: Initial | ((params: Params) => Initial);
+  }
 ): {
-  useStore(params: Params): State;
-  useCtxState(params: Params): Context<State>;
+  // `params` is optional when Params has no required keys
+  useStore(params?: Params): Partial<State> & Pick<State, keyof Initial>;
+  useCtxState(params?: Params): Context<State>;
 }
 ```
 
 #### Arguments
 - **`name`** *(string)*: A unique namespace for this store (e.g., `'user'`, `'cart'`).
 - **`useFn`** *(function)*: Your custom hook. Receives `params` and optional `preState`.
-- **`timeToClean`** *(number, optional)*: Time in milliseconds to keep the store alive after the last subscriber unmounts. Defaults to `0`.
-- **`AttachedComponent`** *(Component, optional)*: A React component that renders alongside the store root. Useful for side effects (like data fetching or logging) that should run exactly once per store instance.
+- **`options`** *(object or number, optional)*: a bare number is treated as `timeToClean`.
+  - **`timeToClean`** *(number)*: Time in milliseconds to keep the store alive after the last subscriber unmounts. Defaults to `0`.
+  - **`AttachedComponent`** *(Component)*: A React component that renders alongside the store root. Useful for side effects (like data fetching or logging) that should run exactly once per store instance.
+  - **`initialState`** *(object or function of params)*: Values consumers read before the store hook has published anything. Keys listed here are typed as always present on the `useStore` result.
 
 #### Returns
-- **`useStore`**: The consumer hook. Call this in your components to read state. It returns a **proxy** that automatically tracks which properties you access to optimize re-renders.
+- **`useStore`**: The consumer hook. Call this in your components to read state. It returns a **proxy** that automatically tracks which properties you access during render to optimize re-renders. Reads outside render (handlers, effects) return the current value but are not tracked and log a development warning.
 - **`useCtxState`**: Returns the raw `Context` object. Useful for advanced integrations.
 
 #### Example

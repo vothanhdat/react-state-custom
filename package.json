@@ -67,8 +67,8 @@
   "author": "Dat Vo",
   "license": "MIT",
   "peerDependencies": {
-    "react": "19",
-    "react-dom": "19"
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
   },
   "devDependencies": {
     "@stackblitz/sdk": "^1.11.0",
