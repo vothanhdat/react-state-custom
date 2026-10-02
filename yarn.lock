@@ -258,6 +258,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@babel/runtime@npm:^7.0.0":
+  version: 7.28.6
+  resolution: "@babel/runtime@npm:7.28.6"
+  checksum: 10c0/358cf2429992ac1c466df1a21c1601d595c46930a13c1d4662fde908d44ee78ec3c183aaff513ecb01ef8c55c3624afe0309eeeb34715672dbfadb7feedb2c0d
+  languageName: node
+  linkType: hard
+
 "@babel/runtime@npm:^7.12.5":
   version: 7.28.4
   resolution: "@babel/runtime@npm:7.28.4"
@@ -1168,13 +1175,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@uiw/react-split@npm:^5.9.3":
-  version: 5.9.3
-  resolution: "@uiw/react-split@npm:5.9.3"
+"@uiw/react-split@npm:^5.9.4":
+  version: 5.9.4
+  resolution: "@uiw/react-split@npm:5.9.4"
+  dependencies:
+    "@babel/runtime": "npm:^7.0.0"
   peerDependencies:
     react: ">=16.8.0"
     react-dom: ">=16.8.0"
-  checksum: 10c0/3300dbbec68ad8759cc525de27dc37af5e8b693cb4f35896b1023461013e0563d5675ddd783b771f3207569dd16e0983a8d75c405d07d206b14a196b13d24a16
+  checksum: 10c0/2db0d932f7cf4718c91adae5cfabd582f59c12a1c6e797c92c72d7cf306e4316d5b44b7521c1b53fb7582ca41a4561a41ee08e1743fbafceb612165f68a176f8
   languageName: node
   linkType: hard
 
@@ -2971,13 +2980,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-obj-view@npm:^1.1.1":
-  version: 1.1.1
-  resolution: "react-obj-view@npm:1.1.1"
+"react-obj-view@npm:^1.1.10":
+  version: 1.1.10
+  resolution: "react-obj-view@npm:1.1.10"
   peerDependencies:
     react: 19
     react-dom: 19
-  checksum: 10c0/19d239e5a7517e9a69c307649806237baa11c5da5880b8fb87512b867068f29d5d693755ac840568c7fcb133b1f190bc13ded04890f2522c7e9525e45b0d807c
+  checksum: 10c0/359132ddccfbe01a9077441e92b79bd0e5cda6d22c30dd69fc2fd7074ee99b06e7f5da80f0014e0f4724a84f80d7ca66f84b246f63c4c4a8fc945f4c42ff5bf4
   languageName: node
   linkType: hard
 
@@ -2999,7 +3008,7 @@ __metadata:
     "@types/jsdom": "npm:^27"
     "@types/react": "npm:^19.2.2"
     "@types/react-dom": "npm:19"
-    "@uiw/react-split": "npm:^5.9.3"
+    "@uiw/react-split": "npm:^5.9.4"
     "@vitejs/plugin-react": "npm:^5.0.0"
     "@vitest/coverage-v8": "npm:^4.0.3"
     "@vitest/ui": "npm:^4.0.3"
@@ -3008,8 +3017,8 @@ __metadata:
     react: "npm:^19.2.0"
     react-dom: "npm:^19.2.0"
     react-error-boundary: "npm:^6.0.0"
-    react-obj-view: "npm:^1.1.1"
-    typescript: "npm:^5.8.3"
+    react-obj-view: "npm:^1.1.10"
+    typescript: "npm:^5.9.3"
     vite: "npm:7"
     vite-bundle-analyzer: "npm:^1.1.0"
     vite-plugin-dts: "npm:^4.5.4"
@@ -3524,13 +3533,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:^5.8.3":
-  version: 5.8.3
-  resolution: "typescript@npm:5.8.3"
+"typescript@npm:^5.9.3":
+  version: 5.9.3
+  resolution: "typescript@npm:5.9.3"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10c0/5f8bb01196e542e64d44db3d16ee0e4063ce4f3e3966df6005f2588e86d91c03e1fb131c2581baf0fb65ee79669eea6e161cd448178986587e9f6844446dbb48
+  checksum: 10c0/6bd7552ce39f97e711db5aa048f6f9995b53f1c52f7d8667c1abdc1700c68a76a308f579cd309ce6b53646deb4e9a1be7c813a93baaf0a28ccd536a30270e1c5
   languageName: node
   linkType: hard
 
@@ -3544,13 +3553,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A^5.8.3#optional!builtin<compat/typescript>":
-  version: 5.8.3
-  resolution: "typescript@patch:typescript@npm%3A5.8.3#optional!builtin<compat/typescript>::version=5.8.3&hash=5786d5"
+"typescript@patch:typescript@npm%3A^5.9.3#optional!builtin<compat/typescript>":
+  version: 5.9.3
+  resolution: "typescript@patch:typescript@npm%3A5.9.3#optional!builtin<compat/typescript>::version=5.9.3&hash=5786d5"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10c0/39117e346ff8ebd87ae1510b3a77d5d92dae5a89bde588c747d25da5c146603a99c8ee588c7ef80faaf123d89ed46f6dbd918d534d641083177d5fac38b8a1cb
+  checksum: 10c0/ad09fdf7a756814dce65bc60c1657b40d44451346858eea230e10f2e95a289d9183b6e32e5c11e95acc0ccc214b4f36289dcad4bf1886b0adb84d711d336a430
   languageName: node
   linkType: hard
 
