@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.2.0] - 2026-10-02
 ### Added
 - `getStore(params)`: an imperative handle for code outside React. `get()` returns a plain snapshot, `subscribe(listener)` delivers every change with the changed key, `retain()` keeps the store running without any component (returns a release function), `ready` tells whether the hook has published. Global scope only.
 - `useStore(params, selector, isEqual?)`: re-render only when the selected (possibly deep or derived) value changes. Backed by the new `useDataSelector(ctx, selector, isEqual?)` hook.
@@ -71,7 +73,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.0.33...v1.1.0
