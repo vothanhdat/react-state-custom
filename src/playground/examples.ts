@@ -1,4 +1,16 @@
-// Example files
+import type { ComponentType } from 'react'
+
+// Live example apps (rendered natively in the playground)
+import CounterApp from '../examples/counter/app'
+import TodoApp from '../examples/todo/app'
+import FormApp from '../examples/form/app'
+import TimerApp from '../examples/timer/app'
+import CartApp from '../examples/cart/app'
+import AsyncApp from '../examples/async/app'
+import ComposeApp from '../examples/compose/app'
+import ScopeApp from '../examples/scope/app'
+
+// Example sources (shown in the code pane and sent to StackBlitz)
 import counterState from "../examples/counter/state.ts?raw"
 import counterView from "../examples/counter/view.tsx?raw"
 import counterApp from "../examples/counter/app.tsx?raw"
@@ -35,6 +47,7 @@ export interface Example {
     label: string
     title: string
     description: string
+    App: ComponentType
     state: string
     view: string
     app: string
@@ -42,6 +55,7 @@ export interface Example {
 
 export const examples = {
     counter: {
+        App: CounterApp,
         label: '🔢 Counter',
         title: 'Counter',
         description: 'A single global store with initialState. Increment, decrement and reset from anywhere; every consumer sees the same count.',
@@ -50,6 +64,7 @@ export const examples = {
         app: updateImport(counterApp),
     },
     todo: {
+        App: TodoApp,
         label: '✅ Todo List',
         title: 'Todo List',
         description: 'Multiple independent todo lists: the listId param becomes part of the store identity, so each list gets its own instance.',
@@ -58,6 +73,7 @@ export const examples = {
         app: updateImport(todoApp),
     },
     form: {
+        App: FormApp,
         label: '📝 Form',
         title: 'Form Validation',
         description: 'Two independent form instances keyed by formId, with validation and error state living in the store.',
@@ -66,6 +82,7 @@ export const examples = {
         app: updateImport(formApp),
     },
     timer: {
+        App: TimerApp,
         label: '⏱️ Timer',
         title: 'Timer',
         description: 'Multiple independent timers with setInterval inside the store hook. Effects and cleanup work exactly as in a normal hook.',
@@ -74,6 +91,7 @@ export const examples = {
         app: updateImport(timerApp),
     },
     cart: {
+        App: CartApp,
         label: '🛒 Cart',
         title: 'Shopping Cart',
         description: 'Shopping cart with product selection and quantity management. Shows how to handle derived state (total, itemCount) and complex state updates.',
@@ -82,6 +100,7 @@ export const examples = {
         app: updateImport(cartApp),
     },
     async: {
+        App: AsyncApp,
         label: '🌐 Async Data',
         title: 'Async Data',
         description: 'Fetch inside the store hook with a plain useEffect. Several consumers share one request, initialState provides the loading state on first render, and timeToClean caches the result after the last consumer unmounts.',
@@ -90,6 +109,7 @@ export const examples = {
         app: updateImport(asyncApp),
     },
     compose: {
+        App: ComposeApp,
         label: '🧩 Composed Stores',
         title: 'Composed Stores',
         description: 'A per-invoice store that reads a global settings store from inside its own hook. Change the tax rate once and every invoice recomputes.',
@@ -98,6 +118,7 @@ export const examples = {
         app: updateImport(composeApp),
     },
     scope: {
+        App: ScopeApp,
         label: '🎭 Scoped State',
         title: 'Scoped State',
         description: 'StateScopeProvider gives a subtree its own isolated store instances. The same store definition yields shared state globally and independent state inside each provider.',

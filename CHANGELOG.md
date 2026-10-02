@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Changed
+- Demo: examples now run natively in the playground next to their source, with an "Edit on StackBlitz" button that opens a new tab. StackBlitz embeds no longer start on pages that are not cross-origin isolated, and isolating the page blocks StackBlitz's own relay frame (stackblitz/sdk#37, stackblitz/webcontainer-core#2045).
 
 ## [1.1.1] - 2026-10-02
 ### Changed

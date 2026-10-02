@@ -3,7 +3,7 @@ import './playground.css'
 import { examples, ExampleKey } from './examples'
 import { PlaygroundHeader } from './PlaygroundHeader'
 import { ExampleSelector } from './ExampleSelector'
-import { StackBlitzEditor } from './StackBlitzEditor'
+import { ExamplePreview } from './ExamplePreview'
 import { DocumentationSection } from './DocumentationSection'
 
 export const Playground = () => {
@@ -34,7 +34,7 @@ export const Playground = () => {
                     </p>
                 </div>
 
-                <StackBlitzEditor example={example} />
+                <ExamplePreview exampleKey={activeExample} example={example} />
             </div>
 
             <DocumentationSection />

@@ -24,9 +24,8 @@
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>⚛️</text></svg>">
     
-    <!-- StackBlitz WebContainers need a cross-origin isolated host page (COOP/COEP).
-         GitHub Pages cannot set headers, so this service worker adds them and reloads once. -->
-    <script src="%BASE_URL%coi-serviceworker.min.js"></script>
+    <!-- An earlier build registered a COOP/COEP service worker; drop it from returning visitors. -->
+    <script>navigator.serviceWorker?.getRegistrations().then(rs => rs.forEach(r => r.unregister()))</script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
