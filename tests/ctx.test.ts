@@ -113,6 +113,33 @@ describe('Context', () => {
 
     expect(listener).toHaveBeenCalledWith('name', { count: 5, name: 'test' })
   })
+
+  it('notifies every subscriber even if one throws, then rethrows the first error', () => {
+    const first = vi.fn(() => { throw new Error('first') })
+    const second = vi.fn()
+    const all = vi.fn(() => { throw new Error('all') })
+    ctx.subscribe('count', first)
+    ctx.subscribe('count', second)
+    ctx.subscribeAll(all)
+
+    expect(() => ctx.publish('count', 1)).toThrow('first')
+    expect(second).toHaveBeenCalledWith(1)
+    expect(all).toHaveBeenCalledWith('count', { count: 1 })
+    expect(ctx.data.count).toBe(1)
+  })
+
+  it('registers the same listener twice and removes one registration per unsubscribe', () => {
+    const listener = vi.fn()
+    const unsub1 = ctx.subscribe('count', listener)
+    ctx.subscribe('count', listener)
+
+    ctx.publish('count', 1)
+    expect(listener).toHaveBeenCalledTimes(2)
+
+    unsub1()
+    ctx.publish('count', 2)
+    expect(listener).toHaveBeenCalledTimes(3)
+  })
 })
 
 describe('getContext', () => {

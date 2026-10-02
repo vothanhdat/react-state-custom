@@ -12,30 +12,37 @@ import { useArrayChangeId } from "./useArrayChangeId"
 
 export const StateScopeContext = createContext<string | null>(null)
 
-const CHANGE_EVENT = "@--change-event"
-
 /** How long an unused Context stays in the cache before being evicted. */
 const CACHE_EVICT_DELAY = 100
 
-class DataEvent<D> extends Event {
-  constructor(
-    public event: keyof D,
-    public value: D[typeof event] | undefined
-  ) {
-    super(String(event));
-  }
-}
+type KeyListener<D, K extends keyof D> = (value: D[K] | undefined) => void
+type AllListener<D> = (changeKey: keyof D, newData: Partial<D>) => void
 
-class ChangeEvent<D> extends Event {
-  constructor(
-    public value: DataEvent<D>
-  ) {
-    super(CHANGE_EVENT, value);
+/**
+ * Call every listener, then rethrow the first error. Listeners are invoked directly rather than
+ * through `EventTarget.dispatchEvent`, which reports listener exceptions to `window.onerror` and
+ * carries on: that silently dropped React's "Maximum update depth exceeded" for one subscriber
+ * while the others kept a divergent store cycle alive. Thrown synchronously, the error reaches
+ * the publishing store's effect and its error boundary disables that store, like a throwing
+ * subscriber in Redux or Zustand surfaces at the `dispatch`/`setState` call.
+ */
+const notify = <L>(listeners: Iterable<L>, call: (listener: L) => void) => {
+  let error: unknown
+  let failed = false
+  for (const listener of [...listeners]) {
+    try {
+      call(listener)
+    } catch (e) {
+      if (!failed) { failed = true; error = e }
+    }
   }
+  if (failed) throw error
 }
 
 /**
  * Generic context for managing shared state and event subscriptions.
+ * Still extends EventTarget for compatibility (`instanceof`), but subscriptions no longer go
+ * through `addEventListener`/`dispatchEvent`: see `notify` above.
  * @template D - The shape of the data managed by the context.
  */
 export class Context<D> extends EventTarget {
@@ -84,54 +91,65 @@ export class Context<D> extends EventTarget {
     return () => { this.readyListeners.delete(listener) }
   }
 
+  private keyListeners = new Map<keyof D, Set<KeyListener<D, any>>>()
+  private allListeners = new Set<AllListener<D>>()
+
   /**
    * Publish a value to the context and notify subscribers if it changed.
    * Change detection uses `Object.is`, so `0` vs `""` and `null` vs `undefined` are distinct.
+   * Every subscriber is notified even if one throws; the first error is then rethrown to the caller.
    * @param key - The key to update.
    * @param value - The new value.
    */
   public publish(key: keyof D, value: D[typeof key] | undefined) {
-
-    if (!Object.is(value, this.data[key])) {
-      this.data[key] = value
-      let event = new DataEvent(key, value);
-      this.dispatchEvent(event);
-      this.dispatchEvent(new ChangeEvent(event))
+    if (Object.is(value, this.data[key])) return
+    this.data[key] = value
+    const forKey = this.keyListeners.get(key)
+    let error: unknown
+    let failed = false
+    try {
+      if (forKey) notify(forKey, listener => listener(value))
+    } catch (e) {
+      failed = true; error = e
     }
+    try {
+      notify(this.allListeners, listener => listener(key, this.data))
+    } catch (e) {
+      if (!failed) { failed = true; error = e }
+    }
+    if (failed) throw error
   }
 
   /**
    * Subscribe to changes for a specific key in the context.
+   * The listener is called right away with the current value if the key is present.
+   * Subscribing the same function twice registers it twice; each unsubscribe removes one registration.
    * @param key - The key to subscribe to.
    * @param _listener - Callback invoked with the new value.
    * @returns Unsubscribe function.
    */
   public subscribe(key: keyof D, _listener: (e: D[typeof key] | undefined) => void) {
-
-    const listener = ({ value }: any) => {
-      _listener(value)
+    const listener: KeyListener<D, typeof key> = value => _listener(value)
+    let set = this.keyListeners.get(key)
+    if (!set) {
+      set = new Set()
+      this.keyListeners.set(key, set)
     }
-
-    this.addEventListener(String(key), listener)
+    set.add(listener)
 
     if (Object.hasOwn(this.data, key)) _listener(this.data[key])
 
-    return () => this.removeEventListener(String(key), listener)
+    return () => {
+      set.delete(listener)
+      if (set.size === 0 && this.keyListeners.get(key) === set) this.keyListeners.delete(key)
+    }
   }
 
+  /** Subscribe to every change: the listener receives the changed key and the whole data object. */
   public subscribeAll(_listener: (changeKey: keyof D, newData: Partial<D>) => void) {
-
-    const listener = (event: any) => {
-      if (event instanceof ChangeEvent) {
-        const { value: data } = event
-        _listener(data.event as any as keyof D, this.data)
-      }
-    }
-
-    this.addEventListener(String(CHANGE_EVENT), listener)
-
-    return () => this.removeEventListener(String(CHANGE_EVENT), listener)
-
+    const listener: AllListener<D> = (key, data) => _listener(key, data)
+    this.allListeners.add(listener)
+    return () => { this.allListeners.delete(listener) }
   }
 
 }

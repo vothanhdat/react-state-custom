@@ -49,7 +49,7 @@ describe('AutoRootCtx robustness', () => {
   })
 
   it('a divergent store cycle is capped by React and does not hang or affect other stores', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     let storeB: any
     let rendersA = 0
@@ -64,7 +64,8 @@ describe('AutoRootCtx robustness', () => {
     await tick(100)
     expect(Date.now() - t0).toBeLessThan(2000)
 
-    // the cascade ran synchronously and React's nested-update limit stopped it
+    // The cascade ran synchronously until React's nested-update limit threw inside a store's
+    // publish; the error reached that store's StoreErrorBoundary, which disabled it and ended the cycle.
     const settled = rendersA
     const shown = getByTestId('loop').textContent
     expect(settled).toBeGreaterThan(10)
@@ -72,6 +73,11 @@ describe('AutoRootCtx robustness', () => {
     expect(rendersA).toBe(settled)
     expect(getByTestId('loop').textContent).toBe(shown)
     expect(getByTestId('ok').textContent).toBe('yes')
+    expect(err).toHaveBeenCalledWith(
+      expect.stringContaining('store hook threw'),
+      expect.objectContaining({ message: expect.stringContaining('Maximum update depth exceeded') }),
+      expect.anything()
+    )
   })
 
   it('publishes undefined and removes keys the store hook stops returning', () => {
