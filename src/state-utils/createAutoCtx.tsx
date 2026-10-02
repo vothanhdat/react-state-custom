@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useId, useContext, memo } from "react"
-import { useDataContext, useDataSourceMultiple, useDataSubscribe, useDataSelector, acquireContext, getContext, isServer, StateScopeContext, type Context } from "./ctx"
+import { useDataContext, useDataSourceMultiple, useDataSelector, acquireContext, getContext, isServer, StateScopeContext, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
 import { useQuickSubscribe } from "./useQuickSubscribe"
@@ -283,21 +283,24 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
     `so its state hook never runs. Mount <AutoRootCtx /> once near your app root.`
 
   /**
-   * Mount the store (through the scope's AutoRootCtx) without a React consumer, and keep its
-   * context alive, until the returned release function is called.
+   * Ask the scope's AutoRootCtx to run the store hook for `params`, as soon as it has published its
+   * `subscribe` function (it may still be mounting in the same pass). Returns a release function.
+   * This subscribes to `auto-ctx` directly instead of reading `subscribe` during render, so a
+   * consumer never re-renders just because AutoRootCtx came up after it.
    */
-  const retainStore = (scopeId: string | null, params: U) => {
-    const auto = acquireContext<any>(scoped(scopeId, "auto-ctx"))
-    const store = acquireContext<V>(scoped(scopeId, getCtxName(params)))
-    seedContext(store.ctx, params)
-
+  const mountStore = (autoCtx: Context<any>, ctxName: string, params: U) => {
     let active = true
     let release: (() => void) | undefined
-    const unsub = auto.ctx.subscribe("subscribe", (subscribe: Function | undefined) => {
-      if (subscribe && active && !release) release = subscribe(name, useRootState, params, timeToClean, AttachedComponent)
+    // Fires immediately when AutoRootCtx is already up, and again if it is replaced by a new one.
+    const unsub = autoCtx.subscribe("subscribe", (subscribe: Function | undefined) => {
+      if (!active) return
+      release?.()
+      release = subscribe ? subscribe(name, useRootState, params, timeToClean, AttachedComponent) : undefined
     })
-    const warning = isProduction || isServer() ? undefined : setTimeout(() => {
-      if (active && !release) console.error(missingRootMessage(store.ctx.name))
+    // No AutoRootCtx has published its subscribe fn yet. Give it a moment, then tell the developer
+    // instead of failing silently.
+    const warning = isProduction || isServer() || release ? undefined : setTimeout(() => {
+      if (active && !release) console.error(missingRootMessage(ctxName))
     }, 1000)
 
     return () => {
@@ -306,6 +309,20 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
       clearTimeout(warning)
       unsub()
       release?.()
+    }
+  }
+
+  /**
+   * Mount the store (through the scope's AutoRootCtx) without a React consumer, and keep its
+   * context alive, until the returned release function is called.
+   */
+  const retainStore = (scopeId: string | null, params: U) => {
+    const auto = acquireContext<any>(scoped(scopeId, "auto-ctx"))
+    const store = acquireContext<V>(scoped(scopeId, getCtxName(params)))
+    seedContext(store.ctx, params)
+    const unmount = mountStore(auto.ctx, store.ctx.name, params)
+    return () => {
+      unmount()
       store.release()
       auto.release()
     }
@@ -315,23 +332,16 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
     const e = (args[0] ?? {}) as U
     const ctxName = getCtxName(e)
 
-    const subscribe = useDataSubscribe(useDataContext<any>("auto-ctx"), "subscribe")
-
-    useEffect(
-      () => {
-        if (subscribe) return subscribe(name, useRootState, e, timeToClean, AttachedComponent)
-        if (isProduction) return
-        // No AutoRootCtx has published its subscribe fn yet. Give it a moment (it may be
-        // mounting in the same pass), then tell the developer instead of failing silently.
-        const timeout = setTimeout(() => console.error(missingRootMessage(ctxName)), 1000)
-        return () => clearTimeout(timeout)
-      },
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      [useRootState, subscribe, name, ctxName, timeToClean, AttachedComponent]
-    )
-
+    const autoCtx = useDataContext<any>("auto-ctx")
     const ctx = useDataContext<V>(ctxName)
     seedContext(ctx, e)
+
+    useEffect(
+      () => mountStore(autoCtx, ctx.name, e),
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [autoCtx, ctx]
+    )
+
     return ctx
   }
 
