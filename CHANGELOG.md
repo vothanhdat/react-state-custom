@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.2.2] - 2026-10-02
 ### Fixed
 - React Compiler: `useStore()` / `useQuickSubscribe` return a new proxy on every render. The compiler memoises work on the identity of its inputs, so with the previous long-lived proxy a helper called with the whole store object (`describe(store)`) kept its cached result and its reads stopped being tracked; the component never updated. Compiled components that destructure keys were unaffected.
 
@@ -84,7 +86,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.2...HEAD
+[1.2.2]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.1...v1.1.2
