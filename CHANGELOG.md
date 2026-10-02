@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.2.1] - 2026-10-02
 ### Changed
 - `Context` notifies subscribers directly instead of through `EventTarget.dispatchEvent`. The browser (and jsdom) report a listener's exception to `window.onerror` and carry on, which hid React's "Maximum update depth exceeded" from the publisher: whether a divergent store cycle stopped depended on which subscriber happened to be notified first. Now every subscriber is still notified and the first error is rethrown to the publisher, so the error lands in the publishing store's effect and `StoreErrorBoundary` disables that store with a logged error, as a throwing subscriber surfaces at `dispatch` in Redux or `setState` in Zustand. Listeners passed to `subscribe`, `subscribeAll` or `getStore().subscribe` should therefore not throw.
 - A consumer that mounts in the same pass as `AutoRootCtx` (the usual app-root case) now renders twice on the way to its first data instead of three times, and a consumer whose `initialState` already matches the first publish renders once. `useCtxState` no longer subscribes to the `auto-ctx` "subscribe" function during render; it picks it up inside its effect, which also re-attaches the store if `AutoRootCtx` is replaced. The `tests/render-count.test.tsx` suite pins these numbers.
@@ -76,7 +78,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.0...v1.1.1
