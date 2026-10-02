@@ -3,7 +3,11 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Fixed
+- React Compiler: `useStore()` / `useQuickSubscribe` return a new proxy on every render. The compiler memoises work on the identity of its inputs, so with the previous long-lived proxy a helper called with the whole store object (`describe(store)`) kept its cached result and its reads stopped being tracked; the component never updated. Compiled components that destructure keys were unaffected.
+
 ### Added
+- `yarn test:compiler`: the store APIs tested under `babel-plugin-react-compiler` (components and store hooks compiled), run in CI next to the main suite.
 - `yarn bench`: microbenchmarks against Zustand, Jotai and a plain React context (update cost, mount cost, consumer renders per update) with results and caveats in `bench/README.md` and a summary in the README.
 
 ## [1.2.1] - 2026-10-02

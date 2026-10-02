@@ -324,6 +324,8 @@ The proxy behind `useStore`. Returns an object whose property reads during rende
 const { a, b } = useQuickSubscribe(ctx); // re-renders only when a or b changes
 ```
 
+The proxy is a new object on every render (over one subscription tracker per component), so that the React Compiler re-reads it instead of caching work keyed on its identity. Use the values read from it as dependencies, never the proxy itself.
+
 ### `paramsToId`
 
 Serializes a params object into the deterministic id used in store names (sorted keys, URI-encoded values).

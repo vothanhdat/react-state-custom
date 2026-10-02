@@ -16,7 +16,7 @@ up to date with every release. This file only adds repository-specific notes.
 
 ## Golden path (what generated code should use)
 - `createStore(name, useFn, options?)` where `options` is `{ timeToClean?, AttachedComponent?, initialState? }`.
-- `useStore(params?)` from the result. Destructure during render; the proxy tracks reads.
+- `useStore(params?)` from the result. Destructure during render; the proxy tracks reads and is a new object every render (React Compiler safe).
 - `<AutoRootCtx />` mounted once at the root. `<StateScopeProvider>` for an isolated subtree.
 - Params are primitives only (`paramsToId` throws otherwise). Same params = shared instance.
 - Prefer `initialState` so consumers never see `undefined` and get non-optional types.

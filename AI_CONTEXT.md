@@ -75,7 +75,7 @@ export function Counter() {
 ## ✅ Best Practices
 
 -   **Params must be primitives**: Store parameters (`{ id: '123' }`) are serialized to create unique store instances. Avoid passing objects or callbacks as params.
--   **Destructure immediately**: `const { data } = useStore(...)`. The returned object is a proxy that tracks usage during render.
+-   **Destructure immediately**: `const { data } = useStore(...)`. The returned object is a proxy that tracks usage during render. It is a new object every render (React Compiler safe); never use it as a dependency.
 -   **No Providers**: Never manually wrap components in providers. `AutoRootCtx` handles everything.
 -   **Keep it simple**: Don't use `createRootCtx` or `createAutoCtx` directly. `createStore` is the only API you usually need.
 -   **First render**: store values are `undefined` until the store hook has run once. Pass `createStore(name, useFn, { initialState: {...} })` to avoid that and to get non-optional types for those keys.

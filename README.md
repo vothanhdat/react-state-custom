@@ -376,6 +376,7 @@ Give stores an `initialState` so server HTML shows a meaningful loading state in
 
 - React 18 or newer (`react` and `react-dom` are peer dependencies).
 - Ships ESM and CommonJS builds with TypeScript declarations. TypeScript is optional but recommended.
+- Works with the React Compiler. Components and store hooks compiled by `babel-plugin-react-compiler` are covered by `yarn test:compiler` in CI, including helpers that take the whole `useStore()` object. The object is a new proxy on every render, so never use its identity as a dependency: use the values you read from it.
 
 ## 📖 Documentation
 
