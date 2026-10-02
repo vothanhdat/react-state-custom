@@ -55,7 +55,8 @@
     "test:run": "vitest run --config vitest.config.test.ts",
     "preview": "vite preview --config vite.config.dev.ts",
     "prepublishOnly": "yarn build",
-    "bench": "vitest bench --run --config vitest.config.bench.ts"
+    "bench": "vitest bench --run --config vitest.config.bench.ts",
+    "test:compiler": "vitest run --config vitest.config.compiler.ts"
   },
   "keywords": [
     "frontend",

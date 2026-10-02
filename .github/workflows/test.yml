@@ -33,6 +33,9 @@ jobs:
       
       - name: Run tests
         run: yarn test:run
+
+      - name: Run tests under the React Compiler
+        run: yarn test:compiler
       
       - name: Generate coverage
         run: yarn test:coverage

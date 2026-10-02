@@ -20,6 +20,8 @@ export default defineConfig({
     },
     // Exclude config files from test collection
     exclude: [
+      // run with the React Compiler by vitest.config.compiler.ts (yarn test:compiler)
+      'tests/compiler/**',
       '**/node_modules/**',
       '**/dist/**',
       '**/cypress/**',
