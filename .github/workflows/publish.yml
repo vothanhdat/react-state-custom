@@ -3,7 +3,8 @@ name: Publish to npm
 # Runs when a version tag is pushed (git push origin v1.2.0) or manually from the Actions tab.
 # Uses npm Trusted Publishing (OIDC): no npm token is stored anywhere. One-time setup on npmjs.com:
 #   package "react-state-custom" -> Settings -> Trusted Publisher -> GitHub Actions
-#   owner: vothanhdat, repository: react-state-custom, workflow filename: publish.yml
+#   owner: vothanhdat, repository: react-state-custom, workflow filename: publish.yml, environment: (blank)
+#   Allowed actions: tick "npm publish" (a new publisher only gets "stage publish" by default -> 403)
 on:
   push:
     tags: ['v*']
@@ -22,7 +23,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
 
       - name: Enable Corepack (yarn 4)
         run: corepack enable
@@ -38,15 +38,6 @@ jobs:
         run: |
           PKG="v$(node -p "require('./package.json').version")"
           test "$PKG" = "$GITHUB_REF_NAME" || { echo "package.json is $PKG but tag is $GITHUB_REF_NAME"; exit 1; }
-
-      - name: Print OIDC claims npm will check
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const token = await core.getIDToken('npm:registry.npmjs.org')
-            const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())
-            for (const k of ['repository','repository_owner','workflow_ref','job_workflow_ref','environment','ref','event_name','sub'])
-              core.info(`${k} = ${claims[k] ?? '(absent)'}`)
 
       - name: Upgrade npm (trusted publishing needs npm >= 11.5.1)
         run: npm install -g npm@latest
