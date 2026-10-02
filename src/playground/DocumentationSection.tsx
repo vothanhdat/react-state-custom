@@ -64,12 +64,13 @@ export const DocumentationSection = () => {
             <div className="info-section">
                 <h3>Key Concepts</h3>
                 <ul>
-                    <li><code>createRootCtx</code> - Creates a context from any custom hook</li>
-                    <li><code>createAutoCtx</code> - Automatically manages context lifecycle based on usage</li>
-                    <li><code>useQuickSubscribe</code> - Subscribe to context values via a convenient proxy</li>
-                    <li><code>useDataSource</code> / <code>useDataSourceMultiple</code> - Publish data to contexts</li>
-                    <li><code>useDataSubscribe</code> / <code>useDataSubscribeMultiple</code> - Subscribe to specific keys</li>
-                    <li>Multiple component instances automatically share state when parameters match</li>
+                    <li><code>createStore(name, useFn, options?)</code> - Turns any custom hook into a shared store</li>
+                    <li><code>useStore(params?)</code> - Reads a store; re-renders only for the keys you access during render</li>
+                    <li><code>AutoRootCtx</code> - Mount once; runs every store hook in a headless component and cleans up unused stores</li>
+                    <li><code>initialState</code> - What consumers see before the hook runs (and on the server)</li>
+                    <li><code>StateScopeProvider</code> - Gives a subtree its own isolated set of store instances</li>
+                    <li>Same store, same params = one shared instance; different params = independent instances</li>
+                    <li>Low-level primitives (<code>createRootCtx</code>, <code>useDataSubscribe</code>, ...) are documented in the API reference</li>
                 </ul>
             </div>
         </>

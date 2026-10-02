@@ -3,7 +3,7 @@ export const PlaygroundHeader = () => {
         <header className="playground-header">
             <h1 className="playground-title">React State Custom</h1>
             <p className="playground-subtitle">
-                A hook-first state management library for React 19
+                Turn any React hook into a global store. React 18+, TypeScript first.
             </p>
 
             <div className="playground-links">

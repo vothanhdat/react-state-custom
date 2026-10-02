@@ -14,7 +14,7 @@ export const ExampleSelector = ({ activeExample, onExampleChange }: ExampleSelec
                     onClick={() => onExampleChange(key)}
                     className={`example-button ${activeExample === key ? 'active' : ''}`}
                 >
-                    {key}
+                    {examples[key].label}
                 </button>
             ))}
         </div>
