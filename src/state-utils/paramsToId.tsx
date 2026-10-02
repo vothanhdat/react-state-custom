@@ -8,6 +8,8 @@ export type ParamsToIdInput = ParamsToIdRecord | undefined
  * This function creates a consistent string representation of parameters by:
  * - Sorting keys alphabetically to ensure deterministic output
  * - Validating that all values are primitive types
+ * - URI-encoding keys and values so that `=`, `&` and `?` inside a value can never
+ *   collide with the separators (`{ a: "1&b=2" }` and `{ a: "1", b: "2" }` stay distinct)
  * - Joining key-value pairs with '&' separator
  * 
  * @param params - Object containing string, number, bigint, boolean, null, or undefined values.
@@ -20,6 +22,7 @@ export type ParamsToIdInput = ParamsToIdRecord | undefined
  * ```typescript
  * paramsToId({ name: "john", age: 30 }) // Returns "age=30&name=john"
  * paramsToId({ id: null, active: true }) // Returns "active=true&id=null"
+ * paramsToId({ q: "a&b" })               // Returns "q=a%26b"
  * paramsToId() // Returns ""
  * ```
  */
@@ -34,6 +37,6 @@ export const paramsToId = (params: ParamsToIdInput = undefined) => Object
     ) {
       throw new Error(`Parameter "${key}" must be a primitive value (string, number, bigint, null, or undefined), but received ${typeof value}`)
     }
-    return key + '=' + value
+    return encodeURIComponent(key) + '=' + encodeURIComponent(String(value))
   })
   .join("&");

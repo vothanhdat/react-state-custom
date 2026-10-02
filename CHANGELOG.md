@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+### Fixed
+- Action functions returned from a store hook now keep a stable identity across store renders (each function key gets one wrapper that forwards to the latest closure). Consumers that destructure actions no longer re-render on unrelated key changes.
+- All subscribe hooks (`useQuickSubscribe`, `useDataSubscribe`, `useDataSubscribeWithTransform`, `useDataSubscribeMultiple`, `useDataSubscribeMultipleWithDebounce`) are now built on `useSyncExternalStore`. Updates are delivered synchronously, in one commit, with no tearing between hooks and no stray `setTimeout` in render.
+- Change detection uses `Object.is` everywhere; publishing `0` over `""` or `null` over `undefined` is no longer swallowed.
+- `useDataContext` re-validates its instance on commit, so a context evicted between render and commit is restored (or the live instance adopted) instead of leaving two Contexts for one name. Eviction never deletes a different live instance.
+- `paramsToId` URI-encodes keys and values, so `=`, `&` and `?` inside a value can no longer collide with another params object.
+- `process.env.NODE_ENV` is read inside a try/catch; the ES build no longer throws in environments without a `process` global.
+- Using a store without any `<AutoRootCtx />` / `<StateScopeProvider>` mounted now logs a `console.error` (dev only) after 1s instead of failing silently.
+- Dev tool: `StateView` reads from the cache instead of creating contexts (no more resurrected stores), grouped list items have keys, `Object.groupBy`/`toSorted` replaced for wider runtime support, typing fixed.
+
+### Changed
+- `useQuickSubscribe(undefined)` now returns a proxy whose properties read as `undefined` instead of throwing at creation.
+
 ## [1.0.33] - 2026-02-22
 - Added `StateScopeProvider` component for isolated nested state — allows subtrees to mount their own independent store instance, preventing state leakage between siblings or nested consumers.
 - Re-exported `StateScopeProvider` from the package entrypoint (`src/index.ts`).

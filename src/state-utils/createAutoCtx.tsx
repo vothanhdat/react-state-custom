@@ -3,6 +3,7 @@ import { useDataContext, useDataSourceMultiple, useDataSubscribe, StateScopeCont
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
 import { useQuickSubscribe } from "./useQuickSubscribe"
+import { isProduction } from "./utils"
 
 
 
@@ -86,8 +87,8 @@ export const AutoRootCtx: React.FC<{ Wrapper?: React.FC<any>, debugging?: boolea
 
   const nextDelete = useMemo(() => Object.entries(state)
     .filter(([, { counter, keepUntil }]) => counter <= 0 && keepUntil)
-    .toSorted(([, { keepUntil: k1 = 0 }], [, { keepUntil: k2 = 0 }]) => k1 - k2)
-    ?.at(0),
+    .sort(([, { keepUntil: k1 = 0 }], [, { keepUntil: k2 = 0 }]) => k1 - k2)
+    .at(0),
     [state]
   )
 
@@ -162,7 +163,18 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
     const subscribe = useDataSubscribe(useDataContext<any>("auto-ctx"), "subscribe")
 
     useEffect(
-      () => subscribe?.(name, useRootState, e, timeToClean, AttatchedComponent),
+      () => {
+        if (subscribe) return subscribe(name, useRootState, e, timeToClean, AttatchedComponent)
+        if (isProduction) return
+        // No AutoRootCtx has published its subscribe fn yet. Give it a moment (it may be
+        // mounting in the same pass), then tell the developer instead of failing silently.
+        const timeout = setTimeout(() => console.error(
+          `[react-state-custom] Store "${ctxName}" is used but no <AutoRootCtx /> (or <StateScopeProvider>) is mounted, ` +
+          `so its state hook never runs. Mount <AutoRootCtx /> once near your app root.`
+        ), 1000)
+        return () => clearTimeout(timeout)
+      },
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       [useRootState, subscribe, name, ctxName, timeToClean, AttatchedComponent]
     )
 

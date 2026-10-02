@@ -343,14 +343,12 @@ describe('useQuickSubscribe', () => {
   })
 
   it('should handle undefined context gracefully', () => {
-    // When context is undefined, the proxy should still be created but throw when accessed
-    expect(() => {
-      const { result } = renderHook(() => {
-        const data = useQuickSubscribe(undefined as any)
-        // Try to access a property - this should throw
-        return (data as any).someProperty
-      })
-    }).toThrow()
+    // When context is undefined every property reads as undefined and nothing throws
+    const { result } = renderHook(() => {
+      const data = useQuickSubscribe(undefined as any)
+      return (data as any).someProperty
+    })
+    expect(result.current).toBeUndefined()
   })
 
   it('should throw when accessing context data outside render phase', async () => {

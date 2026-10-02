@@ -1,5 +1,5 @@
 import { debounce, memoize, DependencyTracker } from "./utils";
-import { createContext, useContext, useEffect, useMemo, useState } from "react"
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { useArrayChangeId } from "./useArrayChangeId"
 
 
@@ -7,6 +7,9 @@ import { useArrayChangeId } from "./useArrayChangeId"
 export const StateScopeContext = createContext<string | null>(null)
 
 const CHANGE_EVENT = "@--change-event"
+
+/** How long an unused Context stays in the cache before being evicted. */
+const CACHE_EVICT_DELAY = 100
 
 class DataEvent<D> extends Event {
   constructor(
@@ -35,8 +38,6 @@ export class Context<D> extends EventTarget {
    * @param name - The name of the context (for debugging).
    */
   constructor(public name: string) {
-    // console.log("[CONTEXT] %s", name)
-    // this.event.setMaxListeners(100)
     super();
   }
 
@@ -53,12 +54,13 @@ export class Context<D> extends EventTarget {
 
   /**
    * Publish a value to the context and notify subscribers if it changed.
+   * Change detection uses `Object.is`, so `0` vs `""` and `null` vs `undefined` are distinct.
    * @param key - The key to update.
    * @param value - The new value.
    */
   public publish(key: keyof D, value: D[typeof key] | undefined) {
 
-    if (value != this.data[key]) {
+    if (!Object.is(value, this.data[key])) {
       this.data[key] = value
       let event = new DataEvent(key, value);
       this.dispatchEvent(event);
@@ -74,12 +76,11 @@ export class Context<D> extends EventTarget {
    */
   public subscribe(key: keyof D, _listener: (e: D[typeof key] | undefined) => void) {
 
-    const listener = ({ event, value }: any) => {
+    const listener = ({ value }: any) => {
       _listener(value)
     }
 
     this.addEventListener(String(key), listener)
-    // console.log("listenerCount:", String(key), this.event.listenerCount(String(key)))
 
     if (key in this.data) _listener(this.data[key])
 
@@ -117,6 +118,14 @@ export type getContext<D> = (e: string) => Context<D>
 
 /**
  * React hook to get a typed Context instance by name.
+ *
+ * Instances are reference counted: the context is evicted from the cache shortly after
+ * the last user unmounts. Because a component may render before the eviction timer fires
+ * and commit after it, the effect re-validates the instance against the cache on commit:
+ * - if the entry was evicted in between, the rendered instance is restored to the cache;
+ * - if another component already created a fresh instance, this component adopts it
+ *   (one re-render) so a name never maps to two live Contexts.
+ *
  * @param name - The context name.
  * @returns The Context instance.
  */
@@ -124,22 +133,41 @@ export const useDataContext = <D>(name: string = "noname") => {
   const scopeId = useContext(StateScopeContext)
   const namespacedName = scopeId ? `${scopeId}/${name}` : name
   DependencyTracker.addDependency(namespacedName);
-  const ctx = useMemo(() => getContext(namespacedName), [namespacedName])
+
+  const [, forceRender] = useState(0)
+  const ref = useRef<{ name: string, ctx: Context<any> } | null>(null)
+  if (!ref.current || ref.current.name !== namespacedName) {
+    ref.current = { name: namespacedName, ctx: getContext(namespacedName) }
+  }
+  const ctx = ref.current.ctx
+
   useEffect(() => {
-    ctx.useCounter += 1;
+    const cacheKey = getContext.keyFor(namespacedName)
+    let live = getContext.cache.get(cacheKey)
+    if (!live) {
+      // evicted between render and commit: restore the instance we rendered with
+      getContext.cache.set(cacheKey, ctx)
+      live = ctx
+    } else if (live !== ctx) {
+      // someone created a fresh instance in between: adopt it
+      ref.current = { name: namespacedName, ctx: live }
+      forceRender(c => c + 1)
+    }
+
+    live.useCounter += 1;
     return () => {
-      ctx.useCounter -= 1;
-      if (ctx.useCounter <= 0) {
+      live.useCounter -= 1;
+      if (live.useCounter <= 0) {
         setTimeout(() => {
-          if (ctx.useCounter <= 0) {
-            getContext.cache.delete(JSON.stringify([namespacedName]))
+          if (live.useCounter <= 0 && getContext.cache.get(cacheKey) === live) {
+            getContext.cache.delete(cacheKey)
           }
-        }, 100)
+        }, CACHE_EVICT_DELAY)
       }
     }
-  }, [ctx])
+  }, [ctx, namespacedName])
 
-  return ctx as any as Context<D>
+  return ctx as Context<D>
 }
 
 /**
@@ -149,21 +177,11 @@ export const useDataContext = <D>(name: string = "noname") => {
  * @param names - Names to check and register.
  */
 const useRegistryChecker = (ctx: Context<any> | undefined, ...names: string[]) => {
-  // return;
-  const stack = new Error("[ctx] useRegistryChecker failed " + JSON.stringify({ names, ctx: ctx?.name ?? 'undefined' }))
-
   useEffect(
     () => {
       if (ctx) {
-        if (names.some(name => ctx.registry.has(name))) {
-          // console.error(stack)
-        }
         names.forEach(e => ctx.registry.add(e))
-
-        // console.debug("[ctx] %s%s add datasource", componentId, ctx.name, names)
         return () => {
-          // console.debug("[ctx] %s %s remove datasource", componentId, ctx.name, names)
-
           names.forEach(e => ctx.registry.delete(e))
         }
       }
@@ -180,10 +198,8 @@ const useRegistryChecker = (ctx: Context<any> | undefined, ...names: string[]) =
  * @param value - The new value.
  */
 export const useDataSource = <D, K extends keyof D>(ctx: Context<D> | undefined, key: K, value: D[K] | undefined) => {
-  //@ts-check
   useEffect(() => {
-    if (ctx && ctx.data[key] != value) {
-
+    if (ctx && !Object.is(ctx.data[key], value)) {
       ctx.publish(key, value)
     }
   }, [key, value, ctx])
@@ -191,64 +207,80 @@ export const useDataSource = <D, K extends keyof D>(ctx: Context<D> | undefined,
   useRegistryChecker(ctx, key as any)
 }
 
+const noopSubscribe = () => () => { }
+
 /**
  * React hook to subscribe to a context value, with optional debounce.
+ * Built on `useSyncExternalStore`, so updates are delivered synchronously and
+ * consistently across components (no tearing, no extra timer tick).
  * @param ctx - The context instance.
  * @param key - The key to subscribe to.
  * @param debounceTime - Debounce time in ms (default 0).
  * @returns The current value for the key.
  */
 export const useDataSubscribe = <D, K extends keyof D>(ctx: Context<D> | undefined, key: K, debounceTime = 0): D[K] | undefined => {
-  //@ts-check
-  const [{ value }, setState] = useState(() => ({ value: ctx?.data?.[key] }))
+  const store = useMemo(() => {
+    if (!ctx) return { subscribe: noopSubscribe, getSnapshot: () => undefined }
 
-  useEffect(() => {
-    if (ctx) {
-      let callback = debounceTime == 0
-        ? (value: any) => setState({ value } as any)
-        : debounce((value: any) => setState({ value } as any), debounceTime)
-      let unsub = ctx.subscribe(key, callback)
-      value != ctx.data[key] && setState({ value: ctx.data[key] })
+    let snapshot = ctx.data[key]
+    const read = () => snapshot
+
+    const subscribe = (onStoreChange: () => void) => {
+      const notify = () => {
+        snapshot = ctx.data[key]
+        onStoreChange()
+      }
+      const listener = debounceTime > 0 ? debounce(notify, debounceTime) : notify
+      const unsub = ctx.subscribe(key, listener)
+      // make sure the snapshot reflects anything published between render and subscribe
+      snapshot = ctx.data[key]
       return () => {
-        unsub()
+        unsub();
+        (listener as any).cancel?.()
       }
     }
-  }, [key, ctx])
 
-  return ctx?.data[key]
+    return { subscribe, getSnapshot: read }
+  }, [ctx, key, debounceTime])
+
+  return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
 }
 
 /**
  * React hook to subscribe to a context value and transform it before returning.
+ * The transform is re-run only when the underlying value changes (by `Object.is`)
+ * or when a new transform function is passed.
  * @param ctx - The context instance.
  * @param key - The key to subscribe to.
  * @param transform - Function to transform the value.
  * @returns The transformed value.
  */
 export const useDataSubscribeWithTransform = <D, K extends keyof D, E>(ctx: Context<D> | undefined, key: K, transform: (e: D[K] | undefined) => E): E => {
-  const [, setState] = useState(0)
-  const result = useMemo(
-    () => transform(ctx?.data[key]),
-    [transform, ctx?.data[key]]
-  )
+  const transformRef = useRef(transform)
+  transformRef.current = transform
 
-  useEffect(() => {
-    if (ctx) {
-      let preValue = result
-      let callback = () => {
-        let newValue = transform(ctx.data[key])
-        if (newValue != preValue) {
-          preValue = newValue;
-          setState(e => e + 1)
-        };
+  const store = useMemo(() => {
+    let raw: D[K] | undefined
+    let usedTransform: typeof transform | undefined
+    let out: E
+
+    const getSnapshot = () => {
+      const current = ctx?.data[key]
+      const fn = transformRef.current
+      if (usedTransform !== fn || !Object.is(current, raw)) {
+        raw = current
+        usedTransform = fn
+        out = fn(current)
       }
-      let unsub = ctx.subscribe(key, callback)
-      callback();
-      return () => unsub()
+      return out
     }
-  }, [key, ctx])
 
-  return result
+    const subscribe = (onStoreChange: () => void) => ctx ? ctx.subscribe(key, onStoreChange) : () => { }
+
+    return { subscribe, getSnapshot }
+  }, [ctx, key])
+
+  return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
 }
 
 /**
@@ -260,17 +292,60 @@ export const useDataSourceMultiple = <D, T extends readonly (keyof D)[]>(
   ctx: Context<D> | undefined,
   ...entries: { -readonly [P in keyof T]: [T[P], D[T[P]]] }
 ) => {
-  //@ts-check
+  const changeId = useArrayChangeId(entries.flat())
   useEffect(() => {
     if (ctx) {
       for (let [key, value] of entries) {
-        ctx.data[key] != value && ctx.publish(key, value)
+        if (!Object.is(ctx.data[key], value)) ctx.publish(key, value)
       }
     }
-  }, [ctx, useArrayChangeId(entries.flat())])
+  }, [ctx, changeId])
 
   useRegistryChecker(ctx, ...entries.map(e => e[0]) as any)
 
+}
+
+/**
+ * Shared implementation for the multi-key subscribe hooks.
+ * Keeps a cached tuple snapshot that only changes identity when one of the values changes.
+ */
+const useMultiKeySnapshot = <D, K extends readonly (keyof D)[]>(
+  ctx: Context<D> | undefined,
+  keys: K,
+  debounceTime: number
+): { [i in keyof K]: D[K[i]] | undefined } => {
+  const keysId = useArrayChangeId(keys as unknown as any[])
+
+  const store = useMemo(() => {
+    const readAll = () => keys.map(key => ctx?.data?.[key])
+    let snapshot = readAll()
+
+    const refresh = () => {
+      const current = readAll()
+      if (current.some((v, i) => !Object.is(v, snapshot[i]))) snapshot = current
+    }
+
+    const subscribe = (onStoreChange: () => void) => {
+      if (!ctx) return () => { }
+      const notify = () => {
+        refresh()
+        onStoreChange()
+      }
+      const listener = debounceTime > 0 ? debounce(notify, debounceTime) : notify
+      const unsubs = keys.map(key => ctx.subscribe(key, listener))
+      refresh()
+      return () => {
+        (listener as any).cancel?.()
+        unsubs.forEach(unsub => unsub())
+      }
+    }
+
+    return { subscribe, getSnapshot: () => snapshot }
+    // keys are captured by content via keysId
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx, keysId, debounceTime])
+
+  return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot) as any
 }
 
 /**
@@ -283,42 +358,18 @@ export const useDataSubscribeMultiple = <D, K extends readonly (keyof D)[]>(
   ctx: Context<D> | undefined,
   ...keys: K
 ): { [P in K[number]]: D[P] | undefined } => {
-  const [, setCounter] = useState(0)
+  const values = useMultiKeySnapshot(ctx, keys, 0)
 
-  const returnValues = keys.map(key => ctx?.data?.[key])
-
-  useEffect(() => {
-    if (ctx) {
-      let prevValues = returnValues
-      const callback = debounce(() => {
-        let currentValues = keys.map(key => ctx?.data?.[key])
-        if (keys.some((key, i) => prevValues[i] != currentValues[i])) {
-          // console.log("DIFF", keys.filter((e, i) => prevValues[i] != currentValues[i]))
-          prevValues = currentValues
-          setCounter(c => c + 1)
-        }
-      }, 1)
-
-      let handles = keys.map(key => ctx.subscribe(key, callback))
-
-      let firstCall = setTimeout(callback, 1);
-
-      return () => {
-        clearTimeout(firstCall)
-        callback.cancel();
-        handles.forEach(unsub => unsub())
-      }
-
-    }
-  }, [ctx, ...keys])
-
-
-  return Object
-    .fromEntries(keys.map((key, index) => [key, returnValues[index]])) as any
+  return useMemo(
+    () => Object.fromEntries(keys.map((key, index) => [key, values[index]])) as any,
+    // keys are captured by content via values' identity
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [values]
+  )
 }
 
 /**
- * React hook to subscribe to multiple context values with throttling.
+ * React hook to subscribe to multiple context values with debouncing.
  * @param ctx - The context instance.
  * @param debounceTime - Debounce time in ms (default 50).
  * @param keys - Keys to subscribe to.
@@ -329,37 +380,5 @@ export const useDataSubscribeMultipleWithDebounce = <D, K extends (keyof D)[]>(
   debounceTime = 50,
   ...keys: K
 ): { [i in keyof K]: D[K[i]] | undefined } => {
-  //@ts-check
-  const [, setCounter] = useState(0)
-
-  const returnValues = keys.map(key => ctx?.data?.[key])
-
-  useEffect(() => {
-    if (ctx) {
-      let prevValues = returnValues
-      const callback = debounce(() => {
-        let currentValues = keys.map(key => ctx?.data?.[key])
-        if (keys.some((key, i) => prevValues[i] != currentValues[i])) {
-          prevValues = currentValues
-          setCounter(c => c + 1)
-        }
-      }, debounceTime)
-
-      let handles = keys.map(key => ctx.subscribe(key, callback))
-
-      let firstCall = setTimeout(callback, 1);
-
-      return () => {
-        clearTimeout(firstCall)
-        callback.cancel();
-        handles.forEach(unsub => unsub())
-      }
-
-    }
-  }, [ctx, ...keys])
-
-  return returnValues as any
+  return useMultiKeySnapshot(ctx, keys, debounceTime)
 }
-
-
-

@@ -1,8 +1,53 @@
-import { useContext, useEffect, useMemo } from "react"
+import { useContext, useEffect, useMemo, useRef } from "react"
 import { useDataContext, useDataSourceMultiple, StateScopeContext, type Context } from "./ctx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
 import { DependencyTracker } from "./utils"
-// import { debugObjTime } from "./debugObjTime"
+
+type StableFn = { latest: Function, stable: Function }
+
+const isClass = (fn: Function) => /^class[\s{]/.test(Function.prototype.toString.call(fn))
+
+/**
+ * Gives every function-valued key of `state` a stable identity across renders.
+ *
+ * Store hooks usually return fresh closures (`const increment = () => ...`) on every render.
+ * Publishing those directly would notify every consumer that destructures an action on
+ * every store render, defeating selective re-rendering. Instead each function key gets a
+ * single wrapper that always forwards to the latest implementation. Classes are left as-is.
+ */
+const useStableActions = <V extends Record<string, unknown>>(state: V): V => {
+  const wrappers = useRef(new Map<string, StableFn>())
+  const map = wrappers.current
+  const out: Record<string, unknown> = {}
+
+  for (const key of Object.keys(state)) {
+    const value = state[key]
+    if (typeof value === "function" && !isClass(value)) {
+      let entry = map.get(key)
+      if (!entry) {
+        const created: StableFn = {
+          latest: value,
+          stable: function (this: unknown, ...args: unknown[]) {
+            return created.latest.apply(this, args)
+          },
+        }
+        try {
+          Object.defineProperty(created.stable, "name", { value: value.name || key })
+        } catch { /* non-configurable in exotic environments; ignore */ }
+        entry = created
+        map.set(key, entry)
+      } else {
+        entry.latest = value
+      }
+      out[key] = entry.stable
+    } else {
+      map.delete(key)
+      out[key] = value
+    }
+  }
+
+  return out as V
+}
 
 
 /**
@@ -53,12 +98,13 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
     const ctx = useDataContext<V>(ctxName)
     
     DependencyTracker.enter(scopedCtxName);
-    let state;
+    let rawState: V;
     try {
-      state = useFn(e, { ...ctx.data })
+      rawState = useFn(e, { ...ctx.data })
     } finally {
       DependencyTracker.leave();
     }
+    const state = useStableActions(rawState)
 
     const stack = useMemo(() => new Error().stack, [])
 
@@ -75,7 +121,7 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
       }
       ctxMountedCheck.add(scopedCtxName)
       return () => { ctxMountedCheck.delete(scopedCtxName) };
-    })
+    }, [scopedCtxName])
 
     return state;
   }

@@ -17,7 +17,7 @@ const randomHash = () => Math.random().toString().slice(2)
  * - Compares the new array to the previous one by length and element equality (shallow comparison).
  * - If any difference is detected, generates a new random identifier.
  * 
- * Note: Uses shallow comparison - compares array length and element references using `!=`.
+ * Note: Uses shallow comparison - compares array length and element references using `Object.is`.
  * For objects and nested arrays, only references are compared, not deep values.
  */
 export const useArrayChangeId = (e: any[]): string => {
@@ -29,8 +29,8 @@ export const useArrayChangeId = (e: any[]): string => {
   // Check for differences in array existence, length, or elements
   let isDiff = false
   isDiff = isDiff || ((!e) != (!ref.current.values))
-  isDiff = isDiff || (e?.length != ref.current.values?.length)
-  isDiff = isDiff || (e?.some((f, i) => f != ref.current.values[i]))
+  isDiff = isDiff || (e?.length !== ref.current.values?.length)
+  isDiff = isDiff || (e?.some((f, i) => !Object.is(f, ref.current.values[i])))
 
   // Update the identifier if differences are found
   if (isDiff) {
