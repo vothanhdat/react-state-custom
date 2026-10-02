@@ -101,6 +101,34 @@ export const { useStore: useInvoiceStore } = createStore('invoice', useInvoiceSt
   initialState: { subtotal: 0, total: 0 },
 });`
 
+// Selectors, Suspense and access from outside React
+export const ADVANCED_CODE = `import { Suspense } from 'react';
+import { useUserStore, useUserStoreSuspense, getUserStore } from './userStore';
+
+// Selector: re-render only when the selected (deep or derived) value changes
+function UserName({ userId }: { userId: string }) {
+  const name = useUserStore({ userId }, s => s.user?.name);
+  return <span>{name}</span>;
+}
+
+// Suspense: wait until the store is ready, then everything is typed as present
+function Profile({ userId }: { userId: string }) {
+  const { user } = useUserStoreSuspense({ userId }, s => !s.isLoading);
+  return <h1>{user.name}</h1>;
+}
+const page = (
+  <Suspense fallback={<p>Loading…</p>}>
+    <Profile userId="42" />
+  </Suspense>
+);
+
+// Outside React: sockets, routers, tests, or a handler that needs the latest value
+const user = getUserStore({ userId: '42' });
+user.get().user;                                  // plain snapshot, safe anywhere
+user.get().reload?.();                            // actions are part of the state
+const stop = user.subscribe((state, key) => console.log(key, state));
+const release = user.retain();                    // keep it running with no component reading it`
+
 // With DevTools
 export const DEVTOOLS_CODE = `import { AutoRootCtx } from 'react-state-custom';
 import { DevToolContainer } from 'react-state-custom/dev-tool';
@@ -157,6 +185,7 @@ export const CODE_EXAMPLES: CodeExample[] = [
   { id: 'basic', label: 'Basic Usage', code: BASIC_USAGE_CODE },
   { id: 'params', label: 'Parameterized Stores', code: PARAMS_CODE },
   { id: 'compose', label: 'Composing Stores', code: COMPOSE_CODE },
+  { id: 'advanced', label: 'Selectors & Suspense', code: ADVANCED_CODE },
   { id: 'devtools', label: 'DevTools', code: DEVTOOLS_CODE },
   { id: 'error', label: 'Error Handling', code: ERROR_WRAPPER_CODE },
 ]

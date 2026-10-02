@@ -20,6 +20,9 @@ function createStore<Params, State, Initial extends Partial<State> = {}>(
 ): {
   // `params` is optional when Params has no required keys
   useStore(params?: Params): StoreState<State, Initial>;
+  useStore<R>(params: Params | undefined, selector: (state: StoreState<State, Initial>) => R, isEqual?: (a: R, b: R) => boolean): R;
+  useStoreSuspense(params?: Params, isReady?: (state: StoreState<State, Initial>) => boolean): State;
+  getStore(params?: Params): StoreHandle<State, Initial>;
   useCtxState(params?: Params): Context<State>;
 }
 ```
@@ -33,7 +36,10 @@ function createStore<Params, State, Initial extends Partial<State> = {}>(
   - **`initialState`** *(object or function of params)*: Values consumers read before the store hook has published anything. Keys listed here are typed as always present on the `useStore` result.
 
 #### Returns
-- **`useStore`**: The consumer hook. Call this in your components to read state. It returns a **proxy** that automatically tracks which properties you access during render to optimize re-renders. Reads outside render (handlers, effects) return the current value but are not tracked and log a development warning.
+- **`useStore(params?)`**: The consumer hook. Call this in your components to read state. It returns a **proxy** that automatically tracks which properties you access during render to optimize re-renders. Reads outside render (handlers, effects) return the current value but are not tracked and log a development warning.
+- **`useStore(params, selector, isEqual?)`**: Returns `selector(state)` and re-renders only when that value changes (`Object.is` unless `isEqual` is given). The selector receives the plain state object, so deep reads (`s => s.user?.name`) and derived values work. A new selector function each render is fine. Pass `undefined` as `params` for stores without params.
+- **`useStoreSuspense(params?, isReady?)`**: Suspends (for the nearest `<Suspense>`) until the store hook has published once, or until `isReady(state)` returns true when given. Returns the full `State` type. The store is kept running while the component is suspended. On the server it throws unless `initialState` already satisfies `isReady`.
+- **`getStore(params?)`**: Imperative handle for code outside React. See [`StoreHandle`](#storehandle). Global scope only.
 - **`useCtxState`**: Returns the raw `Context` object. Useful for advanced integrations.
 
 Action functions returned by `useFn` keep a stable identity across store renders, so they can be used in dependency arrays and memoized children safely.
@@ -118,6 +124,24 @@ class StoreErrorBoundary extends React.Component<{ children?: React.ReactNode }>
 ---
 
 ## 🧩 Types
+
+### `StoreHandle`
+
+Returned by `getStore(params)`.
+
+```typescript
+type StoreHandle<State, Initial> = {
+  readonly name: string;                                   // "name?params"
+  readonly ready: boolean;                                 // store hook has published at least once
+  get(): StoreState<State, Initial>;                       // plain snapshot (initialState merged with live data)
+  subscribe(listener: (state: StoreState<State, Initial>, changedKey: keyof State) => void): () => void;
+  retain(): () => void;                                    // run the store with no React consumer; call the result to release
+};
+```
+
+- `get()` never subscribes and never creates a store. Before anything has run it returns `initialState` (or `{}`).
+- `subscribe()` keeps the context alive while subscribed and fires once per changed key.
+- `retain()` mounts the store through the global `AutoRootCtx` and counts as a consumer: the store is torn down after `timeToClean` once every component and every retainer is gone. Logs a development error if no `AutoRootCtx` is mounted within a second.
 
 ### `StoreOptions`
 
@@ -260,6 +284,23 @@ const value = useDataSubscribe(ctx, 'key');
 const value = useDataSubscribe(ctx, 'key', 100);              // debounced 100ms
 const { key1, key2 } = useDataSubscribeMultiple(ctx, 'key1', 'key2');
 const [key1, key2] = useDataSubscribeMultipleWithDebounce(ctx, 50, 'key1', 'key2');
+```
+
+### `useDataSelector`
+
+Subscribes to the whole context and re-renders only when `selector(ctx.data)` changes. Backs `useStore(params, selector)`.
+
+```typescript
+const name = useDataSelector(ctx, data => data.user?.name);
+const tags = useDataSelector(ctx, data => data.tags ?? [], shallowEqual);
+```
+
+### `acquireContext`
+
+Non-hook counterpart of `useDataContext`: returns the cached `Context` for a name and keeps it alive until `release()` is called. Used by `getStore` and `useStoreSuspense`.
+
+```typescript
+const { ctx, release } = acquireContext<State>('user?userId=42');
 ```
 
 ### `useDataSubscribeWithTransform`

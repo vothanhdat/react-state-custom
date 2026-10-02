@@ -86,6 +86,9 @@ export function Counter() {
 -   **Errors**: a store hook that throws is caught by `StoreErrorBoundary` (default `Wrapper` of `AutoRootCtx`); other stores keep running. Pass `Wrapper` to `AutoRootCtx` to report or render errors.
 -   **Reads outside render**: the `useStore` proxy only tracks reads during render. Destructure at the top of the component; do not keep the proxy for later.
 -   **Stores inside stores**: a store hook may call another store's `useStore()`. Avoid cycles (A reads B, B reads A); they are reported with a dev warning.
+-   **Deep or derived reads**: `useStore(params, s => s.user?.name)` re-renders only when the selected value changes. Prefer it over reading a big object and re-rendering on every change inside it.
+-   **Suspense**: `useStoreSuspense(params, s => !s.isLoading)` instead of `if (isLoading) return <Spinner />`. Client only.
+-   **Outside React**: `getStore(params).get()` for a snapshot, `.subscribe(listener)` for changes, `.retain()` to keep a store running with no component. Use it in socket handlers, routers and tests, and in event handlers that need the latest value.
 
 ## 🛠️ Common Patterns
 

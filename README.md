@@ -260,6 +260,50 @@ import { ErrorBoundary } from 'react-error-boundary'
 )} />
 ```
 
+### 🔎 Selectors
+
+Pass a selector to re-render only when a derived or deep value changes. The selector gets the plain state object, so it can read as deep as it likes; comparison is `Object.is` unless you pass your own.
+
+```tsx
+const name = useUserStore({ userId }, s => s.user?.name)
+const total = useCartStore(undefined, s => s.items.reduce((sum, i) => sum + i.price, 0))
+const tags = usePostStore({ id }, s => s.post?.tags ?? [], shallowEqual)
+```
+
+### ⏳ Suspense
+
+`useStoreSuspense` suspends until the store hook has run once, or until an `isReady` predicate holds, and returns the full state type with nothing `undefined`.
+
+```tsx
+function Profile({ userId }: { userId: string }) {
+  const { user } = useUserStoreSuspense({ userId }, s => !s.isLoading)
+  return <h1>{user.name}</h1>
+}
+
+<Suspense fallback={<Spinner />}>
+  <Profile userId="42" />
+</Suspense>
+```
+
+The store keeps running while the component is suspended. On the server it throws unless `initialState` already satisfies `isReady`, so keep it inside a client-only boundary.
+
+### 🧰 Outside React
+
+`getStore(params)` is an imperative handle for code that is not a component: socket handlers, routers, tests, or an event handler that needs the latest value without subscribing.
+
+```tsx
+const cart = getCartStore({ userId: '42' })
+
+cart.get().items          // plain snapshot, safe anywhere
+cart.get().addItem(item)  // actions are part of the state
+const stop = cart.subscribe((state, changedKey) => sync(state))
+
+const release = cart.retain() // keep the store running with no component reading it
+release()
+```
+
+`getStore` works in the global scope. Inside a `StateScopeProvider`, components reach their instance through `useCtxState`.
+
 ### 📏 Reading Outside Render
 
 The object returned by `useStore` is a proxy that tracks reads **during render**. Reading it later (in an event handler or effect) returns the current value, but does not subscribe and logs a one-time development warning. Destructure what you need at the top of the component instead:
@@ -272,6 +316,9 @@ const onClick = () => console.log(count)
 // ⚠️ not tracked
 const store = useStore()
 const onClick = () => console.log(store.count)
+
+// ✅ latest value in a handler without subscribing
+const onClick = () => console.log(getStore().get().count)
 ```
 
 ### 🔌 Developer Tools

@@ -3,6 +3,11 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Added
+- `getStore(params)`: an imperative handle for code outside React. `get()` returns a plain snapshot, `subscribe(listener)` delivers every change with the changed key, `retain()` keeps the store running without any component (returns a release function), `ready` tells whether the hook has published. Global scope only.
+- `useStore(params, selector, isEqual?)`: re-render only when the selected (possibly deep or derived) value changes. Backed by the new `useDataSelector(ctx, selector, isEqual?)` hook.
+- `useStoreSuspense(params, isReady?)`: suspend until the store hook has published once, or until `isReady(state)` holds; returns the full state type. The store is retained while the component is suspended.
+- `Context.ready` / `markReady()` / `onReady()` and `acquireContext(name)` (ref-counted, non-hook access to a context) for building such integrations.
 
 ## [1.1.2] - 2026-10-02
 ### Changed
