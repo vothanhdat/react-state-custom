@@ -7,11 +7,13 @@ export {
   useDataSubscribe,
   useDataSubscribeMultiple,
   useDataSubscribeMultipleWithDebounce,
-  useDataSubscribeWithTransform
+  useDataSubscribeWithTransform,
+  useDataSelector,
+  acquireContext
 } from "./state-utils/ctx"
 
 export { createRootCtx } from "./state-utils/createRootCtx"
-export { AutoRootCtx, createAutoCtx, createStore, StateScopeProvider, StoreErrorBoundary, type StoreOptions, type StoreParams, type StoreState } from "./state-utils/createAutoCtx"
+export { AutoRootCtx, createAutoCtx, createStore, StateScopeProvider, StoreErrorBoundary, type StoreOptions, type StoreParams, type StoreState, type StoreHandle } from "./state-utils/createAutoCtx"
 export { useArrayChangeId } from "./state-utils/useArrayChangeId"
 export { paramsToId, type ParamsToIdRecord, type ParamsToIdInput } from "./state-utils/paramsToId"
 

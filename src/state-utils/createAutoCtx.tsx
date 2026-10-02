@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback, useMemo, useId, memo } from "react"
-import { useDataContext, useDataSourceMultiple, useDataSubscribe, StateScopeContext, type Context } from "./ctx"
+import React, { useEffect, useState, useCallback, useMemo, useId, useContext, memo } from "react"
+import { useDataContext, useDataSourceMultiple, useDataSubscribe, useDataSelector, acquireContext, getContext, isServer, StateScopeContext, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
 import { useQuickSubscribe } from "./useQuickSubscribe"
@@ -212,24 +212,41 @@ const normalizeOptions = <U extends ParamsToIdRecord, V extends Record<string, u
 /** Contexts that already received their initialState (one seeding per Context instance). */
 const seededContexts = new WeakSet<Context<any>>()
 
+/** The imperative handle returned by `getStore(params)`. */
+export type StoreHandle<V, I> = {
+  /** Context name of this store instance (`name?params`). */
+  readonly name: string
+  /** Snapshot of the current state: a plain object, safe to read anywhere (handlers, sockets, tests). */
+  get(): StoreState<V, I>
+  /**
+   * Run `listener` after every change, with the new snapshot and the key that changed.
+   * Keeps the context alive while subscribed. Returns an unsubscribe function.
+   */
+  subscribe(listener: (state: StoreState<V, I>, changedKey: keyof V) => void): () => void
+  /**
+   * Keep the store running even while no component consumes it (the hook is mounted inside
+   * the global `AutoRootCtx`). Returns a release function; the store is torn down after
+   * `timeToClean` once every consumer and every retainer is gone.
+   */
+  retain(): () => void
+  /** True once the store hook has published its first result. */
+  readonly ready: boolean
+}
+
 /**
  * createAutoCtx
  *
  * Bridges a Root context (from createRootCtx) to the global AutoRootCtx renderer.
  * You do NOT mount the Root component yourself — just mount <AutoRootCtx /> once at the app root.
  *
- * Usage: 
+ * Usage:
  * ```
  *    const { useCtxState: useTestCtxState } = createAutoCtx(createRootCtx(
- *      'test-state', 
+ *      'test-state',
  *      stateFn
  *    ))
- *    const { useCtxState: useOtherCtxState } = createAutoCtx(createRootCtx(
- *      'other-state', 
- *      otherFn
- *    ))
  * ```
- * 
+ *
  * Then inside components:
  * ```
  *   const ctxState = useTestCtxState({ any: 'params' })
@@ -243,6 +260,57 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
 ) => {
   const { timeToClean, AttachedComponent, initialState } = normalizeOptions(timeToCleanOrOptions, AttatchedComponent)
 
+  const scoped = (scopeId: string | null, ctxName: string) => scopeId ? `${scopeId}/${ctxName}` : ctxName
+
+  const seedValues = (params: U): Partial<V> | undefined => {
+    if (!initialState) return undefined
+    return (typeof initialState === "function" ? initialState(params) : initialState) as Partial<V>
+  }
+
+  // Seed initialState once per Context instance, before anything subscribes, so the very
+  // first render already sees values instead of undefined. No event is dispatched.
+  const seedContext = (ctx: Context<V>, params: U) => {
+    if (!initialState || seededContexts.has(ctx)) return
+    seededContexts.add(ctx)
+    const seed = seedValues(params)!
+    for (const key of Object.keys(seed) as (keyof V)[]) {
+      if (!Object.hasOwn(ctx.data, key)) ctx.data[key] = seed[key]
+    }
+  }
+
+  const missingRootMessage = (ctxName: string) =>
+    `[react-state-custom] Store "${ctxName}" is used but no <AutoRootCtx /> (or <StateScopeProvider>) is mounted, ` +
+    `so its state hook never runs. Mount <AutoRootCtx /> once near your app root.`
+
+  /**
+   * Mount the store (through the scope's AutoRootCtx) without a React consumer, and keep its
+   * context alive, until the returned release function is called.
+   */
+  const retainStore = (scopeId: string | null, params: U) => {
+    const auto = acquireContext<any>(scoped(scopeId, "auto-ctx"))
+    const store = acquireContext<V>(scoped(scopeId, getCtxName(params)))
+    seedContext(store.ctx, params)
+
+    let active = true
+    let release: (() => void) | undefined
+    const unsub = auto.ctx.subscribe("subscribe", (subscribe: Function | undefined) => {
+      if (subscribe && active && !release) release = subscribe(name, useRootState, params, timeToClean, AttachedComponent)
+    })
+    const warning = isProduction || isServer() ? undefined : setTimeout(() => {
+      if (active && !release) console.error(missingRootMessage(store.ctx.name))
+    }, 1000)
+
+    return () => {
+      if (!active) return
+      active = false
+      clearTimeout(warning)
+      unsub()
+      release?.()
+      store.release()
+      auto.release()
+    }
+  }
+
   const useCtxState = (...args: StoreParams<U>): Context<V> => {
     const e = (args[0] ?? {}) as U
     const ctxName = getCtxName(e)
@@ -255,10 +323,7 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
         if (isProduction) return
         // No AutoRootCtx has published its subscribe fn yet. Give it a moment (it may be
         // mounting in the same pass), then tell the developer instead of failing silently.
-        const timeout = setTimeout(() => console.error(
-          `[react-state-custom] Store "${ctxName}" is used but no <AutoRootCtx /> (or <StateScopeProvider>) is mounted, ` +
-          `so its state hook never runs. Mount <AutoRootCtx /> once near your app root.`
-        ), 1000)
+        const timeout = setTimeout(() => console.error(missingRootMessage(ctxName)), 1000)
         return () => clearTimeout(timeout)
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -266,24 +331,145 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
     )
 
     const ctx = useDataContext<V>(ctxName)
-
-    // Seed initialState once per Context instance, before anything subscribes, so the very
-    // first render already sees values instead of undefined. No event is dispatched.
-    if (initialState && !seededContexts.has(ctx)) {
-      seededContexts.add(ctx)
-      const seed = (typeof initialState === "function" ? initialState(e) : initialState) as Partial<V>
-      for (const key of Object.keys(seed) as (keyof V)[]) {
-        if (!Object.hasOwn(ctx.data, key)) ctx.data[key] = seed[key]
-      }
-    }
-
+    seedContext(ctx, e)
     return ctx
+  }
+
+  /**
+   * Imperative access for code that lives outside React (socket handlers, routers, tests) and for
+   * event handlers that want the latest value without subscribing. Global scope only: stores inside
+   * a `StateScopeProvider` are reachable from their components through `useCtxState`.
+   */
+  const getStore = (...args: StoreParams<U>): StoreHandle<V, I> => {
+    const params = (args[0] ?? {}) as U
+    const ctxName = getCtxName(params)
+    const snapshot = (ctx: Context<V> | undefined): StoreState<V, I> =>
+      ({ ...(seedValues(params) ?? {}), ...(ctx?.data ?? {}) }) as StoreState<V, I>
+    const live = () => isServer() ? undefined : getContext.fromCache(ctxName) as Context<V> | undefined
+
+    return {
+      name: ctxName,
+      get: () => snapshot(live()),
+      get ready() { return live()?.ready ?? false },
+      subscribe: (listener) => {
+        const { ctx, release } = acquireContext<V>(ctxName)
+        seedContext(ctx, params)
+        const unsub = ctx.subscribeAll((changedKey) => listener(snapshot(ctx), changedKey))
+        return () => { unsub(); release() }
+      },
+      retain: () => retainStore(null, params),
+    }
+  }
+
+  const useStoreProxy = (ctx: Context<V>) => useQuickSubscribe(ctx) as StoreState<V, I>
+
+  /**
+   * `useStore(params?)` returns a tracking proxy: re-render only for the keys read during render.
+   * `useStore(params, selector, isEqual?)` returns `selector(state)` and re-renders only when that
+   * value changes: use it for deep reads (`s => s.user?.name`) and derived values.
+   */
+  function useStore(...args: StoreParams<U>): StoreState<V, I>
+  function useStore<R>(params: U | undefined, selector: (state: StoreState<V, I>) => R, isEqual?: (a: R, b: R) => boolean): R
+  function useStore(...args: any[]) {
+    const [params, selector, isEqual] = args as [U | undefined, ((state: StoreState<V, I>) => unknown)?, ((a: unknown, b: unknown) => boolean)?]
+    const ctx = useCtxState(params as any)
+    // A given call site always passes a selector or never does, so the hook order is stable.
+    return typeof selector === "function"
+      ? useDataSelector(ctx, selector as (data: Partial<V>) => unknown, isEqual)
+      : useStoreProxy(ctx)
+  }
+
+  /**
+   * Like `useStore`, but suspends (throws a promise for the nearest `<Suspense>`) until the store
+   * hook has published its first result, or until `isReady(state)` returns true when given.
+   * The result is typed as the full state: nothing is `undefined` anymore.
+   * While suspended the store is kept mounted imperatively, so it keeps running even though the
+   * suspended component has not committed.
+   */
+  const useStoreSuspense = (...args: [...StoreParams<U>, isReady?: (state: StoreState<V, I>) => boolean]): V => {
+    const [params, isReady] = args as unknown as [U | undefined, ((state: StoreState<V, I>) => boolean)?]
+    const scopeId = useContext(StateScopeContext)
+    const ctx = useCtxState(params as any)
+    // With a predicate, readiness is the predicate alone (initialState may already satisfy it);
+    // without one, readiness means the store hook has published once.
+    const ready = isReady ? isReady(ctx.data as StoreState<V, I>) : ctx.ready
+    if (!ready) {
+      if (isServer()) {
+        throw new Error(
+          `[react-state-custom] useStoreSuspense("${ctx.name}") cannot resolve on the server: store hooks only run on the client. ` +
+          `Render it inside a client-only boundary, or pass an initialState and an isReady predicate it satisfies.`
+        )
+      }
+      throw waitUntilReady(ctx, isReady, () => retainStore(scopeId, (params ?? {}) as U))
+    }
+    return useQuickSubscribe(ctx) as V
   }
 
   return {
     useCtxState,
-    useStore: (...args: StoreParams<U>) => useQuickSubscribe(useCtxState(...args)) as StoreState<V, I>
+    useStore,
+    useStoreSuspense,
+    getStore,
   }
+}
+
+type PendingReady<V, I> = {
+  promise: Promise<void>
+  /** Latest predicate passed by the suspended component (undefined = wait for the first publish). */
+  isReady: ((state: StoreState<V, I>) => boolean) | undefined
+  check: () => void
+}
+
+/** One pending wait per context, shared by every render that suspends on it (StrictMode, retries). */
+const pendingReady = new WeakMap<Context<any>, PendingReady<any, any>>()
+
+/** How long the imperative retain outlives the resolved promise, giving the component time to mount and subscribe itself. */
+const RETAIN_AFTER_READY = 100
+
+/**
+ * Returns a promise that resolves when `ctx` is ready (see useStoreSuspense). The store is retained
+ * imperatively in a microtask, never during render: calling AutoRootCtx's setState from inside a
+ * render would restart that render, which would retain again, forever.
+ */
+const waitUntilReady = <V, I>(
+  ctx: Context<V>,
+  isReady: ((state: StoreState<V, I>) => boolean) | undefined,
+  retain: () => () => void
+): Promise<void> => {
+  const existing = pendingReady.get(ctx)
+  if (existing) {
+    existing.isReady = isReady as PendingReady<any, any>['isReady']
+    existing.check()
+    return existing.promise
+  }
+
+  const pending: PendingReady<V, I> = { isReady, check: () => { }, promise: Promise.resolve() }
+  pending.promise = new Promise<void>(resolve => {
+    let done = false
+    let release: (() => void) | undefined
+    let unsubAll = () => { }
+    let unsubReady = () => { }
+    pending.check = () => {
+      if (done) return
+      const fn = pending.isReady
+      if (!(fn ? fn(ctx.data as StoreState<V, I>) : ctx.ready)) return
+      done = true
+      unsubAll()
+      unsubReady()
+      pendingReady.delete(ctx)
+      resolve()
+      if (release) setTimeout(release, RETAIN_AFTER_READY)
+    }
+    queueMicrotask(() => {
+      if (done) return
+      release = retain()
+      unsubAll = ctx.subscribeAll(pending.check)
+      unsubReady = ctx.onReady(pending.check)
+      pending.check()
+    })
+  })
+  pendingReady.set(ctx, pending as PendingReady<any, any>)
+  return pending.promise
 }
 
 /**

@@ -1,5 +1,5 @@
 import { useContext, useEffect, useMemo, useRef } from "react"
-import { useDataContext, useDataSourceMultiple, StateScopeContext, type Context } from "./ctx"
+import { useDataContext, useDataSourceMultiple, StateScopeContext, type Context, useIsomorphicLayoutEffect } from "./ctx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
 import { DependencyTracker } from "./utils"
 
@@ -112,6 +112,10 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
       ctx,
       ...Object.entries(state) as any
     )
+
+    // Declared after useDataSourceMultiple so it runs after the first publish: the context is
+    // "ready" once consumers can see real values instead of initialState (see useStoreSuspense).
+    useIsomorphicLayoutEffect(() => { ctx.markReady() }, [ctx])
 
     useEffect(() => {
       if (ctxMountedCheck.has(scopedCtxName)) {

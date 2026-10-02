@@ -2,10 +2,10 @@ import { debounce, memoize, DependencyTracker } from "./utils";
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 
 /** True while rendering on the server (no DOM). Evaluated per call so test environments can toggle it. */
-const isServer = () => typeof window === "undefined"
+export const isServer = () => typeof window === "undefined"
 
 /** useLayoutEffect on the client (publish before paint, no one-frame flash), useEffect on the server. */
-const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect
+export const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect
 import { useArrayChangeId } from "./useArrayChangeId"
 
 
@@ -57,6 +57,32 @@ export class Context<D> extends EventTarget {
   public registry = new Set<string>()
 
   public useCounter = 0
+
+  /**
+   * True once a store root has published its first result into this context.
+   * `false` while only `initialState` (or nothing) is in `data`. Used by `useStoreSuspense`.
+   */
+  public ready = false
+  private readyListeners = new Set<() => void>()
+
+  /** Mark the context as ready (first publish from a root happened) and notify `onReady` listeners once. */
+  public markReady() {
+    if (this.ready) return
+    this.ready = true
+    const listeners = [...this.readyListeners]
+    this.readyListeners.clear()
+    listeners.forEach(l => l())
+  }
+
+  /** Run `listener` when the context becomes ready (immediately if it already is). Returns an unsubscribe. */
+  public onReady(listener: () => void) {
+    if (this.ready) {
+      listener()
+      return () => { }
+    }
+    this.readyListeners.add(listener)
+    return () => { this.readyListeners.delete(listener) }
+  }
 
   /**
    * Publish a value to the context and notify subscribers if it changed.
@@ -118,6 +144,43 @@ export class Context<D> extends EventTarget {
 export const getContext = memoize((name: string) => new Context<any>(name))
 
 /**
+ * Evict `live` from the cache shortly after its last user leaves, unless it was picked up again
+ * (or replaced by a fresh instance) in the meantime.
+ */
+const scheduleEvict = (name: string, live: Context<any>) => {
+  if (live.useCounter > 0) return
+  const cacheKey = getContext.keyFor(name)
+  setTimeout(() => {
+    if (live.useCounter <= 0 && getContext.cache.get(cacheKey) === live) {
+      getContext.cache.delete(cacheKey)
+      DependencyTracker.remove(name)
+    }
+  }, CACHE_EVICT_DELAY)
+}
+
+/**
+ * Non-hook counterpart of `useDataContext`: get the cached Context for `name` and keep it alive
+ * until `release()` is called. Used by the imperative store handle and by `useStoreSuspense`,
+ * which must hold a context while no component is committed.
+ * On the server it returns a throwaway instance.
+ */
+export const acquireContext = <D>(name: string): { ctx: Context<D>, release: () => void } => {
+  if (isServer()) return { ctx: new Context<D>(name), release: () => { } }
+  const ctx = getContext(name) as Context<D>
+  ctx.useCounter += 1
+  let released = false
+  return {
+    ctx,
+    release: () => {
+      if (released) return
+      released = true
+      ctx.useCounter -= 1
+      scheduleEvict(name, ctx)
+    },
+  }
+}
+
+/**
  * Type alias for a function that returns a Context instance.
  */
 export type getContext<D> = (e: string) => Context<D>
@@ -169,14 +232,7 @@ export const useDataContext = <D>(name: string = "noname") => {
     live.useCounter += 1;
     return () => {
       live.useCounter -= 1;
-      if (live.useCounter <= 0) {
-        setTimeout(() => {
-          if (live.useCounter <= 0 && getContext.cache.get(cacheKey) === live) {
-            getContext.cache.delete(cacheKey)
-            DependencyTracker.remove(namespacedName)
-          }
-        }, CACHE_EVICT_DELAY)
-      }
+      scheduleEvict(namespacedName, live)
     }
   }, [ctx, namespacedName])
 
@@ -269,6 +325,52 @@ export const useDataSubscribeWithTransform = <D, K extends keyof D, E>(ctx: Cont
 
     return { subscribe, getSnapshot }
   }, [ctx, key])
+
+  return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
+}
+
+/**
+ * Subscribe to a derived value of the whole context data.
+ * `selector` runs against the plain `ctx.data` object (not a proxy), so it may read as deep as it
+ * likes; the component re-renders only when the selected value changes according to `isEqual`
+ * (default `Object.is`). A new `selector` function each render is fine.
+ * @param ctx - The context instance.
+ * @param selector - Derives the value from the context data.
+ * @param isEqual - Equality used to decide whether the selection changed.
+ */
+export const useDataSelector = <D, R>(
+  ctx: Context<D> | undefined,
+  selector: (data: Partial<D>) => R,
+  isEqual: (a: R, b: R) => boolean = Object.is
+): R => {
+  const selectorRef = useRef(selector)
+  selectorRef.current = selector
+  const isEqualRef = useRef(isEqual)
+  isEqualRef.current = isEqual
+
+  const store = useMemo(() => {
+    let version = 0
+    let computedVersion = -1
+    let computedWith: typeof selector | undefined
+    let result: R
+
+    const getSnapshot = () => {
+      const fn = selectorRef.current
+      if (computedVersion === version && computedWith === fn) return result
+      const next = fn((ctx?.data ?? {}) as Partial<D>)
+      // keep the previous reference when the selection is equal, so React sees no change
+      if (computedVersion === -1 || !isEqualRef.current(result, next)) result = next
+      computedVersion = version
+      computedWith = fn
+      return result
+    }
+
+    const subscribe = (onStoreChange: () => void) => ctx
+      ? ctx.subscribeAll(() => { version++; onStoreChange() })
+      : () => { }
+
+    return { subscribe, getSnapshot }
+  }, [ctx])
 
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
 }
