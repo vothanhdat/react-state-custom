@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.1.1] - 2026-10-02
 ### Changed
 - Docs: README gains "How It Works", a consumer step in Quick Start and a guide for store options, params, composed stores, error handling and reads outside render. API reference now covers every export, including `StateScopeProvider`, `StoreErrorBoundary`, the `Store*` types and the low-level hooks.
 - Demo: playground snippets and examples use `createStore` with an options object and `initialState`; new async-data, composed-stores and scoped-state examples; "React 19" wording replaced by React 18+.
@@ -60,7 +62,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.0.33...v1.1.0
 [1.0.33]: https://github.com/vothanhdat/react-state-custom/compare/v1.0.32...v1.0.33
 [1.0.32]: https://github.com/vothanhdat/react-state-custom/compare/v1.0.31...v1.0.32
