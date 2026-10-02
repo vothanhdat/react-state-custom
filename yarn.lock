@@ -2373,6 +2373,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"jotai@npm:^3.0.1":
+  version: 3.0.1
+  resolution: "jotai@npm:3.0.1"
+  peerDependencies:
+    "@types/react": ">=18.0.0"
+    react: ">=18.0.0"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    react:
+      optional: true
+  checksum: 10c0/84b6adac2e3c8f7e8fd27c52f3206ceb1b22f9b46dfb81100b3765f652134399e91bfaee49a15e2e25083adf5638b8168aeb338234074e9c80955d51c231b456
+  languageName: node
+  linkType: hard
+
 "js-tokens@npm:^4.0.0":
   version: 4.0.0
   resolution: "js-tokens@npm:4.0.0"
@@ -3013,6 +3028,7 @@ __metadata:
     "@vitest/coverage-v8": "npm:^4.0.3"
     "@vitest/ui": "npm:^4.0.3"
     babel-plugin-react-compiler: "npm:^1.0.0"
+    jotai: "npm:^3.0.1"
     jsdom: "npm:^27.0.1"
     react: "npm:^19.2.0"
     react-dom: "npm:^19.2.0"
@@ -3023,6 +3039,7 @@ __metadata:
     vite-bundle-analyzer: "npm:^1.1.0"
     vite-plugin-dts: "npm:^4.5.4"
     vitest: "npm:^4.0.3"
+    zustand: "npm:^5.0.15"
   peerDependencies:
     react: ">=18.0.0"
     react-dom: ">=18.0.0"
@@ -3978,5 +3995,26 @@ __metadata:
   version: 5.0.0
   resolution: "yallist@npm:5.0.0"
   checksum: 10c0/a499c81ce6d4a1d260d4ea0f6d49ab4da09681e32c3f0472dee16667ed69d01dae63a3b81745a24bd78476ec4fcf856114cb4896ace738e01da34b2c42235416
+  languageName: node
+  linkType: hard
+
+"zustand@npm:^5.0.15":
+  version: 5.0.15
+  resolution: "zustand@npm:5.0.15"
+  peerDependencies:
+    "@types/react": ">=18.0.0"
+    immer: ">=9.0.6"
+    react: ">=18.0.0"
+    use-sync-external-store: ">=1.2.0"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    immer:
+      optional: true
+    react:
+      optional: true
+    use-sync-external-store:
+      optional: true
+  checksum: 10c0/ed3a883950a8c22d98e8c72cef103af18043ce66b45faf218ad20ccc8ee29716aacfc6b0a3e783b2152ea38b7663f3982bb6bf2b13ce3df692b05276446afa04
   languageName: node
   linkType: hard

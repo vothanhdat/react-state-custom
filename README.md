@@ -344,6 +344,18 @@ import 'react-state-custom/style.css'
 | **Selective Renders** | ✅ Automatic | ⚠️ Selectors | ❌ Manual | ✅ Selectors |
 | **Learning Curve** | 🟢 Low | 🔴 High | 🟡 Medium | 🟢 Low |
 
+## 📊 Benchmarks
+
+Measured with `yarn bench` (vitest + jsdom, React 19.2, no StrictMode; 1000 consumers over 10 keys, means in ms). Full method, tables and caveats in [bench/README.md](./bench/README.md).
+
+| scenario | react-state-custom | zustand | jotai | React context |
+|---|---|---|---|---|
+| consumer renders per update (1 key of 10 changed) | 100 | 100 | 100 | 1000 |
+| update 1 key, 100 of 1000 consumers affected | 0.70 | 0.41 | 0.37 | 1.51 |
+| mount + unmount 1000 consumers | 19.1 | 9.6 | 10.9 | 8.2 |
+
+Re-render selectivity matches Zustand and Jotai. Each update costs about twice as much because a store is a hook in a headless component: the store renders and publishes first, then its consumers render. Mounting costs one extra render per consumer (none with a matching `initialState`). All of it stays well under a frame at these sizes.
+
 ---
 
 ## 🖥️ Server-Side Rendering

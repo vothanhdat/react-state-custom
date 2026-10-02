@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "moduleResolution": "bundler"
+  },
+  "include": [
+    "vite/client",
+    "src",
+    "bench"
+  ]
+}

@@ -54,7 +54,8 @@
     "test:coverage": "vitest run --coverage --config vitest.config.test.ts",
     "test:run": "vitest run --config vitest.config.test.ts",
     "preview": "vite preview --config vite.config.dev.ts",
-    "prepublishOnly": "yarn build"
+    "prepublishOnly": "yarn build",
+    "bench": "vitest bench --run --config vitest.config.bench.ts"
   },
   "keywords": [
     "frontend",
@@ -83,6 +84,7 @@
     "@vitest/coverage-v8": "^4.0.3",
     "@vitest/ui": "^4.0.3",
     "babel-plugin-react-compiler": "^1.0.0",
+    "jotai": "^3.0.1",
     "jsdom": "^27.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -92,7 +94,8 @@
     "vite": "7",
     "vite-bundle-analyzer": "^1.1.0",
     "vite-plugin-dts": "^4.5.4",
-    "vitest": "^4.0.3"
+    "vitest": "^4.0.3",
+    "zustand": "^5.0.15"
   },
   "packageManager": "yarn@4.6.0+sha512.5383cc12567a95f1d668fbe762dfe0075c595b4bfff433be478dbbe24e05251a8e8c3eb992a986667c1d53b6c3a9c85b8398c35a960587fbd9fa3a0915406728",
   "engines": {

@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Added
+- `yarn bench`: microbenchmarks against Zustand, Jotai and a plain React context (update cost, mount cost, consumer renders per update) with results and caveats in `bench/README.md` and a summary in the README.
 
 ## [1.2.1] - 2026-10-02
 ### Changed
