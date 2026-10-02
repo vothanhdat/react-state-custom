@@ -55,5 +55,5 @@ const useFormState = ({ formId }: { formId: string }) => {
 export const { useStore: useFormStore } = createStore(
     "form",
     useFormState,
-    5000
+    50000
 )

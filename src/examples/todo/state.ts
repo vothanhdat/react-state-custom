@@ -51,5 +51,5 @@ const useTodoState = ({ listId }: { listId: string }) => {
 export const { useStore: useTodoStore } = createStore(
     "todos",
     useTodoState,
-    5000
+    50000
 )

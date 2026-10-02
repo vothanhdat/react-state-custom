@@ -40,5 +40,5 @@ const useTimerState = ({ timerId }: { timerId: string }) => {
 export const { useStore: useTimerStore } = createStore(
     "timer",
     useTimerState,
-    5000
+    50000
 )

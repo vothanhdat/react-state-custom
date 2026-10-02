@@ -20,5 +20,5 @@ const useCounterState = ({ }) => {
 export const { useStore: useCounterStore } = createStore(
     "counter",
     useCounterState,
-    5000
+    50000
 )
