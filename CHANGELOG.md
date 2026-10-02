@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.1.2] - 2026-10-02
 ### Changed
 - Demo: examples now run natively in the playground next to their source, with an "Edit on StackBlitz" button that opens a new tab. StackBlitz embeds no longer start on pages that are not cross-origin isolated, and isolating the page blocks StackBlitz's own relay frame (stackblitz/sdk#37, stackblitz/webcontainer-core#2045).
 
@@ -64,7 +66,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.0.33...v1.1.0
 [1.0.33]: https://github.com/vothanhdat/react-state-custom/compare/v1.0.32...v1.0.33

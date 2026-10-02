@@ -1,6 +1,6 @@
 {
   "name": "react-state-custom",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Turn any React hook into global state. No boilerplate, no complexity—just pure, performant state management.",
   "type": "module",
   "main": "dist/index.cjs",
