@@ -101,6 +101,13 @@ export const DependencyTracker = {
     }
   },
 
+  /** Forget a store once its context is evicted so the dev-only graph does not grow forever. */
+  remove(name: string) {
+    if (isProduction) return;
+    this.graph.delete(name);
+    for (const deps of this.graph.values()) deps.delete(name);
+  },
+
   checkCycle(start: string, target: string) {
     if (isProduction) return;
     const visited = new Set<string>();

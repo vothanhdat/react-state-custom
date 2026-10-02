@@ -49,7 +49,7 @@ export class Context<D> extends EventTarget {
    */
   public data: Partial<D> = {}
   /**
-   * Registry for tracking active keys (for duplicate detection).
+   * @deprecated Unused since 1.1; kept so existing code that reads it keeps compiling. Will be removed in 2.0.
    */
   public registry = new Set<string>()
 
@@ -85,7 +85,7 @@ export class Context<D> extends EventTarget {
 
     this.addEventListener(String(key), listener)
 
-    if (key in this.data) _listener(this.data[key])
+    if (Object.hasOwn(this.data, key)) _listener(this.data[key])
 
     return () => this.removeEventListener(String(key), listener)
   }
@@ -164,6 +164,7 @@ export const useDataContext = <D>(name: string = "noname") => {
         setTimeout(() => {
           if (live.useCounter <= 0 && getContext.cache.get(cacheKey) === live) {
             getContext.cache.delete(cacheKey)
+            DependencyTracker.remove(namespacedName)
           }
         }, CACHE_EVICT_DELAY)
       }
@@ -171,27 +172,6 @@ export const useDataContext = <D>(name: string = "noname") => {
   }, [ctx, namespacedName])
 
   return ctx as Context<D>
-}
-
-/**
- * Internal hook to check for duplicate registry entries in a context.
- * Warns if any of the provided names are already registered.
- * @param ctx - The context instance.
- * @param names - Names to check and register.
- */
-const useRegistryChecker = (ctx: Context<any> | undefined, ...names: string[]) => {
-  useEffect(
-    () => {
-      if (ctx) {
-        names.forEach(e => ctx.registry.add(e))
-        return () => {
-          names.forEach(e => ctx.registry.delete(e))
-        }
-      }
-    },
-    [ctx, names.length]
-  )
-
 }
 
 /**
@@ -206,8 +186,6 @@ export const useDataSource = <D, K extends keyof D>(ctx: Context<D> | undefined,
       ctx.publish(key, value)
     }
   }, [key, value, ctx])
-
-  useRegistryChecker(ctx, key as any)
 }
 
 const noopSubscribe = () => () => { }
@@ -310,16 +288,13 @@ export const useDataSourceMultiple = <D, T extends readonly (keyof D)[]>(
       if (!Object.is(ctx.data[key], value)) ctx.publish(key, value)
     }
     for (const key of published.current.keys) {
-      if (!next.has(key) && key in ctx.data) {
+      if (!next.has(key) && Object.hasOwn(ctx.data, key)) {
         ctx.publish(key, undefined)
         delete ctx.data[key]
       }
     }
     published.current.keys = next
   }, [ctx, changeId])
-
-  useRegistryChecker(ctx, ...entries.map(e => e[0]) as any)
-
 }
 
 /**

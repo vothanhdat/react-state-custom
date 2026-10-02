@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { Context } from "./ctx";
+import { isProduction } from "./utils";
 
-const OUT_OF_RENDER_ERROR = "useQuickSubscribe: Cannot access context data outside render phase. Destructure needed properties immediately during render."
+const outOfRenderWarning = (key: PropertyKey) =>
+  `useQuickSubscribe: "${String(key)}" was read outside of render (e.g. in an event handler or effect). ` +
+  `The value is current, but this read is not tracked, so later changes to it will not re-render the component. ` +
+  `Read it during render and capture it, or use useDataSubscribe for ad-hoc reads.`
 
 /**
  * Per-(component, context) tracker behind useQuickSubscribe.
@@ -22,11 +26,23 @@ function createTracker<D>(ctx: Context<D> | undefined) {
 
   const data = () => (ctx?.data ?? {}) as Partial<D>
 
+  const warned = new Set<PropertyKey>()
+
   const proxy = new Proxy(data() as any, {
     get(_target, p) {
-      if (!open) throw new Error(OUT_OF_RENDER_ERROR)
+      const current = data() as any
+      // Symbols (Symbol.toPrimitive, Symbol.iterator, devtools probes, ...) and inherited Object.prototype
+      // members (toString, valueOf, hasOwnProperty, ...) are not store keys: pass through untracked.
+      if (typeof p === "symbol" || (!Object.hasOwn(current, p) && p in Object.prototype)) return current[p]
       const key = p as keyof D
-      const value = data()[key]
+      const value = current[key]
+      if (!open) {
+        if (!isProduction && !warned.has(key)) {
+          warned.add(key)
+          console.warn(outOfRenderWarning(key))
+        }
+        return value
+      }
       readKeys.add(key)
       seen.set(key, value)
       return value
@@ -100,7 +116,8 @@ function createTracker<D>(ctx: Context<D> | undefined) {
  * when the component unmounts or the context changes. This approach minimizes unnecessary re-renders and resource usage by only
  * subscribing to the data that the component actually uses.
  *
- * The proxy may only be read during render; reading it later (e.g. in an event handler) throws.
+ * Read the proxy during render: those reads are tracked. Reads outside render (handlers, effects)
+ * return the current value but are not tracked, and log a one-time warning in development.
  * When `ctx` is undefined every property reads as `undefined` and nothing is subscribed.
  *
  * Example usage:

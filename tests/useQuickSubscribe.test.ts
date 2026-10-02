@@ -351,8 +351,9 @@ describe('useQuickSubscribe', () => {
     expect(result.current).toBeUndefined()
   })
 
-  it('should throw when accessing context data outside render phase', async () => {
+  it('should warn (not throw) when accessing context data outside render phase and still return the value', async () => {
     const ctx = getContext('quick-out-of-phase-test') as Context<{ value: number }>
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     act(() => {
       ctx.publish('value', 123)
@@ -362,10 +363,11 @@ describe('useQuickSubscribe', () => {
 
     await new Promise(resolve => setTimeout(resolve, 10))
 
-    expect(() => {
-      // Accessing after render should hit the guard
-      return result.current.value
-    }).toThrowError('useQuickSubscribe: Cannot access context data outside render phase. Destructure needed properties immediately during render.')
+    expect(result.current.value).toBe(123)
+    expect(result.current.value).toBe(123)
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0][0]).toContain('"value" was read outside of render')
+    warn.mockRestore()
   })
 
   it('should support destructuring in render', async () => {
