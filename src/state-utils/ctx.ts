@@ -1,6 +1,9 @@
 import { debounce, memoize, DependencyTracker } from "./utils";
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 
+/** True while rendering on the server (no DOM). Evaluated per call so test environments can toggle it. */
+const isServer = () => typeof window === "undefined"
+
 /** useLayoutEffect on the client (publish before paint, no one-frame flash), useEffect on the server. */
 const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect
 import { useArrayChangeId } from "./useArrayChangeId"
@@ -122,6 +125,9 @@ export type getContext<D> = (e: string) => Context<D>
 /**
  * React hook to get a typed Context instance by name.
  *
+ * Server rendering: returns an uncached, throwaway instance (see below); the library is client-side,
+ * on the server consumers only ever see `initialState`.
+ *
  * Instances are reference counted: the context is evicted from the cache shortly after
  * the last user unmounts. Because a component may render before the eviction timer fires
  * and commit after it, the effect re-validates the instance against the cache on commit:
@@ -140,7 +146,10 @@ export const useDataContext = <D>(name: string = "noname") => {
   const [, forceRender] = useState(0)
   const ref = useRef<{ name: string, ctx: Context<any> } | null>(null)
   if (!ref.current || ref.current.name !== namespacedName) {
-    ref.current = { name: namespacedName, ctx: getContext(namespacedName) }
+    // On the server nothing publishes or subscribes (effects never run), so instances need not be
+    // shared, and the module-level cache would only grow per request because eviction lives in an
+    // effect cleanup. Use a throwaway instance there; the HTML comes out identical.
+    ref.current = { name: namespacedName, ctx: isServer() ? new Context<any>(namespacedName) : getContext(namespacedName) }
   }
   const ctx = ref.current.ctx
 

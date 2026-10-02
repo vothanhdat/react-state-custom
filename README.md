@@ -205,9 +205,15 @@ const useCartTotal = () => {
 
 ## 🖥️ Server-Side Rendering
 
-The store registry is a module-level cache, and store hooks run inside `<AutoRootCtx />`, whose effects never run on the server. Treat the library as **client-side**: on the server consumers see `initialState` (or `undefined`), and hydration then runs the stores.
+React State Custom is a **client-side** state manager that is **SSR-safe**. Stores are hooks that run inside `<AutoRootCtx />` after mount, and effects never run on the server, so:
 
-If you render on a shared server process, wrap each request's tree in its own `<StateScopeProvider>` so nothing leaks between requests.
+- On the server, consumers render with `initialState` (or `undefined`). No store hook runs, nothing is fetched, nothing leaks between requests (server renders use throwaway contexts, never the shared cache).
+- Hydration matches, because the client's first render reads the very same snapshot. Stores mount after hydration and consumers update from there.
+- With streaming (`renderToPipeableStream`) the same rule holds: every boundary renders the same `initialState`.
+
+Give stores an `initialState` so server HTML shows a meaningful loading state instead of empty values.
+
+**Next.js App Router:** everything here is a hook, so `AutoRootCtx`, `StateScopeProvider` and any component calling `useStore` must live in a `'use client'` module.
 
 ## 📦 Installation
 

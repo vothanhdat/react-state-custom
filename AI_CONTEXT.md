@@ -80,6 +80,7 @@ export function Counter() {
 -   **Keep it simple**: Don't use `createRootCtx` or `createAutoCtx` directly. `createStore` is the only API you usually need.
 -   **First render**: store values are `undefined` until the store hook has run once. Pass `createStore(name, useFn, { initialState: {...} })` to avoid that and to get non-optional types for those keys.
 -   **No params**: a store whose hook takes no required params can be consumed as `useStore()`.
+-   **SSR / Next.js**: client-side library, SSR-safe. Server output shows `initialState`; stores run after hydration. In the App Router put `AutoRootCtx` and every `useStore` caller in a `'use client'` module.
 -   **Dev tool** lives in a separate entry: `import { DevToolContainer } from 'react-state-custom/dev-tool'` plus `import 'react-state-custom/style.css'`.
 
 ## 🛠️ Common Patterns

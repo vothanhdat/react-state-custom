@@ -20,7 +20,7 @@ All notable changes to this project are documented here.
 - `initialState` seeds a store's context before the first consumer render, so values are never `undefined` on first paint. Keys listed in `initialState` are typed as always present on the `useStore` result.
 - `useStore()` / `useCtxState()` can be called without arguments when the store has no required params.
 - Exported types `StoreOptions`, `StoreParams`, `StoreState`.
-- README section on server-side rendering.
+- SSR support clarified and tested: on the server `useDataContext` uses throwaway contexts instead of the shared cache (no per-request memory growth, no cross-request sharing); `renderToString` output equals the client's first render so hydration matches. README section on server-side rendering and `'use client'` note for Next.js.
 - `StoreErrorBoundary`: the default `Wrapper` of `AutoRootCtx`. A store hook that throws is disabled and logged; every other store keeps running. Pass your own `Wrapper` to override.
 - Keys that a store hook stops returning are now published as `undefined` and removed from the context data.
 
