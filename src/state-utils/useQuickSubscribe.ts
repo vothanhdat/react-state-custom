@@ -28,7 +28,7 @@ function createTracker<D>(ctx: Context<D> | undefined) {
 
   const warned = new Set<PropertyKey>()
 
-  const proxy = new Proxy(data() as any, {
+  const handler: ProxyHandler<any> = {
     get(_target, p) {
       const current = data() as any
       // Symbols (Symbol.toPrimitive, Symbol.iterator, devtools probes, ...) and inherited Object.prototype
@@ -51,7 +51,15 @@ function createTracker<D>(ctx: Context<D> | undefined) {
       console.warn("useQuickSubscribe: Rest object operations aren't recommended as they bypass selective subscription and may cause performance issues")
       return Reflect.ownKeys(target)
     },
-  }) as { [P in keyof D]?: D[P] | undefined }
+  }
+
+  /**
+   * A fresh Proxy per render, over the same tracker. The React Compiler memoises work on the
+   * identity of its inputs: with one long-lived proxy, `helper(store)` would be cached forever and
+   * the keys the helper reads would stop being tracked. A new object each render keeps every read
+   * observable; the compiler still memoises on the primitive values read out of it.
+   */
+  const view = () => new Proxy(data() as any, handler) as { [P in keyof D]?: D[P] | undefined }
 
   const hasChanged = () => {
     const current = data()
@@ -69,7 +77,7 @@ function createTracker<D>(ctx: Context<D> | undefined) {
   }
 
   return {
-    proxy,
+    view,
     /** Called at the start of every render: reopen the getter and forget last render's reads. */
     beginRender() {
       open = true
@@ -119,6 +127,8 @@ function createTracker<D>(ctx: Context<D> | undefined) {
  * Read the proxy during render: those reads are tracked. Reads outside render (handlers, effects)
  * return the current value but are not tracked, and log a one-time warning in development.
  * When `ctx` is undefined every property reads as `undefined` and nothing is subscribed.
+ * The returned object is a new proxy on every render (see `view` in createTracker), so do not
+ * use its identity as a dependency; use the values read from it.
  *
  * Example usage:
  *   const {name} = useQuickSubscribe(userContext);
@@ -142,5 +152,5 @@ export const useQuickSubscribe = <D>(
 
   useEffect(() => () => tracker.dispose(), [tracker])
 
-  return tracker.proxy
+  return tracker.view()
 };
