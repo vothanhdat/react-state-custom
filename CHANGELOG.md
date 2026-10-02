@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.1.0] - 2026-10-02
 ### Fixed
 - `AutoRootCtx` no longer moves a store's record to the end of its state object on unsubscribe. The move re-ordered keyed children, and React StrictMode re-runs effects of re-placed fibers, which made consumers unsubscribe/resubscribe and re-order again: an infinite loop in development with two or more stores. Records keep their position and stores render in a stable sorted order.
 - A divergent store cycle (`A = B + 1`, `B = A + 1`) now runs synchronously and is capped by React's own nested-update limit (reported through `reportError`), instead of spinning forever in the background through timers.
@@ -55,7 +57,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.0.33...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.0.33...v1.1.0
 [1.0.33]: https://github.com/vothanhdat/react-state-custom/compare/v1.0.32...v1.0.33
 [1.0.32]: https://github.com/vothanhdat/react-state-custom/compare/v1.0.31...v1.0.32
 [1.0.31]: https://github.com/vothanhdat/react-state-custom/compare/v1.0.29...v1.0.31
