@@ -40,6 +40,15 @@ jobs:
           PKG="v$(node -p "require('./package.json').version")"
           test "$PKG" = "$GITHUB_REF_NAME" || { echo "package.json is $PKG but tag is $GITHUB_REF_NAME"; exit 1; }
 
+      - name: Print OIDC claims npm will check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = await core.getIDToken('npm:registry.npmjs.org')
+            const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())
+            for (const k of ['repository','repository_owner','workflow_ref','job_workflow_ref','environment','ref','event_name','sub'])
+              core.info(`${k} = ${claims[k] ?? '(absent)'}`)
+
       - name: Upgrade npm (trusted publishing needs npm >= 11.5.1)
         run: npm install -g npm@latest
 
