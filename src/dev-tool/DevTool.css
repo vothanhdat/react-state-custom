@@ -10,7 +10,7 @@
     bottom: 30px;
     right: 30px;
     transition: opacity 0.3s;
-    
+
 
 }
 
@@ -27,7 +27,7 @@
         bottom: calc(100% + 5px);
         right: 0px;
     }
-   
+
 }
 
 .react-state-dev-panel {
@@ -50,10 +50,25 @@
             align-self: stretch;
 
             .state-filter {
-                padding: 0.2em 0.5em;
+                padding: 0.5em;
                 width: stretch;
                 position: sticky;
                 top: 0px;
+            }
+
+            .state-group-header {
+                padding: 0.2em 0.5em;
+                text-transform: uppercase;
+                font-weight: bold;
+                vertical-align: top;
+                position: sticky;
+                top: 2em;
+                background-color: light-dark(rgb(177, 177, 177), rgb(112, 112, 112));
+                color: light-dark(#fff, #000);
+                mark{
+                    color: inherit;
+                }
+
             }
 
             .state-key {
@@ -95,15 +110,14 @@
 
                 .state-key-meta {
                     font-size: 10px;
-                    opacity: 0.6;
                 }
             }
 
         }
 
         .state-view {
-            flex: 1;
             overflow: auto;
+            flex-grow: 1;
         }
     }
 

@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react"
+import React, { Fragment, useEffect, useMemo, useState } from "react"
 import { getContext } from "../state-utils/ctx"
 import { debounce } from "../state-utils/utils"
-import { HightlightWrapper } from "./useHighlight"
+import { HighlightString, HightlightWrapper } from "./useHighlight"
 import { DataViewComponent, DataViewDefault } from "./DataViewComponent"
 import { StateLabelRender } from "./StateLabelRender"
 import Split from "@uiw/react-split"
@@ -12,7 +12,7 @@ const cache = getContext.cache
 export const DevToolState: React.FC<{ Component: DataViewComponent }> = ({ Component }) => {
     const [allKeys, setKeys] = useState(() => [...cache.keys()])
     const [filterString, setFilterString] = useState("")
-    const [selectedKey, setKey] = useState("")
+    const [selectedKeys, setSelectedKeys] = useState<string[]>([])
 
     useEffect(() => {
         let t = setInterval(() => {
@@ -37,8 +37,24 @@ export const DevToolState: React.FC<{ Component: DataViewComponent }> = ({ Compo
         [filterString]
     )
 
+    const preParseKeys = useMemo(
+        () => allKeys.map((e): string => JSON.parse(e)?.[0]),
+        [allKeys]
+    )
 
-    return <Split mode="horizontal" className="main-panel">
+    const groupedKeys = useMemo(
+        () => preParseKeys
+            .filter(e => e && e != 'auto-ctx')
+            .filter(filterFn)
+            .reduce<Record<string, string[]>>((groups, key) => {
+                const group = key.split("?")[0] ?? key
+                    ; (groups[group] ??= []).push(key)
+                return groups
+            }, {}),
+        [preParseKeys, filterFn]
+    )
+
+    return <Split mode="horizontal" className="main-panel" visible>
         <div className="state-list">
             <input
                 placeholder="Type to Filter ..."
@@ -47,29 +63,38 @@ export const DevToolState: React.FC<{ Component: DataViewComponent }> = ({ Compo
                 onChange={(ev) => setFilterString(ev.target.value)}
             />
             <HightlightWrapper highlight={filterString}>
-                {allKeys
-                    .map(e => JSON.parse(e)?.[0])
-                    .filter(e => e != "auto-ctx" && e)
-                    .filter(filterFn)
-                    .map(currentKey => <StateLabelRender key={currentKey} {...{ selectedKey, setKey, currentKey }} />)}
+                {Object.entries(groupedKeys)
+                    .map(([name, values]) => <Fragment key={name}>
+                        <div className="state-group-header">
+                            <HighlightString text={name} />
+                        </div>
+                        {values.map(currentKey => <StateLabelRender
+                            key={currentKey}
+                            {...{ selectedKeys, setSelectedKeys, currentKey, label: currentKey.split("?").at(-1) }}
+                        />)}
+                    </Fragment>)}
             </HightlightWrapper>
-
         </div>
-        <div className="state-view" >
+        {selectedKeys?.map(selectedKey => <div className="state-view" key={selectedKey}>
             <StateView dataKey={selectedKey} key={selectedKey} Component={Component} />
-        </div>
+        </div>)}
+
     </Split>
 }
 
 export const StateView: React.FC<{ dataKey: string, Component: DataViewComponent }> = ({ dataKey, Component = DataViewDefault }) => {
-    const ctx = getContext(dataKey)
+    // read-only: never create a context from the dev tool, that would resurrect evicted stores
+    const ctx = getContext.fromCache(dataKey)
     const [currentData, setCurrentData] = useState({ ...ctx?.data })
 
     useEffect(() => {
+        if (!ctx) return
         let updateDataDebounce = debounce(setCurrentData, 5)
-        return ctx
-            .subscribeAll((changeKey, newData) => updateDataDebounce({ ...newData }))
-
+        const unsub = ctx.subscribeAll((_changeKey, newData) => updateDataDebounce({ ...newData }))
+        return () => {
+            updateDataDebounce.cancel()
+            unsub()
+        }
     }, [ctx])
 
     return <Component

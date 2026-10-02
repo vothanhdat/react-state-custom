@@ -12,7 +12,7 @@ export const DevToolContainer = ({ toggleButton = "[x]", Component = DataViewDef
             {props?.children ?? "Toggle Dev Tool"}
         </button>
         <div className="react-state-dev-container">
-            <Split mode="vertical" style={{ height: "100%" }}>
+            <Split mode="vertical" style={{ height: "100%" }} visible>
                 <div style={{ height: active ? "66.66%" : "100%" }}></div>
                 <div className="react-state-dev-panel" style={{
                     height: active ? "33.33%" : "0",
