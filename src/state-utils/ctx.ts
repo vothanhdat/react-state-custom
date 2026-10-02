@@ -1,5 +1,8 @@
 import { debounce, memoize, DependencyTracker } from "./utils";
-import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
+
+/** useLayoutEffect on the client (publish before paint, no one-frame flash), useEffect on the server. */
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect
 import { useArrayChangeId } from "./useArrayChangeId"
 
 
@@ -198,7 +201,7 @@ const useRegistryChecker = (ctx: Context<any> | undefined, ...names: string[]) =
  * @param value - The new value.
  */
 export const useDataSource = <D, K extends keyof D>(ctx: Context<D> | undefined, key: K, value: D[K] | undefined) => {
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (ctx && !Object.is(ctx.data[key], value)) {
       ctx.publish(key, value)
     }
@@ -285,6 +288,8 @@ export const useDataSubscribeWithTransform = <D, K extends keyof D, E>(ctx: Cont
 
 /**
  * React hook to publish multiple values to the context.
+ * Keys that were published by this hook earlier but are no longer present in `entries`
+ * are published as `undefined` and removed from the context data.
  * @param ctx - The context instance.
  * @param entries - Array of [key, value] pairs to update.
  */
@@ -293,12 +298,24 @@ export const useDataSourceMultiple = <D, T extends readonly (keyof D)[]>(
   ...entries: { -readonly [P in keyof T]: [T[P], D[T[P]]] }
 ) => {
   const changeId = useArrayChangeId(entries.flat())
-  useEffect(() => {
-    if (ctx) {
-      for (let [key, value] of entries) {
-        if (!Object.is(ctx.data[key], value)) ctx.publish(key, value)
+  const published = useRef<{ ctx: Context<D> | undefined, keys: Set<keyof D> }>({ ctx: undefined, keys: new Set() })
+
+  useIsomorphicLayoutEffect(() => {
+    if (!ctx) return
+    if (published.current.ctx !== ctx) published.current = { ctx, keys: new Set() }
+
+    const next = new Set<keyof D>()
+    for (const [key, value] of entries) {
+      next.add(key)
+      if (!Object.is(ctx.data[key], value)) ctx.publish(key, value)
+    }
+    for (const key of published.current.keys) {
+      if (!next.has(key) && key in ctx.data) {
+        ctx.publish(key, undefined)
+        delete ctx.data[key]
       }
     }
+    published.current.keys = next
   }, [ctx, changeId])
 
   useRegistryChecker(ctx, ...entries.map(e => e[0]) as any)
