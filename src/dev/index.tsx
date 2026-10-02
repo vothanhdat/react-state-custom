@@ -31,7 +31,7 @@ const fallbackRender = ({ error, resetErrorBoundary }: any) => {
     );
 }
 
-const ErrorWrapper: React.FC<{ children: any }> = ({ children }: any) => {
+const ErrorWrapper: React.FC<{ children?: React.ReactNode }> = ({ children }: any) => {
     return <ErrorBoundary
         fallbackRender={fallbackRender}
         onReset={() => { }}>

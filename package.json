@@ -1,20 +1,38 @@
 {
   "name": "react-state-custom",
   "version": "1.0.33",
-  "description": "Turn any React hook into global state. No boilerplate, no complexity—just pure, performant state management.",
+  "description": "Turn any React hook into global state. No boilerplate, no complexity\u2014just pure, performant state management.",
   "type": "module",
-  "main": "dist/index.umd.js",
+  "main": "dist/index.cjs",
   "module": "dist/index.es.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.es.js",
+      "require": "./dist/index.cjs"
+    },
+    "./dev-tool": {
+      "types": "./dist/dev-tool/index.d.ts",
+      "import": "./dist/dev-tool.es.js",
+      "require": "./dist/dev-tool.cjs"
+    },
+    "./style.css": "./dist/react-state-custom.css",
+    "./dist/react-state-custom.css": "./dist/react-state-custom.css",
+    "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "dev-tool": [
+        "./dist/dev-tool/index.d.ts"
+      ]
+    }
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
   "files": [
-    "dist/index.d.ts",
-    "dist/index.es.js",
-    "dist/index.es.js.map",
-    "dist/index.umd.js",
-    "dist/index.umd.js.map",
-    "dist/react-state-custom.css",
-    "dist/state-utils",
-    "dist/dev-tool",
+    "dist",
     "README.md",
     "LICENSE"
   ],
@@ -46,7 +64,7 @@
     "react",
     "react-hook"
   ],
-  "author": "Your Name",
+  "author": "Dat Vo",
   "license": "MIT",
   "peerDependencies": {
     "react": "19",
@@ -60,6 +78,7 @@
     "@types/jsdom": "^27",
     "@types/react": "^19.2.2",
     "@types/react-dom": "19",
+    "@uiw/react-split": "^5.9.4",
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/coverage-v8": "^4.0.3",
     "@vitest/ui": "^4.0.3",
@@ -78,8 +97,5 @@
   "packageManager": "yarn@4.6.0+sha512.5383cc12567a95f1d668fbe762dfe0075c595b4bfff433be478dbbe24e05251a8e8c3eb992a986667c1d53b6c3a9c85b8398c35a960587fbd9fa3a0915406728",
   "engines": {
     "node": ">=20.0.0"
-  },
-  "dependencies": {
-    "@uiw/react-split": "^5.9.4"
   }
 }

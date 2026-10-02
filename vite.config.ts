@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import dts from 'vite-plugin-dts'
-import { analyzer } from 'vite-bundle-analyzer'
 import "babel-plugin-react-compiler"
 
 export default defineConfig({
@@ -12,29 +11,24 @@ export default defineConfig({
       }
     }),
     dts({
-      include: ['src'],
+      include: ['src/index.ts', 'src/state-utils', 'src/dev-tool'],
     }),
-    // analyzer({
-    //   analyzerMode: "server",
-    //   openAnalyzer: true
-    // }),
   ],
   build: {
     lib: {
-      entry: 'src/index.ts',
-      name: 'RState',
-      fileName: (format) => `index.${format}.js`,
-      formats: ['es', 'umd'],
+      // Two entries: the state library, and the dev tool (which carries the only CSS and UI dependency).
+      entry: {
+        'index': 'src/index.ts',
+        'dev-tool': 'src/dev-tool/index.ts',
+      },
+      formats: ['es', 'cjs'],
+      // package.json has "type": "module", so CommonJS output must use the .cjs extension
+      fileName: (format, entryName) => format === 'es' ? `${entryName}.es.js` : `${entryName}.cjs`,
+      cssFileName: 'react-state-custom',
     },
     rollupOptions: {
       // Ensure to externalize deps that shouldn't be bundled
       external: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
-      output: {
-        globals: {
-          'react': 'React',
-          'react-dom': 'ReactDOM',
-        },
-      },
     },
     sourcemap: true
   },

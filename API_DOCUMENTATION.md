@@ -97,7 +97,8 @@ function DevToolContainer(props: {
 
 #### Example
 ```tsx
-import { DevToolContainer } from 'react-state-custom';
+import { DevToolContainer } from 'react-state-custom/dev-tool';
+import 'react-state-custom/style.css';
 import 'react-state-custom/dist/react-state-custom.css';
 
 <DevToolContainer />

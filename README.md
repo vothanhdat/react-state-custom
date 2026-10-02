@@ -160,7 +160,8 @@ Stores used inside `StateScopeProvider` will be completely isolated from the par
 Inspect your state in real-time with the built-in DevTools.
 
 ```tsx
-import { DevToolContainer } from 'react-state-custom'
+import { DevToolContainer } from 'react-state-custom/dev-tool'
+import 'react-state-custom/style.css'
 import 'react-state-custom/dist/react-state-custom.css'
 
 <DevToolContainer />

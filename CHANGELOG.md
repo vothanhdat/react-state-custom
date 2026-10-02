@@ -13,7 +13,15 @@ All notable changes to this project are documented here.
 - Using a store without any `<AutoRootCtx />` / `<StateScopeProvider>` mounted now logs a `console.error` (dev only) after 1s instead of failing silently.
 - Dev tool: `StateView` reads from the cache instead of creating contexts (no more resurrected stores), grouped list items have keys, `Object.groupBy`/`toSorted` replaced for wider runtime support, typing fixed.
 
+### Added
+- `StoreErrorBoundary`: the default `Wrapper` of `AutoRootCtx`. A store hook that throws is disabled and logged; every other store keeps running. Pass your own `Wrapper` to override.
+- Keys that a store hook stops returning are now published as `undefined` and removed from the context data.
+
 ### Changed
+- **Breaking:** the dev tool moved to its own entry. Import `DevToolContainer` from `react-state-custom/dev-tool` and the stylesheet from `react-state-custom/style.css`. The main entry no longer carries the dev-tool CSS or its UI dependency, and `@uiw/react-split` is no longer installed for consumers.
+- **Breaking:** the UMD build is replaced by a CommonJS build (`dist/index.cjs`). `package.json` now has an `exports` map and `sideEffects`.
+- Stores publish from `useLayoutEffect` (client) so consumers see the first values before paint instead of one frame later.
+- `StateRunner` is memoized: a consumer mounting or unmounting no longer re-runs every other store's hook.
 - `useQuickSubscribe(undefined)` now returns a proxy whose properties read as `undefined` instead of throwing at creation.
 
 ## [1.0.33] - 2026-02-22
