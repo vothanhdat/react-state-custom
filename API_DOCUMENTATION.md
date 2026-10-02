@@ -140,7 +140,7 @@ type StoreHandle<State, Initial> = {
 ```
 
 - `get()` never subscribes and never creates a store. Before anything has run it returns `initialState` (or `{}`).
-- `subscribe()` keeps the context alive while subscribed and fires once per changed key.
+- `subscribe()` keeps the context alive while subscribed and fires once per changed key. The listener must not throw: an error thrown by any subscriber is rethrown to the store that published the change, and its error boundary disables that store.
 - `retain()` mounts the store through the global `AutoRootCtx` and counts as a consumer: the store is torn down after `timeToClean` once every component and every retainer is gone. Logs a development error if no `AutoRootCtx` is mounted within a second.
 
 ### `StoreOptions`
@@ -251,13 +251,16 @@ function createAutoCtx<Params, State, Initial>(
 
 ### `Context` / `getContext` / `useDataContext`
 
-`Context<T>` is the pub/sub primitive behind every store: it holds `data` (the latest value per key) and emits an event per key on `publish`.
+`Context<T>` is the pub/sub primitive behind every store: it holds `data` (the latest value per key) and notifies subscribers of the changed key on `publish`.
 
 ```typescript
 class Context<T> extends EventTarget {
   readonly name: string;
   data: Partial<T>;
+  readonly ready: boolean;                                   // true once a store root has published
   publish<K extends keyof T>(key: K, value: T[K] | undefined): void;
+  subscribe<K extends keyof T>(key: K, listener: (value: T[K] | undefined) => void): () => void;
+  subscribeAll(listener: (changedKey: keyof T, data: Partial<T>) => void): () => void;
 }
 
 function getContext<T>(name: string): Context<T>;      // memoized by name
@@ -265,6 +268,8 @@ function useDataContext<T>(name: string): Context<T>;  // hook form, scope-aware
 ```
 
 `useDataContext` resolves the name inside the current `StateScopeProvider`, keeps the instance alive while mounted, and lets it be evicted shortly after the last user unmounts. On the server it returns a throwaway instance.
+
+`publish` skips values equal by `Object.is`, calls the key's subscribers and then the `subscribeAll` listeners, and rethrows the first error a listener threw after every listener has run. A store publishes from a layout effect, so such an error reaches that store's `StoreErrorBoundary`. `subscribe` calls the listener right away when the key already has a value.
 
 ### `useDataSource` / `useDataSourceMultiple`
 
