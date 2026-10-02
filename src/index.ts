@@ -1,5 +1,3 @@
-// export { default as MyComponent } from './components/MyComponent';
-
 export {
   Context,
   getContext,
@@ -13,11 +11,11 @@ export {
 } from "./state-utils/ctx"
 
 export { createRootCtx } from "./state-utils/createRootCtx"
-export { AutoRootCtx, createAutoCtx, createStore, StateScopeProvider } from "./state-utils/createAutoCtx"
+export { AutoRootCtx, createAutoCtx, createStore, StateScopeProvider, StoreErrorBoundary } from "./state-utils/createAutoCtx"
 export { useArrayChangeId } from "./state-utils/useArrayChangeId"
 export { paramsToId, type ParamsToIdRecord, type ParamsToIdInput } from "./state-utils/paramsToId"
 
 export { useQuickSubscribe } from "./state-utils/useQuickSubscribe"
 
-export { DevToolContainer } from "./dev-tool/DevTool"
-export type { DataViewComponent } from "./dev-tool/DataViewComponent"
+// The dev tool lives in its own entry so the UI dependency and CSS never reach production bundles:
+//   import { DevToolContainer } from "react-state-custom/dev-tool"

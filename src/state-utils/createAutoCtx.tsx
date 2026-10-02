@@ -1,4 +1,4 @@
-import { useEffect, useState, Fragment, useCallback, useMemo, useId } from "react"
+import React, { useEffect, useState, useCallback, useMemo, useId, memo } from "react"
 import { useDataContext, useDataSourceMultiple, useDataSubscribe, StateScopeContext, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
@@ -9,9 +9,40 @@ import { isProduction } from "./utils"
 
 const DebugState = ({ }) => <></>
 
-const StateRunner: React.FC<{ useStateFn: Function, params: ParamsToIdRecord, debugging: boolean }> = ({ useStateFn, params, debugging }) => {
+/**
+ * Runs one store hook. Memoized so that AutoRootCtx re-rendering (which happens every time
+ * any consumer subscribes or unsubscribes) does not re-run every other store's hook.
+ */
+const StateRunner = memo(function StateRunner({ useStateFn, params, debugging }: { useStateFn: Function, params: ParamsToIdRecord, debugging: boolean }) {
   const state = useStateFn(params)
   return debugging ? <DebugState {...state} /> : <></>
+})
+
+/**
+ * Default Wrapper: an error boundary that isolates one crashing store from the others.
+ * Without it a single throwing store hook would unmount the whole AutoRootCtx tree.
+ * The crashed store renders nothing until it is unmounted (last consumer leaves) and
+ * re-created. Pass your own `Wrapper` to AutoRootCtx to customise this.
+ */
+export class StoreErrorBoundary extends React.Component<{ children?: React.ReactNode }, { error: unknown }> {
+  state = { error: undefined as unknown }
+
+  static getDerivedStateFromError(error: unknown) {
+    return { error }
+  }
+
+  componentDidCatch(error: unknown, info: React.ErrorInfo) {
+    console.error(
+      "[react-state-custom] A store hook threw and has been disabled; other stores keep running. " +
+      "Pass a custom Wrapper to <AutoRootCtx /> to handle this differently.",
+      error,
+      info.componentStack
+    )
+  }
+
+  render() {
+    return this.state.error !== undefined ? null : this.props.children
+  }
 }
 
 
@@ -19,8 +50,8 @@ const StateRunner: React.FC<{ useStateFn: Function, params: ParamsToIdRecord, de
  * Inline docs: createAutoCtx + AutoRootCtx
  *
  * Quick start
- * 1) Mount <AutoRootCtx /> ONCE near your app root. Provide a Wrapper that acts like an ErrorBoundary to isolate and log errors.
- *    Example: <AutoRootCtx Wrapper={MyErrorBoundary} />
+ * 1) Mount <AutoRootCtx /> ONCE near your app root. Each store is wrapped in an error boundary by default
+ *    (StoreErrorBoundary); pass `Wrapper` to replace it. Example: <AutoRootCtx Wrapper={MyErrorBoundary} />
  *
  * 2) Create auto contexts from your root context factories:
  * ```
@@ -39,7 +70,7 @@ const StateRunner: React.FC<{ useStateFn: Function, params: ParamsToIdRecord, de
  * - For each unique params object (by stable stringified key), AutoRootCtx ensures a corresponding Root instance is rendered.
  */
 
-export const AutoRootCtx: React.FC<{ Wrapper?: React.FC<any>, debugging?: boolean }> = ({ Wrapper = Fragment, debugging = false }) => {
+export const AutoRootCtx: React.FC<{ Wrapper?: React.ComponentType<{ children?: React.ReactNode }>, debugging?: boolean }> = ({ Wrapper = StoreErrorBoundary, debugging = false }) => {
 
   const ctx = useDataContext<any>("auto-ctx")
 
@@ -198,7 +229,7 @@ export const createStore = <U extends ParamsToIdRecord, V extends Record<string,
 
 export const StateScopeProvider: React.FC<{
   children: React.ReactNode
-  Wrapper?: React.FC<any>
+  Wrapper?: React.ComponentType<{ children?: React.ReactNode }>
   debugging?: boolean
 }> = ({ children, Wrapper, debugging }) => {
   const scopeId = useId()
