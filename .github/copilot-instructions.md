@@ -1,72 +1,37 @@
-## Project Snapshot
-- `react-state-custom` is a hook-first state management library; entrypoint `src/index.ts` re-exports context factories and subscription hooks.
-- TypeScript only; consumers are expected to be React 19 apps (see `package.json` peerDependencies).
-- Library build artifacts live in `dist/`; all source utilities reside under `src/state-utils/`.
-- Live demo at https://vothanhdat.github.io/react-state-custom/ showcases interactive examples.
+# Copilot / AI instructions for react-state-custom
 
-## The "Golden Path" (Preferred API)
-- **`createStore(name, useFn)`**: The primary factory function. Combines `createRootCtx` and `createAutoCtx`.
-- **`useStore(params)`**: The primary consumption hook returned by `createStore`. Returns a reactive proxy.
-- **`AutoRootCtx`**: The global manager component. Must be mounted once at the app root.
+Read `AI_CONTEXT.md` first: it is the canonical guide for writing code with this library and is kept
+up to date with every release. This file only adds repository-specific notes.
 
-## Context Core
-- `Context` (`src/state-utils/ctx.ts`) extends `EventTarget`; `data` stores the latest values and `publish` fires per-key DOM events when a loose `!=` comparison detects change.
-- `getContext` memoizes by context name; `useDataContext(name)` memoizes the lookup via React `useMemo`.
-- `useDataSource`/`useDataSourceMultiple` publish new values and register keys in `ctx.registry`; duplicate sources log via `useRegistryChecker`.
+## Project snapshot
+- Hook-first state management library. Public entry `src/index.ts`; dev tool entry `src/dev-tool/index.ts`
+  (published as `react-state-custom/dev-tool` with `react-state-custom/style.css`).
+- Core lives in `src/state-utils/`: `ctx.ts` (Context pub/sub, subscribe/publish hooks),
+  `createRootCtx.tsx` (headless Root component that runs a hook), `createAutoCtx.tsx`
+  (`AutoRootCtx`, `createStore`, `StateScopeProvider`, `StoreErrorBoundary`),
+  `useQuickSubscribe.ts` (render-time tracking proxy), `paramsToId.tsx`, `utils.ts`.
+- Peer dependency React >= 18. Builds ESM + CJS with Vite, types via vite-plugin-dts.
+- Demo site: `src/playground` (GitHub Pages, StackBlitz embeds of `src/examples/*`);
+  `src/dev` renders the same examples natively for local development (`yarn dev`).
 
-## Root Contexts (Internal/Advanced)
-- `createRootCtx(name, useFn)` (`src/state-utils/createRootCtx.tsx`) wraps your hook (`useFn`) in a hidden `Root` component that pushes its result into a derived context namespace.
-- Context names come from `name` plus sorted prop key/value pairs; keep props serializable and stable to avoid collisions.
-- `ctxMountedCheck` blocks multiple `Root` instances for the same name; duplicates throw with the original call stack.
-- Use `useCtxStateStrict` to hard-fail when the `Root` is missing, or `useCtxState` to surface a delayed console error instead.
+## Golden path (what generated code should use)
+- `createStore(name, useFn, options?)` where `options` is `{ timeToClean?, AttachedComponent?, initialState? }`.
+- `useStore(params?)` from the result. Destructure during render; the proxy tracks reads.
+- `<AutoRootCtx />` mounted once at the root. `<StateScopeProvider>` for an isolated subtree.
+- Params are primitives only (`paramsToId` throws otherwise). Same params = shared instance.
+- Prefer `initialState` so consumers never see `undefined` and get non-optional types.
 
-## Auto Context Lifecycle (Internal/Advanced)
-- `AutoRootCtx` (`src/state-utils/createAutoCtx.tsx`) maintains a global `'auto-ctx'` context exposing `subscribe(Root, params)` and reference counts for each instance.
-- Mount `<AutoRootCtx Wrapper={YourErrorBoundary}>` once near the app root; it renders requested `Root` components inside the optional wrapper.
-- `createAutoCtx(rootCtx, unmountTime?)` returns `useCtxState(params)` that subscribes through `'auto-ctx'` and hands back `useDataContext` for the resolved name.
-- Multiple callers with identical params share a single `Root`; `unmountTime` delays teardown to absorb rapid mount/unmount cycles.
+## Internals worth knowing when editing the core
+- `Context.publish` uses `Object.is`; subscribe hooks are built on `useSyncExternalStore`.
+- Roots publish from a layout effect (`useIsomorphicLayoutEffect`), so first values land before paint.
+- `AutoRootCtx` keeps a record per store instance keyed by context name. Never reorder those keys:
+  React StrictMode re-runs effects of re-placed fibers and the result is an infinite loop.
+- Action functions returned by a store hook are wrapped once per key (`useStableActions`) so their identity is stable.
+- `useDataContext` returns a throwaway `Context` on the server (`isServer()`), never the shared cache.
+- `DependencyTracker` (dev only) warns on store cycles and forgets a store when its context is evicted.
 
-## Developer Tools
-- `DevToolContainer` (`src/dev-tool/DevTool.tsx`) provides a debugging UI for inspecting all context data; mount it alongside `<AutoRootCtx />`.
-- Accepts optional `Component` prop (type `DataViewComponent`) for custom data rendering; defaults to JSON stringify.
-- Import styles with `import 'react-state-custom/dist/react-state-custom.css'` when using DevTool.
-- Used in demo (`src/dev.tsx`, `src/examples/`) with `react-obj-view` for rich object inspection.
-
-## Subscription Patterns
-- `useDataSourceMultiple(ctx, ...entries)` expects stable `[key, value]` tuples; internal `useArrayChangeId` tracks array changes via shallow comparison.
-- Use `useDataSubscribe(ctx, key, debounceMs)` or `useDataSubscribeMultiple(ctx, ...keys)` for keyed reads; debounce variants batch updates when values bounce.
-- `useDataSubscribeWithTransform` recomputes the transformed shape only on change; memoize the `transform` fn to avoid churn.
-- `useQuickSubscribe(ctx)` returns a proxy over `ctx.data`; destructure needed fields immediately during render and avoid storing the proxy for later use.
-- **`useStore`** (from `createStore`) wraps `useQuickSubscribe` automatically.
-
-## Utilities and Gotchas
-- Value comparisons are shallow; mutate objects before republishing or provide new references so `publish` sees changes.
-- `useArrayChangeId`/`useObjectHash` generate random identifiers when array/object shape changes; they do not deep-compare nested content.
-- The reserved `'auto-ctx'` namespace powers `AutoRootCtx`; do not manually reuse this context name.
-
-## Examples
-- Five complete examples in `src/examples/`: counter, todo, form, timer, cart.
-- `Playground.tsx` uses `@codesandbox/sandpack-react` to render interactive examples with live editing.
-- Each example has `state.ts` (hook), `view.tsx` (components), `app.tsx` (root), and `index.ts` (exports).
-- Demo uses `?raw` imports to show source code in Sandpack editor.
-
-## Build and Tooling
-- `yarn build` runs Vite with `@vitejs/plugin-react`, `vite-plugin-dts`, and `vite-bundle-analyzer`; the analyzer spins up a server after builds—stop it in CI if unused.
-- `yarn dev` starts the Vite dev server on port 3000 with dev UI (`src/dev/`) showing all examples with selector; served from `dev.html`.
-- `yarn dev:playground` starts Vite dev server with Sandpack-powered playground (`src/playground/`) for live code editing; served from `index.html`.
-- `yarn build:demo` creates GitHub Pages build from playground; outputs to `demo-dist/`.
-- `yarn preview` previews demo build locally with correct base path (`/react-state-custom/`).
-- Tests are stubbed (`yarn test` exits 0 after printing "No tests specified"); add coverage before depending on test gates.
-- Repo is Yarn 4 (PnP); if editors struggle with module resolution, run `./fix-vscode-yarn-pnp.sh`.
-- GitHub Actions workflow (`.github/workflows/deploy.yml`) auto-deploys demo to GitHub Pages on push to master.
-
-## Development Structure
-- `src/dev/` - Development UI with example selector and DevTool; imports App components from examples; accessed via `dev.html`.
-- `src/playground/` - Sandpack playground for live demos; uses `?raw` imports to show source; accessed via `index.html`.
-- `src/examples/` - Five examples (counter, todo, form, timer, cart); each has `state.ts`, `view.tsx`, `app.tsx`, `index.ts`.
-- `dev.html` - Entry for development UI with example selector.
-- `index.html` - Entry for playground with Sandpack live editor.
-
-## Reference Docs
-- README (`README.md`) offers narrative examples and positioning; includes live demo link.
-- API reference (`API_DOCUMENTATION.md`) documents every export; update alongside code changes.
+## Working in this repo
+- Yarn 4 (`corepack enable`), CI runs `yarn install --immutable`: run `yarn install` after changing dependencies.
+- Tests: `yarn test` (Vitest, jsdom, StrictMode on). Add tests under `tests/` for every behavior change.
+- Releases: bump `package.json` + `CHANGELOG.md`, tag `vX.Y.Z`, push the tag. `publish.yml` publishes to npm
+  via trusted publishing; `deploy.yml` deploys the demo on every push to `master`.
