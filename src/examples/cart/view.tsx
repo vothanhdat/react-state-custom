@@ -22,13 +22,13 @@ export const CartExample = ({ userId = "user1" }: { userId?: string }) => {
                 </div>
             </div>
             <div>
-                <h4>Cart ({itemCount ?? 0} items):</h4>
-                {(items?.length ?? 0) === 0 ? (
+                <h4>Cart ({itemCount} items):</h4>
+                {items.length === 0 ? (
                     <p style={{ color: '#666' }}>Cart is empty</p>
                 ) : (
                     <>
                         <ul style={{ listStyle: 'none', padding: 0 }}>
-                            {items?.map(item => (
+                            {items.map(item => (
                                 <li key={item.id} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
                                     <span style={{ flex: 1 }}>{item.name}</span>
                                     <span>${item.price.toFixed(2)}</span>

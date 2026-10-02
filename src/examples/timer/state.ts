@@ -37,8 +37,7 @@ const useTimerState = ({ timerId }: { timerId: string }) => {
     }
 }
 
-export const { useStore: useTimerStore } = createStore(
-    "timer",
-    useTimerState,
-    50000
-)
+export const { useStore: useTimerStore } = createStore('timer', useTimerState, {
+    initialState: { milliseconds: 0, isRunning: false, formattedTime: '00:00.00' },
+    timeToClean: 50000,
+})

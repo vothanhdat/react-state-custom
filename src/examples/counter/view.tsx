@@ -1,7 +1,7 @@
 import { useCounterStore } from './state'
 
 export const CounterExample = () => {
-    const { count, increment, decrement, reset } = useCounterStore({})
+    const { count, increment, decrement, reset } = useCounterStore()
 
     return (
         <div style={{ padding: '1rem', border: '1px solid #ccc', marginBottom: '1rem' }}>

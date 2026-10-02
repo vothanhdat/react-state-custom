@@ -9,7 +9,7 @@ export const TodoExample = ({ listId = "main" }: { listId?: string }) => {
             <h3>Todo List ({listId})</h3>
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
                 <input
-                    value={input ?? ''}
+                    value={input}
                     onChange={(e) => setInput?.(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && addTodo?.()}
                     placeholder="Add todo..."
@@ -18,7 +18,7 @@ export const TodoExample = ({ listId = "main" }: { listId?: string }) => {
                 <button onClick={addTodo}>Add</button>
             </div>
             <ul style={{ listStyle: 'none', padding: 0 }}>
-                {todos?.map(todo => (
+                {todos.map(todo => (
                     <li key={todo.id} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
                         <input
                             type="checkbox"
@@ -36,7 +36,7 @@ export const TodoExample = ({ listId = "main" }: { listId?: string }) => {
                     </li>
                 ))}
             </ul>
-            {todos?.some(t => t.completed) && (
+            {todos.some(t => t.completed) && (
                 <button onClick={clearCompleted}>Clear Completed</button>
             )}
         </div>

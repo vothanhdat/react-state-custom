@@ -2,7 +2,7 @@ import { createStore } from '../../index'
 import { useState } from 'react'
 
 
-const useCounterState = ({ }) => {
+const useCounterState = () => {
     const [count, setCount] = useState(0)
     const increment = () => setCount(c => c + 1)
     const decrement = () => setCount(c => c - 1)
@@ -17,8 +17,7 @@ const useCounterState = ({ }) => {
 }
 
 
-export const { useStore: useCounterStore } = createStore(
-    "counter",
-    useCounterState,
-    50000
-)
+export const { useStore: useCounterStore } = createStore('counter', useCounterState, {
+    initialState: { count: 0 }, // consumers never see `undefined`
+    timeToClean: 50000,        // keep the store alive 50s after its last consumer unmounts
+})

@@ -7,6 +7,9 @@ import TodoApp from '../examples/todo/app'
 import FormApp from '../examples/form/app'
 import TimerApp from '../examples/timer/app'
 import CartApp from '../examples/cart/app'
+import AsyncApp from '../examples/async/app'
+import ComposeApp from '../examples/compose/app'
+import ScopeApp from '../examples/scope/app'
 
 
 // Example configurations
@@ -35,6 +38,21 @@ const examples = {
     title: '🛒 Shopping Cart',
     description: 'Shopping cart with product selection and quantity management. Shows derived state (total, itemCount) and complex updates.',
     component: <CartApp />,
+  },
+  async: {
+    title: '🌐 Async Data',
+    description: 'Fetch inside the store hook; consumers share one request, initialState covers the first render, timeToClean caches the result.',
+    component: <AsyncApp />,
+  },
+  compose: {
+    title: '🧩 Composed Stores',
+    description: 'A per-invoice store reads a global settings store from inside its own hook.',
+    component: <ComposeApp />,
+  },
+  scope: {
+    title: '🎭 Scoped State',
+    description: 'StateScopeProvider gives a subtree its own isolated store instances.',
+    component: <ScopeApp />,
   },
 } as const
 

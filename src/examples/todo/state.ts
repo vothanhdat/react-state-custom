@@ -48,8 +48,7 @@ const useTodoState = ({ listId }: { listId: string }) => {
     }
 }
 
-export const { useStore: useTodoStore } = createStore(
-    "todos",
-    useTodoState,
-    50000
-)
+export const { useStore: useTodoStore } = createStore('todos', useTodoState, {
+    initialState: { todos: [], input: '' },
+    timeToClean: 50000,
+})

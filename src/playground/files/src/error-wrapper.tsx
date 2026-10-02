@@ -1,6 +1,5 @@
 import { ErrorBoundary } from 'react-error-boundary';
 import { ObjectView } from 'react-obj-view';
-import 'react-state-custom/dist/react-state-custom.css';
 
 const fallbackRender = ({ error, resetErrorBoundary }: any) => {
     return (

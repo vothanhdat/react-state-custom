@@ -61,8 +61,7 @@ const useCartState = ({ userId }: { userId: string }) => {
     }
 }
 
-export const { useStore: useCartStore } = createStore(
-    "cart",
-    useCartState,
-    5000
-)
+export const { useStore: useCartStore } = createStore('cart', useCartState, {
+    initialState: { items: [], total: '0.00', itemCount: 0 },
+    timeToClean: 5000,
+})

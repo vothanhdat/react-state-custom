@@ -52,8 +52,7 @@ const useFormState = ({ formId }: { formId: string }) => {
     }
 }
 
-export const { useStore: useFormStore } = createStore(
-    "form",
-    useFormState,
-    50000
-)
+export const { useStore: useFormStore } = createStore('form', useFormState, {
+    initialState: { data: { name: '', email: '', age: '' }, errors: {}, submitted: false },
+    timeToClean: 50000,
+})
