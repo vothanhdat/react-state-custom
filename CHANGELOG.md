@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.2.5] - 2026-10-03
 ### Changed
 - npm keywords describe the library (global state, store, derived state, Suspense) instead of generic terms.
 
@@ -124,7 +126,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.4...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.5...HEAD
+[1.2.5]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.1...v1.2.2
