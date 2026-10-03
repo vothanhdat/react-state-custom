@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.3.1] - 2026-10-03
 ### Fixed
 - A store context created by a render that never commits is no longer cached forever. Components get their context during render, and only a committed component counts as a user, so a render that threw, suspended or was discarded left the context, and its dependency-graph entry in development, in the cache for good. A context created during render is now evicted after a second unless a user has committed; a render that commits later still finds or restores it.
 - The `useStore()` proxy warns about spreading only in development, and once per store. The warning was logged in production builds too, on every render of every component that spread the proxy.
@@ -15,7 +17,7 @@ All notable changes to this project are documented here.
 - CI runs the test suite on React 18.3 too. The peer range has always been `react >= 18`, but only React 19 was tested. Three tests relied on React 19 behavior (`use`, StrictMode reusing the first render's state) and now pass on both; the library needed no change.
 
 ### Performance
-- `AutoRootCtx` renders only the buckets that hold a running instance instead of always 64, so an app with a few stores mounts a few `Bucket` components. Mounting `AutoRootCtx` with 3 stores: ~1.2 ms → ~0.6 ms. Mounting 1000 and 3000 instances at once: ~72 → ~67 ms and ~259 → ~210 ms; starting or stopping one instance is unchanged (jsdom).
+- `AutoRootCtx` renders only the buckets that hold a running instance instead of always 64, so an app with a few stores mounts a few `Bucket` components. Mounting `AutoRootCtx` with 3 stores: ~1.2 ms → ~0.6 ms. Mounting 1000 and 3000 instances at once: ~72 → ~67 ms and ~259 → ~210 ms; starting or stopping one instance is unchanged (jsdom). In `yarn bench`, updates that re-render no consumer are 31–49% faster than in 1.3.0 (shop `theme`: ~0.046 → ~0.024 ms), back to their level before the 64 buckets of 1.2.6; the other scenarios are unchanged within noise.
 
 ## [1.3.0] - 2026-10-03
 ### Fixed
@@ -181,7 +183,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.6...v1.3.0
 [1.2.6]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.4...v1.2.5
