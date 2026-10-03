@@ -18,7 +18,7 @@ All notable changes to this project are documented here.
 - A development error when a second `AutoRootCtx` mounts in the same scope.
 - A development error when the `Wrapper` passed to `AutoRootCtx` or `StateScopeProvider` changes identity, which happens when it is written inline: every store under it is remounted and loses its state. Likewise for a `debugging` renderer, which makes every store hook run again. The error handling guide and API pages showed the inline form; they now define the Wrapper at module scope.
 - Types `StoreParamsShape<Params>` and `ParamValue`.
-- `Context.publishMany(entries, removed?)`: publish several keys as one update.
+- `Context.publishMany(entries, removed?)`: publish several keys as one update. `Context.touch(keys)`: notify subscribers of keys whose value is unchanged (a store function with a new implementation).
 - `useQuickSubscribe(ctx, serverData?)` and `useDataSelector(ctx, selector, isEqual?, serverData?)`: what the server rendered, used while hydrating.
 - `getStore(params).error`: what the store hook threw while the instance is disabled, `undefined` while it runs. `Context` gains `failed`, `error`, `fail()`, `recover()` and `onStatus()`.
 
