@@ -23,8 +23,46 @@ export function debounce<T extends (...args: any[]) => any>(
   return fn;
 }
 
+/**
+ * A Map that tells subscribers after every `set`, `delete` or `clear` that changed it.
+ * `getContext.cache` is one, so a dev tool can list the live contexts without polling.
+ * Listeners run synchronously, possibly during a React render: defer any setState.
+ */
+export class ObservableMap<K, V> extends Map<K, V> {
+  private listeners?: Set<() => void>
+
+  /** Run `listener` after each change. Returns an unsubscribe function. */
+  subscribe(listener: () => void) {
+    (this.listeners ??= new Set()).add(listener)
+    return () => { this.listeners?.delete(listener) }
+  }
+
+  private notify() {
+    if (this.listeners) for (const listener of [...this.listeners]) listener()
+  }
+
+  set(key: K, value: V) {
+    const changed = !super.has(key) || super.get(key) !== value
+    super.set(key, value)
+    if (changed) this.notify()
+    return this
+  }
+
+  delete(key: K) {
+    const had = super.delete(key)
+    if (had) this.notify()
+    return had
+  }
+
+  clear() {
+    const had = this.size > 0
+    super.clear()
+    if (had) this.notify()
+  }
+}
+
 export type Memoized<T extends (...args: any[]) => any> = ((...args: Parameters<T>) => ReturnType<T>) & {
-  cache: Map<string, ReturnType<T>>,
+  cache: ObservableMap<string, ReturnType<T>>,
   /** Return the cached result for these args without creating one. */
   fromCache: (...args: Parameters<T>) => ReturnType<T> | undefined,
   /** The cache key used for these args. */
@@ -34,7 +72,7 @@ export type Memoized<T extends (...args: any[]) => any> = ((...args: Parameters<
 // Memoize function
 export function memoize<T extends (...args: any[]) => any>(func: T): Memoized<T> {
 
-  const cache = new Map<string, ReturnType<T>>();
+  const cache = new ObservableMap<string, ReturnType<T>>();
   const keyFor = (...args: Parameters<T>) => JSON.stringify(args);
 
   const cachedFunc: any = function (...args: Parameters<T>): ReturnType<T> {
@@ -54,6 +92,32 @@ export function memoize<T extends (...args: any[]) => any>(func: T): Memoized<T>
   }
 
   return cachedFunc
+}
+
+/**
+ * JSON text of a store's state for debugging views (`debugging`, the dev tool's default renderer).
+ * Unlike plain `JSON.stringify` it keeps what state objects commonly hold and never throws:
+ * functions show as `ƒ name()`, `undefined`, `bigint` and symbols as text, Map and Set as their
+ * entries, Errors as their message, and a circular reference as `[Circular]`.
+ */
+export const formatState = (value: unknown, indent = 2): string => {
+  if (value === undefined) return 'undefined'
+  const ancestors: object[] = []
+  return JSON.stringify(value, function (this: unknown, key: string, v: unknown) {
+    if (typeof v === 'function') return `ƒ ${v.name || 'anonymous'}()`
+    if (typeof v === 'undefined') return 'undefined'
+    if (typeof v === 'bigint') return `${v}n`
+    if (typeof v === 'symbol') return v.toString()
+    if (typeof v !== 'object' || v === null) return v
+    // `this` is the object holding `key`: pop the ancestors we have left since the last call
+    while (ancestors.length > 0 && ancestors[ancestors.length - 1] !== this) ancestors.pop()
+    if (ancestors.includes(v)) return '[Circular]'
+    ancestors.push(v)
+    if (v instanceof Map) return Object.fromEntries([...v].map(([k, val]) => [String(k), val]))
+    if (v instanceof Set) return [...v]
+    if (v instanceof Error) return `${v.name}: ${v.message}`
+    return v
+  }, indent)
 }
 
 declare var process: any;

@@ -6,7 +6,7 @@ Creates an isolated scope. Stores used inside it get their own instances, indepe
 function StateScopeProvider(props: {
   children: React.ReactNode
   Wrapper?: React.ComponentType<{ children?: React.ReactNode }>
-  debugging?: boolean
+  debugging?: boolean | StateDebugRenderer
 }): JSX.Element
 ```
 

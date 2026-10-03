@@ -3,19 +3,28 @@ import { useDataContext, useDataSourceMultiple, useDataSelector, acquireContext,
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
 import { useQuickSubscribe } from "./useQuickSubscribe"
-import { isProduction } from "./utils"
+import { isProduction, formatState } from "./utils"
 
+/**
+ * Renders one store instance's state when `debugging` is on. `name` is the instance key,
+ * `"<store>?<params>"`, and `value` the object the store hook returned.
+ */
+export type StateDebugRenderer = React.ComponentType<{ name: string, value: Record<string, unknown> }>
 
-
-const DebugState = ({ }) => <></>
+/** Default `debugging` renderer: the state as JSON text, tagged with the store key for tests to find. */
+const DebugState: StateDebugRenderer = ({ name, value }) => <pre data-store={name}>{formatState(value)}</pre>
 
 /**
  * Runs one store hook. Memoized so that AutoRootCtx re-rendering (which happens every time
  * any consumer subscribes or unsubscribes) does not re-run every other store's hook.
  */
-const StateRunner = memo(function StateRunner({ useStateFn, params, debugging }: { useStateFn: Function, params: ParamsToIdRecord, debugging: boolean }) {
+const StateRunner = memo(function StateRunner({ name, useStateFn, params, debugging }: {
+  name: string, useStateFn: Function, params: ParamsToIdRecord, debugging: boolean | StateDebugRenderer
+}) {
   const state = useStateFn(params)
-  return debugging ? <DebugState {...state} /> : <></>
+  if (!debugging) return null
+  const Debug = debugging === true ? DebugState : debugging
+  return <Debug name={name} value={state} />
 })
 
 /**
@@ -100,7 +109,11 @@ const setRecord = (state: Record<string, StoreRecord>, key: string, next: StoreR
   return out
 }
 
-export const AutoRootCtx: React.FC<{ Wrapper?: React.ComponentType<{ children?: React.ReactNode }>, debugging?: boolean }> = ({ Wrapper = StoreErrorBoundary, debugging = false }) => {
+export const AutoRootCtx: React.FC<{
+  Wrapper?: React.ComponentType<{ children?: React.ReactNode }>
+  /** Render each store's state into the DOM: `true` for JSON text, or a component receiving `{ name, value }`. */
+  debugging?: boolean | StateDebugRenderer
+}> = ({ Wrapper = StoreErrorBoundary, debugging = false }) => {
 
   const ctx = useDataContext<any>("auto-ctx")
 
@@ -172,7 +185,7 @@ export const AutoRootCtx: React.FC<{ Wrapper?: React.ComponentType<{ children?: 
       // stable order so existing store fibers are never re-placed when records are added/removed
       .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
       .map(([key, { useStateFn, params, AttatchedComponent }]) => <Wrapper key={key}>
-        <StateRunner key={key} params={params} useStateFn={useStateFn} debugging={debugging} />
+        <StateRunner key={key} name={key} params={params} useStateFn={useStateFn} debugging={debugging} />
         {AttatchedComponent && <AttatchedComponent key={'attatch_' + key} {...params} />}
       </Wrapper>)}
   </>
@@ -504,7 +517,7 @@ export const createStore = <U extends ParamsToIdRecord, V extends Record<string,
 export const StateScopeProvider: React.FC<{
   children: React.ReactNode
   Wrapper?: React.ComponentType<{ children?: React.ReactNode }>
-  debugging?: boolean
+  debugging?: boolean | StateDebugRenderer
 }> = ({ children, Wrapper, debugging }) => {
   const scopeId = useId()
   return <StateScopeContext.Provider value={scopeId}>

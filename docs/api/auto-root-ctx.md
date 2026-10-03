@@ -5,8 +5,10 @@ The global manager component. Mount it once near the top of the application; it 
 ```ts
 function AutoRootCtx(props: {
   Wrapper?: React.ComponentType<{ children?: React.ReactNode }>
-  debugging?: boolean
+  debugging?: boolean | StateDebugRenderer
 }): JSX.Element
+
+type StateDebugRenderer = React.ComponentType<{ name: string; value: Record<string, unknown> }>
 ```
 
 ## Props
@@ -17,7 +19,7 @@ A component rendered around each store instance. Defaults to [`StoreErrorBoundar
 
 ### `debugging`
 
-When `true`, renders a raw text view of the mounted stores in the DOM. Default `false`.
+Default `false`. With `true`, every store instance renders its state next to where its hook runs, as `<pre data-store="<store>?<params>">` containing the JSON produced by [`formatState`](/api/primitives#formatstate) (functions included, as `ƒ name()`). Handy in tests, where the DOM can be queried by store key, and when the dev-tool bundle is not wanted. Pass a component instead to render `{ name, value }` yourself. See [Developer tools](/guide/devtools#debugging-without-the-ui).
 
 ## Behaviour
 
