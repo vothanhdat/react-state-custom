@@ -51,7 +51,7 @@ computed: the summary or mid store hook, the derived atom, the selector, or the 
 
 | topology (renders / derive calls) | one threshold | all thresholds | unrelated root key | lines of code |
 |---|---|---|---|---|
-| react-state-custom | 100 / 10 | 1000 / 10 | 0 / 0 | 26 |
+| react-state-custom | 100 / 10 | 1000 / 10 | 0 / 0 | 22 |
 | zustand | 100 / 1300 | 1000 / 4000 | 0 / 1000 | 14 |
 | jotai | 100 / 10 | 1000 / 10 | 0 / 10 | 15 |
 | React context | 1000 / 1000 | 1000 / 1000 | 1000 / 0 | 25 |

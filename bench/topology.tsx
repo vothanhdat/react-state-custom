@@ -31,9 +31,9 @@ export const reactStateCustom: TopologyAdapter = {
   create() {
     const counters = { renders: 0, derives: 0 }
     const root = createStore(`bench-topology-root-${worldId++}`, () => {
-      const [thresholds, setThresholds] = useState(() => initial().thresholds)
-      const [label, setLabel] = useState('')
-      return { thresholds, label, setThresholds, setLabel }
+      const [state, setState] = useState(initial)
+      const patch = (p: Partial<RootState>) => setState(s => ({ ...s, ...p }))
+      return { ...state, patch }
     }, { initialState: initial() })
     const mid = createStore(`bench-topology-mid-${worldId++}`, ({ i }: { i: number }) => {
       const { thresholds } = root.useStore()
@@ -44,11 +44,7 @@ export const reactStateCustom: TopologyAdapter = {
       counters,
       Providers: ({ children }) => <><AutoRootCtx />{children}</>,
       Consumer: ({ k }) => { counters.renders++; return <i>{mid.useStore({ i: k }).value}</i> },
-      update: (kind, tick) => {
-        const s = root.getStore().get()
-        if (kind === 'unrelated') s.setLabel!(`label-${tick}`)
-        else s.setThresholds!(nextThresholds(kind, tick, s.thresholds))
-      },
+      update: (kind, tick) => { const s = root.getStore().get(); s.patch!(patchFor(kind, tick, s)) },
     }
   },
 }
