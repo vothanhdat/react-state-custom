@@ -1,6 +1,6 @@
 // Runs on React's real scheduler, without act(): act() commits a resolved Suspense boundary at once,
 // which hides React's throttled reveal (a resolved boundary commits 300 ms or more after its fallback).
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { Suspense, useEffect, useState, useTransition } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
@@ -79,5 +79,51 @@ describe('useStoreSuspense with a throttled reveal', () => {
     await waitFor(() => { seen.add(el.innerHTML); return el.innerHTML === '<b>user-b</b>' })
     expect([...seen].filter(html => html.includes('loading'))).toEqual([])
     await unmount()
+  })
+})
+
+describe('useStoreSuspense wait lease', () => {
+  // The lease wakes a waiting component every 5 s. Here React retries it at once and it waits again,
+  // taking its own retain before the previous one is released: the store keeps running throughout.
+  it('hands the same instance over to a component still waiting', async () => {
+    // fake setTimeout only: React schedules its work with setImmediate here, which keeps running
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const spin = async () => { for (let i = 0; i < 10; i++) await new Promise(r => setImmediate(r)) }
+    // let time pass in small steps, React running in between, as it would in a browser
+    const elapse = async (ms: number) => {
+      for (let left = ms; left > 0; left -= 100) { await vi.advanceTimersByTimeAsync(Math.min(100, left)); await spin() }
+    }
+    let root: Root | undefined
+    try {
+      let mounts = 0
+      let setReady = (_: boolean) => { }
+      const { useStoreSuspense } = createStore('reveal-lease', () => {
+        const [ready, _setReady] = useState(false)
+        setReady = _setReady
+        useEffect(() => { mounts++ }, [])
+        return { ready }
+      })
+      const Waiter = () => { useStoreSuspense({}, s => s.ready); return <b>ready</b> }
+      const el = document.createElement('div')
+      root = createRoot(el)
+      root.render(<><AutoRootCtx /><Suspense fallback={<i>loading</i>}><Waiter /></Suspense></>)
+      await spin()
+      expect(mounts).toBe(1)
+
+      // three leases: each wakes Waiter, which renders, is still not ready and waits again
+      await elapse(3 * 5000 + 1000)
+      expect(mounts).toBe(1)
+      expect(el.innerHTML).toBe('<i>loading</i>')
+
+      // React DOM throttles the reveal with the setTimeout it captured when it loaded: real time
+      vi.useRealTimers()
+      setReady(true)
+      await waitFor(() => el.innerHTML === '<b>ready</b>')
+      expect(mounts).toBe(1)
+    } finally {
+      vi.useRealTimers()
+      root?.unmount()
+      await sleep(20)
+    }
   })
 })

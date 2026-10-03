@@ -751,15 +751,24 @@ export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, I
   }
 }
 
+type IsReady<V, I> = ((state: StoreState<V, I>) => boolean) | undefined
+
 type PendingReady<V, I> = {
   promise: Promise<void>
-  /** Latest predicate passed by the suspended component (undefined = wait for the first publish). */
-  isReady: ((state: StoreState<V, I>) => boolean) | undefined
+  /** The predicate of every render waiting on it (undefined = wait for the first publish). */
+  predicates: Set<IsReady<V, I>>
   check: () => void
 }
 
-/** One pending wait per context, shared by every render that suspends on it (StrictMode, retries). */
+/** One pending wait per context, shared by every render that suspends on it (other consumers, StrictMode, retries). */
 const pendingReady = new WeakMap<Context<any>, PendingReady<any, any>>()
+
+/**
+ * How long a wait keeps its store before it wakes the components waiting on it. A suspended component
+ * never commits, so nothing reports one that went away: woken, a component still there renders, is
+ * still not ready and waits again, while the store of one that went away is released.
+ */
+const WAIT_LEASE = 5000
 
 /**
  * Imperative retains taken while a component was suspended, kept after the promise resolves until a
@@ -797,42 +806,55 @@ const extendHeldRetain = (ctx: Context<any>) => {
  * Returns a promise that resolves when `ctx` is ready (see useStoreSuspense). The store is retained
  * imperatively in a microtask, never during render: calling AutoRootCtx's setState from inside a
  * render would restart that render, which would retain again, forever.
+ * Components waiting with different predicates share the wait, which resolves as soon as one of them
+ * holds: the others render, are still not ready and wait again. It also resolves after WAIT_LEASE.
  */
 const waitUntilReady = <V, I>(
   ctx: Context<V>,
-  isReady: ((state: StoreState<V, I>) => boolean) | undefined,
+  isReady: IsReady<V, I>,
   retain: () => () => void
 ): Promise<void> => {
   const existing = pendingReady.get(ctx)
   if (existing) {
-    existing.isReady = isReady as PendingReady<any, any>['isReady']
+    existing.predicates.add(isReady as IsReady<any, any>)
     existing.check()
     return existing.promise
   }
 
-  const pending: PendingReady<V, I> = { isReady, check: () => { }, promise: Promise.resolve() }
+  const pending: PendingReady<V, I> = { predicates: new Set([isReady]), check: () => { }, promise: Promise.resolve() }
   pending.promise = new Promise<void>(resolve => {
     let done = false
     let release: (() => void) | undefined
+    let lease: ReturnType<typeof setTimeout> | undefined
     let unsubAll = () => { }
     let unsubReady = () => { }
     let unsubStatus = () => { }
-    pending.check = () => {
-      if (done) return
-      const fn = pending.isReady
-      // a failure resolves the wait too: the retried render throws the store's error
-      if (!ctx.failed && !(fn ? fn(ctx.data as StoreState<V, I>) : ctx.ready)) return
+    const finish = () => {
       done = true
+      clearTimeout(lease)
       unsubAll()
       unsubReady()
       unsubStatus()
       pendingReady.delete(ctx)
       resolve()
+      // kept until a component reading the store commits, or for about a second (see heldRetains)
       if (release) holdRetain(ctx, release)
+    }
+    const anyReady = () => {
+      for (const fn of pending.predicates) {
+        if (fn ? fn(ctx.data as StoreState<V, I>) : ctx.ready) return true
+      }
+      return false
+    }
+    pending.check = () => {
+      if (done) return
+      // a failure resolves the wait too: the retried render throws the store's error
+      if (ctx.failed || anyReady()) finish()
     }
     queueMicrotask(() => {
       if (done) return
       release = retain()
+      lease = setTimeout(finish, WAIT_LEASE)
       unsubAll = ctx.subscribeAll(pending.check)
       unsubReady = ctx.onReady(pending.check)
       unsubStatus = ctx.onStatus(pending.check)

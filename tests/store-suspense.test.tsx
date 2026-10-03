@@ -128,3 +128,113 @@ describe('useStoreSuspense', () => {
   })
 })
 
+
+describe('useStoreSuspense: several consumers and consumers that go away', () => {
+  /** A store whose `a` and `b` turn true on demand, counting the instances alive (StrictMode runs effects twice). */
+  const makeAB = (name: string) => {
+    const life = { mounts: 0, unmounts: 0 }
+    let setA = (_: boolean) => { }
+    let setB = (_: boolean) => { }
+    const store = createStore(name, () => {
+      const [a, _setA] = useState(false)
+      const [b, _setB] = useState(false)
+      setA = _setA
+      setB = _setB
+      useEffect(() => { life.mounts++; return () => { life.unmounts++ } }, [])
+      return { a, b }
+    })
+    return { ...store, life, alive: () => life.mounts - life.unmounts, setA: (v: boolean) => setA(v), setB: (v: boolean) => setB(v) }
+  }
+
+  it('each consumer waits for its own predicate', async () => {
+    const store = makeAB('suspense-own-predicate')
+    const A = () => { store.useStoreSuspense({}, s => s.a); return <b data-testid="a" /> }
+    const B = () => { store.useStoreSuspense({}, s => s.b); return <b data-testid="b" /> }
+    const { queryByTestId } = render(<>
+      <AutoRootCtx />
+      <Suspense fallback={null}><A /></Suspense>
+      <Suspense fallback={<i data-testid="fb" />}><B /></Suspense>
+    </>)
+    await tick()
+    // B rendered last: its predicate must not decide for A
+    act(() => store.setA(true))
+    await tick()
+    expect(queryByTestId('a')).not.toBeNull()
+    expect(queryByTestId('fb')).not.toBeNull()
+
+    act(() => store.setB(true))
+    await tick()
+    expect(queryByTestId('b')).not.toBeNull()
+  })
+
+  it('a consumer is not held back by one that went away waiting for something else', async () => {
+    const store = makeAB('suspense-left-predicate')
+    const A = () => { store.useStoreSuspense({}, s => s.a); return <b data-testid="a" /> }
+    const B = () => { store.useStoreSuspense({}, s => s.b); return null }
+    let hideB = () => { }
+    // B's visibility is local state: removing B does not render A again
+    const BHolder = () => {
+      const [visible, setVisible] = useState(true)
+      hideB = () => setVisible(false)
+      return <Suspense fallback={null}>{visible && <B />}</Suspense>
+    }
+    const { queryByTestId } = render(<><AutoRootCtx /><Suspense fallback={null}><A /></Suspense><BHolder /></>)
+    await tick()
+    act(() => hideB())
+    await tick()
+    act(() => store.setA(true))
+    await tick()
+    expect(queryByTestId('a')).not.toBeNull()
+  })
+
+  describe('after the wait lease', () => {
+    // A suspended component never commits, so nothing reports that it went away: the wait wakes its
+    // components every few seconds, and only those still there wait again.
+    // act() holds React's retry until its callback ends: advance in steps, as a browser would retry at once
+    const advance = async (ms: number) => {
+      for (let left = ms; left > 0; left -= 250) await act(async () => { await vi.advanceTimersByTimeAsync(Math.min(250, left)) })
+    }
+    const setup = (name: string) => {
+      const store = makeAB(name)
+      const Waiter = () => { store.useStoreSuspense({}, s => s.a); return <b data-testid="ok" /> }
+      let hide = () => { }
+      const App = () => {
+        const [visible, setVisible] = useState(true)
+        hide = () => setVisible(false)
+        return <Suspense fallback={null}>{visible && <Waiter />}</Suspense>
+      }
+      return { store, ...render(<><AutoRootCtx /><App /></>), hide: () => hide() }
+    }
+
+    it('releases the store of a consumer that went away before the store was ready', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        const { store, hide } = setup('suspense-lease-abandoned')
+        await advance(20)
+        expect(store.alive()).toBe(1)
+        act(() => hide())
+        await advance(5000 + 1000 + 100)
+        expect(store.alive()).toBe(0)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('keeps the same instance for a consumer still waiting', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        const { store, queryByTestId } = setup('suspense-lease-waiting')
+        await advance(20)
+        const mounts = store.life.mounts
+        await advance(3 * (5000 + 1000))
+        expect(store.alive()).toBe(1)
+        expect(store.life.mounts).toBe(mounts)
+        act(() => store.setA(true))
+        await advance(20)
+        expect(queryByTestId('ok')).not.toBeNull()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  })
+})
