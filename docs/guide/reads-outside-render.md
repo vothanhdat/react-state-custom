@@ -29,6 +29,21 @@ Passing the proxy to a helper that reads from it during render is fine; reads ar
 const label = describe(useStore()) // reads inside describe() are tracked
 ```
 
+Tracking is tied to the render, not to the proxy object. A helper that reads from the proxy **later**, in an event handler, an effect, a timer or a promise callback, gets the current value but no subscription, and the development warning from above. Pass the values, not the proxy:
+
+```tsx
+// ⚠️ not tracked: the proxy is read when the handler runs, after render
+const store = useStore()
+const onSubmit = () => submit(store.draft)
+
+// ✅ read during render, pass the value
+const { draft } = useStore()
+const onSubmit = () => submit(draft)
+
+// ✅ or ask the store for the latest value when the handler runs
+const onSubmit = () => submit(getStore().get().draft)
+```
+
 The proxy is a new object on every render. Do not use it as a dependency of `useEffect`, `useMemo` or `useCallback`, and do not store it in a ref for later: use the values read from it. This is also what makes it safe under the [React Compiler](/guide/react-compiler).
 
 ## Symbols and non-string keys
