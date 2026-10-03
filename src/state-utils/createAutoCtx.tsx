@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useCallback, useRef, useId, useContext, memo, useSyncExternalStore } from "react"
-import { useDataContext, useDataSourceMultiple, useDataSelector, acquireContext, getContext, isServer, StateScopeContext, type Context } from "./ctx"
+import { useDataContext, useDataSelector, acquireContext, getContext, isServer, StateScopeContext, useIsomorphicLayoutEffect, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
 import { useQuickSubscribe } from "./useQuickSubscribe"
@@ -129,6 +129,21 @@ const warnUnstableProp = (prop: "Wrapper" | "debugging") => {
       `inline. (Right after a hot reload this is expected.)`
     : `[react-state-custom] The debugging renderer passed to <AutoRootCtx /> (or <StateScopeProvider>) changed identity, ` +
       `so every store hook ran again. Define it once at module scope instead of inline.`)
+}
+
+/** The AutoRootCtx components mounted per scope (keyed by the scope's "auto-ctx" context), oldest first. */
+const mountedRoots = new WeakMap<Context<any>, Function[]>()
+
+const warnedSecondRoot = new WeakSet<Context<any>>()
+
+const warnSecondRoot = (autoCtx: Context<any>) => {
+  if (warnedSecondRoot.has(autoCtx)) return
+  warnedSecondRoot.add(autoCtx)
+  console.error(
+    `[react-state-custom] More than one <AutoRootCtx /> is mounted in the same scope. Stores run in the newest ` +
+    `one and move whenever one mounts or unmounts, losing their state. Mount AutoRootCtx once near the root; ` +
+    `use <StateScopeProvider> for a subtree with its own stores.`
+  )
 }
 
 const warnedDuplicateNames = new Set<string>()
@@ -322,9 +337,20 @@ export const AutoRootCtx: React.FC<{
     [books]
   )
 
-  useDataSourceMultiple(ctx,
-    ["subscribe", subscribeRoot],
-  )
+  // Offer this root to the scope's consumers. With several roots in one scope (a mistake, reported in
+  // development) the newest runs the stores, and when it unmounts the previous one takes over again
+  // instead of leaving consumers attached to an unmounted root.
+  useIsomorphicLayoutEffect(() => {
+    let stack = mountedRoots.get(ctx)
+    if (!stack) mountedRoots.set(ctx, stack = [])
+    if (stack.length > 0 && !isProduction) warnSecondRoot(ctx)
+    stack.push(subscribeRoot)
+    ctx.publish("subscribe", subscribeRoot)
+    return () => {
+      stack.splice(stack.lastIndexOf(subscribeRoot), 1)
+      ctx.publish("subscribe", stack[stack.length - 1])
+    }
+  }, [ctx, subscribeRoot])
 
   return <>
     {Array.from({ length: BUCKETS }, (_, i) =>

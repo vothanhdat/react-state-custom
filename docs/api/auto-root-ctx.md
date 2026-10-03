@@ -1,6 +1,6 @@
 # AutoRootCtx
 
-The global manager component. Mount it once near the top of the application; it runs every store hook on demand and renders nothing visible.
+The global manager component. Mount it once near the top of the application; it runs every store hook on demand and renders nothing visible. A second `AutoRootCtx` in the same scope logs a development error: the stores move to the newest one, and back to the previous one when it unmounts, losing their state each time. Use [`StateScopeProvider`](/api/state-scope-provider) for a subtree with its own stores.
 
 ```ts
 function AutoRootCtx(props: {
