@@ -8,6 +8,10 @@
 
 **One extra render per consumer on mount** when `initialState` is absent or does not match the hook's first publish.
 
+**Layers are one commit apart.** A store publishes one commit after the stores it reads. A component that reads both a store and a store derived from it can, for one render, see the new value next to the old derived one. Nothing is painted in between, but render logic and effects see it. Render from the derived store only and re-export the raw values it needs; values published by the same store always arrive together. See [Progressive data](/guide/progressive-data#combine-in-a-store-render-from-it).
+
+**Store hooks see the providers above `AutoRootCtx`.** A store hook runs inside `AutoRootCtx`, not inside the component that calls `useStore`, so `useContext` in a store reads the providers wrapping `AutoRootCtx`. Put the query client, router, theme or i18n providers a store needs outside it.
+
 **Client only.** Store hooks never run on the server. Server HTML shows `initialState`. See [Server-side rendering](/guide/ssr).
 
 **`getStore` is global-scope only.** Instances inside a `StateScopeProvider` are reachable from components through `useCtxState`, not from module-level code.
