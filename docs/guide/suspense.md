@@ -58,3 +58,13 @@ const select = (id: string) => startTransition(() => setUserId(id))
 The new instance mounts and fetches while the transition is pending; the old one is torn down once nothing reads it.
 
 **Calling a store action inside a transition** marks the store's own render as a transition, not its consumers'. They render in the regular commit that follows the store's publish, so `isPending` turns `false` one commit before they show the new value, and a consumer that suspends on that value shows its fallback. Use transitions around component state, such as the params above, rather than around store actions.
+
+## Store hooks that suspend
+
+A store hook may itself suspend, for example with `use(promise)` or a suspense query hook. Each store runs inside its own `<Suspense fallback={null}>`, so only that store waits; the rest of the app and every other store keep running.
+
+- **Before its first result**, the store has published nothing: `useStore` consumers read `initialState` or `undefined`, and `useStoreSuspense` consumers show their own boundary's fallback until it resumes.
+- **When it suspends again on an update**, consumers keep the last published values until the hook resumes and publishes the new ones.
+- React throttles revealing a boundary that showed its fallback, so the first result of a store that suspended on mount reaches consumers up to about 300 ms after it resolved.
+
+Prefer hooks that return a loading state (`useQuery` rather than `useSuspenseQuery`) inside stores and publish `isLoading`: consumers then choose between a spinner and `useStoreSuspense`, and nothing is throttled.

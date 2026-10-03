@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef, useId, useContext, memo, useSyncExternalStore } from "react"
+import React, { Suspense, useEffect, useCallback, useRef, useId, useContext, memo, useSyncExternalStore } from "react"
 import { useDataContext, useDataSourceMultiple, useDataSelector, acquireContext, getContext, isServer, StateScopeContext, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
@@ -177,9 +177,14 @@ const Bucket = memo(function Bucket({ index, buckets, Wrapper, debugging }: {
       .entries(records)
       // stable order so existing store fibers are never re-placed when records are added/removed
       .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+      // Each store suspends on its own: a store hook calling `use(promise)` or a suspense query would
+      // otherwise suspend the boundary above AutoRootCtx and hide the whole app. A suspended store
+      // has not published yet (or keeps its last values); consumers wait with useStoreSuspense.
       .map(([key, { useStateFn, params, AttatchedComponent }]) => <Wrapper key={key}>
-        <StateRunner key={key} name={key} params={params} useStateFn={useStateFn} debugging={debugging} />
-        {AttatchedComponent && <AttatchedComponent key={'attatch_' + key} {...params} />}
+        <Suspense fallback={null}>
+          <StateRunner name={key} params={params} useStateFn={useStateFn} debugging={debugging} />
+        </Suspense>
+        {AttatchedComponent && <Suspense fallback={null}><AttatchedComponent {...params} /></Suspense>}
       </Wrapper>)}
   </>
 })
