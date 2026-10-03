@@ -1,4 +1,4 @@
-import { useInvoiceStore, useSettingsStore } from './state'
+import { INVOICES, useInvoiceStore, useSettingsStore, useSummaryStore } from './state'
 
 export const SettingsPanel = () => {
     const { taxRate, setTaxRate, currency, setCurrency } = useSettingsStore()
@@ -41,6 +41,16 @@ export const Invoice = ({ invoiceId }: { invoiceId: string }) => {
             </ul>
             <button onClick={addLine}>Add line</button>
             <p>Subtotal: {subtotal} · Tax ({taxPercent}%): {tax} · <strong>Total: {total}</strong></p>
+        </div>
+    )
+}
+
+export const InvoiceSummary = () => {
+    const { lineCount, grandTotal } = useSummaryStore()
+    return (
+        <div className="card">
+            <h3>Summary <small>store reading {INVOICES.length} invoice stores</small></h3>
+            <p>{lineCount} lines · <strong>Grand total: {grandTotal}</strong></p>
         </div>
     )
 }

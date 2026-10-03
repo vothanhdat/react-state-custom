@@ -94,5 +94,9 @@ describe('demo examples', () => {
       slider.dispatchEvent(new Event('input', { bubbles: true }))
     })
     expect(screen.getAllByText('Total: $1920.00')).toHaveLength(2) // 1600 * 1.2
+    expect(screen.getByText('Grand total: $3840.00')).toBeTruthy()  // summary store follows both invoices
+    await act(async () => { screen.getAllByRole('button', { name: 'Add line' })[0].click() })
+    expect(screen.getByText('Grand total: $3960.00')).toBeTruthy()  // + 100 * 1.2
+    expect(screen.getByText(/5 lines/)).toBeTruthy()
   })
 })

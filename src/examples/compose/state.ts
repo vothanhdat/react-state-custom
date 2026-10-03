@@ -18,6 +18,10 @@ export interface Line {
     amount: number
 }
 
+export const INVOICES = ['INV-001', 'INV-002'] as const
+
+const format = (currency: 'USD' | 'EUR', n: number) => `${currency === 'USD' ? '$' : '€'}${n.toFixed(2)}`
+
 // A per-invoice store that reads the settings store. Stores compose like hooks:
 // when taxRate changes, every invoice store re-runs and its consumers update.
 const useInvoiceState = ({ invoiceId }: { invoiceId: string }) => {
@@ -33,20 +37,37 @@ const useInvoiceState = ({ invoiceId }: { invoiceId: string }) => {
 
     const subtotal = lines.reduce((sum, l) => sum + l.amount, 0)
     const tax = subtotal * taxRate
-    const format = (n: number) => `${currency === 'USD' ? '$' : '€'}${n.toFixed(2)}`
 
     return {
         invoiceId,
         lines,
         addLine,
         removeLine,
-        subtotal: format(subtotal),
-        tax: format(tax),
-        total: format(subtotal + tax),
+        subtotal: format(currency, subtotal),
+        tax: format(currency, tax),
+        total: format(currency, subtotal + tax),
+        totalAmount: subtotal + tax,
         taxPercent: Math.round(taxRate * 100),
     }
 }
 
 export const { useStore: useInvoiceStore } = createStore('invoice', useInvoiceState, {
-    initialState: { lines: [], subtotal: '', tax: '', total: '', taxPercent: 0 },
+    initialState: { lines: [], subtotal: '', tax: '', total: '', totalAmount: 0, taxPercent: 0 },
+})
+
+// A third store that reads the two invoice stores (and settings for the currency).
+// The chain is settings -> invoice -> summary: one slider move updates all three levels.
+const useSummaryState = () => {
+    const { currency } = useSettingsStore()
+    const first = useInvoiceStore({ invoiceId: INVOICES[0] })
+    const second = useInvoiceStore({ invoiceId: INVOICES[1] })
+
+    return {
+        lineCount: first.lines.length + second.lines.length,
+        grandTotal: format(currency, first.totalAmount + second.totalAmount),
+    }
+}
+
+export const { useStore: useSummaryStore } = createStore('invoice-summary', useSummaryState, {
+    initialState: { lineCount: 0, grandTotal: '' },
 })

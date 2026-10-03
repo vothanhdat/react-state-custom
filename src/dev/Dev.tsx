@@ -46,7 +46,7 @@ const examples = {
   },
   compose: {
     title: '🧩 Composed Stores',
-    description: 'A per-invoice store reads a global settings store from inside its own hook.',
+    description: 'Settings → invoice → summary: each store reads the one below it from inside its own hook.',
     component: <ComposeApp />,
   },
   scope: {

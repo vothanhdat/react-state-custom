@@ -1,12 +1,14 @@
-import { Invoice, SettingsPanel } from './view'
+import { INVOICES } from './state'
+import { Invoice, InvoiceSummary, SettingsPanel } from './view'
 
-// The invoice store calls useSettingsStore() inside its own hook: change the tax rate and both recompute.
+// Stores compose like hooks: settings -> invoice -> summary. Move the tax slider or add a line
+// and every level recomputes.
 export default function App() {
     return (
         <>
             <SettingsPanel />
-            <Invoice invoiceId="INV-001" />
-            <Invoice invoiceId="INV-002" />
+            {INVOICES.map(id => <Invoice key={id} invoiceId={id} />)}
+            <InvoiceSummary />
         </>
     )
 }

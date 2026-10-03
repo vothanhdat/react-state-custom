@@ -105,7 +105,7 @@ export const examples = {
         App: ComposeApp,
         label: '🧩 Composed Stores',
         title: 'Composed Stores',
-        description: 'A per-invoice store that reads a global settings store from inside its own hook. Change the tax rate once and every invoice recomputes.',
+        description: 'Stores compose like hooks. A per-invoice store reads the global settings store, and a summary store reads both invoice stores. Move the tax slider or add a line and every level recomputes: settings → invoice → summary.',
         state: updateImport(composeState),
         view: updateImport(composeView),
         app: updateImport(composeApp),
