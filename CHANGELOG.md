@@ -20,7 +20,12 @@ All notable changes to this project are documented here.
 - `useQuickSubscribe(ctx, serverData?)` and `useDataSelector(ctx, selector, isEqual?, serverData?)`: what the server rendered, used while hydrating.
 - `getStore(params).error`: what the store hook threw while the instance is disabled, `undefined` while it runs. `Context` gains `failed`, `error`, `fail()`, `recover()` and `onStatus()`.
 
+### Performance
+- A store render costs less per key. The hook's result was copied for `preState` on every render, copied again to wrap functions, turned into an entries array, flattened and compared, then published key by key. It is now published in one pass at commit, `preState` is read once on mount, and only `function`s and classes have their source text checked. Updating one key of a store with 1000 keys and one consumer: ~0.21 ms → ~0.08 ms; with 10 000 keys: ~7.2 ms → ~3.7 ms, of which ~2.6 ms is the hook's own object spreads (jsdom). The standard benchmarks are unchanged within noise.
+
 ### Changed
+- `preState` is read once when the instance mounts instead of being re-copied on every render.
+- A store function wrapper forwards to the implementation of the latest committed render, not the latest render: a render React discards no longer leaks its closures into the wrapper.
 - CI builds the package and runs the React Compiler tests against `dist/` (`yarn test:dist`), and fails if the build contains compiler output. The publish workflow does the same before publishing.
 
 ## [1.2.6] - 2026-10-03

@@ -56,8 +56,9 @@ describe('stable action identity', () => {
   it('does not wrap classes', () => {
     class Model {}
     const { useRootState } = createRootCtx('class-value', (_: {}) => ({ Model }))
-    const { result } = renderHook(() => useRootState({}))
-    expect(result.current.Model).toBe(Model)
+    renderHook(() => useRootState({}))
+    // published as-is, not behind a forwarding wrapper
+    expect(getContext('class-value').data.Model).toBe(Model)
   })
 })
 

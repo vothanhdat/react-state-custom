@@ -1,77 +1,89 @@
-import { useContext, useEffect, useMemo, useRef } from "react"
-import { useDataContext, useDataSourceMultiple, StateScopeContext, type Context, useIsomorphicLayoutEffect, functionSources, selectorScope, type FunctionSource } from "./ctx"
+import { useContext, useEffect, useMemo, useRef, useState } from "react"
+import { useDataContext, StateScopeContext, type Context, useIsomorphicLayoutEffect, functionSources, selectorScope, type FunctionSource } from "./ctx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
 import { DependencyTracker } from "./utils"
 
-type StableFn = FunctionSource & { stable: Function, committed: Function }
+type StableFn = FunctionSource & { stable: Function }
 
-const isClass = (fn: Function) => /^class[\s{]/.test(Function.prototype.toString.call(fn))
+/** Arrow functions and methods have no prototype, so the source text is read only for `function`s and classes. */
+const isClass = (fn: Function) => fn.prototype !== undefined && /^class[\s{]/.test(Function.prototype.toString.call(fn))
 
 /**
- * Gives every function-valued key of `state` a stable identity across renders.
+ * Publishes the store's result after each commit, in one pass over its keys.
  *
- * Store hooks usually return fresh closures (`const increment = () => ...`) on every render.
- * Publishing those directly would notify every consumer that destructures an action on
- * every store render, defeating selective re-rendering. Instead each function key gets a
- * single wrapper that always forwards to the latest implementation. Classes are left as-is.
+ * Function-valued keys get a stable identity. Store hooks usually return fresh closures
+ * (`const increment = () => ...`) on every render; publishing those directly would notify every
+ * consumer that destructures an action on every store render. Instead each function key gets one
+ * wrapper that forwards to the latest committed implementation. Classes are left as-is.
  *
  * A function a consumer calls while rendering (a getter such as `getItem(id)`, a component) is a
- * value, not an action: the returned `announce` effect tells the context when its implementation
- * changed, so those consumers re-render. Calls from event handlers never mark a function.
+ * value, not an action: when its implementation changes the key is announced with `Context.touch`,
+ * so those consumers re-render. Calls from event handlers never mark a function.
+ *
+ * Every other value is compared with what the context holds (`Object.is`); changed and removed keys
+ * go out in one `publishMany`. O(keys) per commit without intermediate copies or arrays, which
+ * matters for collections keyed by id.
  */
-const useStableActions = <V extends Record<string, unknown>>(state: V): { state: V, wrappers: Map<string, StableFn> } => {
-  const wrappers = useRef(new Map<string, StableFn>())
-  const map = wrappers.current
-  const out: Record<string, unknown> = {}
+const usePublish = (ctx: Context<any>, state: Record<string, unknown>) => {
+  const wrappers = useRef(new Map<string, StableFn>()).current
+  const last = useRef<{ ctx: Context<any>, state: Record<string, unknown> } | null>(null)
 
-  for (const key of Object.keys(state)) {
-    const value = state[key]
-    if (typeof value === "function" && !isClass(value)) {
-      let entry = map.get(key)
-      if (!entry) {
-        const created: StableFn = {
-          latest: value,
-          committed: value,
-          calledInRender: false,
-          stable: function (this: unknown, ...args: unknown[]) {
-            if (selectorScope.depth > 0) created.calledInRender = true
-            return created.latest.apply(this, args)
-          },
+  useIsomorphicLayoutEffect(() => {
+    const previous = last.current?.ctx === ctx ? last.current.state : undefined
+    last.current = { ctx, state }
+    if (previous === state) return
+    const data = ctx.data
+    let changed: [string, unknown][] | undefined
+    let touched: string[] | undefined
+
+    for (const key in state) {
+      let value = state[key]
+      if (typeof value === "function" && !isClass(value)) {
+        const entry = wrappers.get(key)
+        if (!entry) {
+          value = createStableFn(key, value, wrappers)
+        } else {
+          if (entry.latest !== value) {
+            entry.latest = value
+            if (entry.calledInRender) (touched ??= []).push(key)
+          }
+          value = entry.stable
         }
-        try {
-          Object.defineProperty(created.stable, "name", { value: value.name || key })
-        } catch { /* non-configurable in exotic environments; ignore */ }
-        functionSources.set(created.stable, created)
-        entry = created
-        map.set(key, entry)
-      } else {
-        entry.latest = value
+      } else if (wrappers.size > 0) {
+        wrappers.delete(key)
       }
-      out[key] = entry.stable
-    } else {
-      map.delete(key)
-      out[key] = value
+      if (!Object.is(data[key], value)) (changed ??= []).push([key, value])
     }
-  }
 
-  return { state: out as V, wrappers: map }
+    let removed: string[] | undefined
+    if (previous) {
+      for (const key in previous) {
+        if (Object.hasOwn(state, key)) continue
+        wrappers.delete(key);
+        (removed ??= []).push(key)
+      }
+    }
+
+    if (changed || removed) ctx.publishMany(changed ?? [], removed)
+    if (touched) ctx.touch(touched)
+  })
 }
 
-/**
- * After each commit, announce (`Context.touch`) the function keys whose implementation changed and
- * that some consumer calls while rendering. Declared after the publish so both reach consumers in
- * the same synchronous re-render.
- */
-const useAnnounceFunctions = (ctx: Context<any>, wrappers: Map<string, StableFn>) => {
-  useIsomorphicLayoutEffect(() => {
-    let changed: string[] | undefined
-    for (const [key, entry] of wrappers) {
-      if (entry.committed === entry.latest) continue
-      entry.committed = entry.latest
-      if (entry.calledInRender) (changed ??= []).push(key)
-    }
-    if (changed) ctx.touch(changed)
-  })
+const createStableFn = (key: string, value: Function, wrappers: Map<string, StableFn>) => {
+  const created: StableFn = {
+    latest: value,
+    calledInRender: false,
+    stable: function (this: unknown, ...args: unknown[]) {
+      if (selectorScope.depth > 0) created.calledInRender = true
+      return created.latest.apply(this, args)
+    },
+  }
+  try {
+    Object.defineProperty(created.stable, "name", { value: value.name || key })
+  } catch { /* non-configurable in exotic environments; ignore */ }
+  functionSources.set(created.stable, created)
+  wrappers.set(key, created)
+  return created.stable
 }
 
 
@@ -121,25 +133,21 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
     const scopeId = useContext(StateScopeContext)
     const scopedCtxName = scopeId ? `${scopeId}/${ctxName}` : ctxName
     const ctx = useDataContext<V>(ctxName)
+    // what an earlier instance with this identity published (warm start); read once, on mount
+    const [preState] = useState(() => ({ ...ctx.data }) as Partial<V>)
 
     DependencyTracker.enter(scopedCtxName);
     let rawState: V;
     try {
-      rawState = useFn(e, { ...ctx.data })
+      rawState = useFn(e, preState)
     } finally {
       DependencyTracker.leave();
     }
-    const { state, wrappers } = useStableActions(rawState)
-
     const stack = useMemo(() => new Error().stack, [])
 
-    useDataSourceMultiple(
-      ctx,
-      ...Object.entries(state) as any
-    )
-    useAnnounceFunctions(ctx, wrappers)
+    usePublish(ctx, rawState)
 
-    // Declared after useDataSourceMultiple so it runs after the first publish: the context is
+    // Declared after usePublish so it runs after the first publish: the context is
     // "ready" once consumers can see real values instead of initialState (see useStoreSuspense).
     useIsomorphicLayoutEffect(() => { ctx.markReady() }, [ctx])
 
@@ -153,7 +161,7 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
       return () => { ctxMountedCheck.delete(scopedCtxName) };
     }, [scopedCtxName])
 
-    return state;
+    return rawState;
   }
 
   const Debug = ({ }) => <></>

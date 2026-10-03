@@ -74,7 +74,7 @@ Most of what `AttachedComponent` can do also fits inside the store hook itself a
 
 ## The `preState` argument
 
-The store hook receives a second argument: the values previously published by an instance with the same identity, or an empty object. It lets a store warm-start after a remount, for example when `timeToClean` expired but the context is still cached.
+The store hook receives a second argument: the values previously published by an instance with the same identity, or an empty object. It is read once, when the instance mounts, and stays the same object for the life of the instance. It lets a store warm-start after a remount, for example when `timeToClean` expired but the context is still cached.
 
 ```ts
 const useDraft = ({ id }: { id: string }, preState: Partial<{ text: string }>) => {
