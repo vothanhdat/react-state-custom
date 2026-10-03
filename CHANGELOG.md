@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.3.2] - 2026-10-03
 ### Fixed
 - A component reading the `useStore()` proxy keeps updating while a transition that re-renders it is suspended. The proxy recorded the keys of each render as it ran, so a render React then put aside (a transition waiting on a suspended sibling keeps the previous UI on screen) replaced the keys of the UI on screen: a component switching from `s.a` to `s.b` in that transition stopped following `a` and showed a stale value until the transition finished. Changes are now checked against the keys of the committed render.
 - Selectors (`useStore(params, selector)`, `useDataSelector`) and `useDataSubscribeWithTransform` check changes with the selector of the committed render. They read the selector of the latest render, so in the same situation a component whose put-aside render selected a value equal to the one on screen (switching from `s => s.a` to `s => s.b` while `b` equalled `a`) missed the next change of `a`.
@@ -186,7 +188,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.2...HEAD
+[1.3.2]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.6...v1.3.0
 [1.2.6]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.5...v1.2.6
