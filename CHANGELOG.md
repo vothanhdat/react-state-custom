@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.2.3] - 2026-10-03
 ### Fixed
 - Dev tool: the inspector panel and its toggle button now have a `z-index` (`--rs-z-index`, default 9999), so page content no longer paints over them when the page scrolls. The store list hides the internal `auto-ctx` entry of scoped roots too, not only the global one.
 - Dev tool: `react-state-custom/style.css` no longer sets `color-scheme` on `:root` (it flipped the host page's form controls and scrollbars to dark on a dark OS); the scheme and the text color are scoped to the panel, which also sets its own text color so it stays readable on dark host pages. The full-viewport overlay that stayed mounted while the panel was closed, with an invisible split bar still catching clicks along the bottom edge, is gone: the panel is only mounted while open.
@@ -108,7 +110,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.2...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.3...HEAD
+[1.2.3]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.1.2...v1.2.0
