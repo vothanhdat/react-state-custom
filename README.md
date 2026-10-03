@@ -7,7 +7,7 @@ One running instance per params, shared by every component and every store that 
 [![Docs](https://img.shields.io/badge/Docs-Website-2563eb?style=flat-square)](https://vothanhdat.github.io/react-state-custom/docs/)
 [![Demo](https://img.shields.io/badge/Demo-Live-blue?style=flat-square)](https://vothanhdat.github.io/react-state-custom/)
 [![npm version](https://img.shields.io/npm/v/react-state-custom?style=flat-square)](https://www.npmjs.com/package/react-state-custom)
-[![React 18+](https://img.shields.io/badge/React-18%2B-61dafb?style=flat-square)](#requirements)
+[![React 18+](https://img.shields.io/badge/React-18%2B-61dafb?style=flat-square)](#-requirements)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
 ```bash
@@ -125,13 +125,11 @@ function UserName({ userId }: { userId: string }) {
 
 The full guide lives on the **[documentation site](https://vothanhdat.github.io/react-state-custom/docs/)**:
 
-- [Store options](https://vothanhdat.github.io/react-state-custom/docs/guide/store-options): `initialState`, `timeToClean`, `AttachedComponent`
-- [Parameterized stores](https://vothanhdat.github.io/react-state-custom/docs/guide/parameterized-stores) and [composing stores](https://vothanhdat.github.io/react-state-custom/docs/guide/composing-stores)
-- [Scopes](https://vothanhdat.github.io/react-state-custom/docs/guide/scopes) with `StateScopeProvider`, [error handling](https://vothanhdat.github.io/react-state-custom/docs/guide/error-handling)
-- [Selectors](https://vothanhdat.github.io/react-state-custom/docs/guide/selectors), [Suspense](https://vothanhdat.github.io/react-state-custom/docs/guide/suspense), [outside React](https://vothanhdat.github.io/react-state-custom/docs/guide/outside-react) with `getStore()`
-- [Developer tools](https://vothanhdat.github.io/react-state-custom/docs/guide/devtools), [server-side rendering](https://vothanhdat.github.io/react-state-custom/docs/guide/ssr), [React Compiler](https://vothanhdat.github.io/react-state-custom/docs/guide/react-compiler), [testing](https://vothanhdat.github.io/react-state-custom/docs/guide/testing)
-- [Limitations and FAQ](https://vothanhdat.github.io/react-state-custom/docs/guide/limitations)
-- [API reference](https://vothanhdat.github.io/react-state-custom/docs/api/create-store): every export, including the low-level primitives
+- **Start**: [getting started](https://vothanhdat.github.io/react-state-custom/docs/guide/getting-started), [how it works](https://vothanhdat.github.io/react-state-custom/docs/guide/how-it-works)
+- **Stores**: [store options](https://vothanhdat.github.io/react-state-custom/docs/guide/store-options) (`initialState`, `timeToClean`, `AttachedComponent`), [parameterized stores](https://vothanhdat.github.io/react-state-custom/docs/guide/parameterized-stores), [composing stores](https://vothanhdat.github.io/react-state-custom/docs/guide/composing-stores), [progressive data](https://vothanhdat.github.io/react-state-custom/docs/guide/progressive-data), [scopes](https://vothanhdat.github.io/react-state-custom/docs/guide/scopes) with `StateScopeProvider`, [error handling](https://vothanhdat.github.io/react-state-custom/docs/guide/error-handling)
+- **Reading state**: [selectors](https://vothanhdat.github.io/react-state-custom/docs/guide/selectors), [Suspense](https://vothanhdat.github.io/react-state-custom/docs/guide/suspense), [concurrent rendering](https://vothanhdat.github.io/react-state-custom/docs/guide/concurrent), [outside React](https://vothanhdat.github.io/react-state-custom/docs/guide/outside-react) with `getStore()`, [reads outside render](https://vothanhdat.github.io/react-state-custom/docs/guide/reads-outside-render)
+- **Integration**: [developer tools](https://vothanhdat.github.io/react-state-custom/docs/guide/devtools), [server-side rendering](https://vothanhdat.github.io/react-state-custom/docs/guide/ssr), [React Compiler](https://vothanhdat.github.io/react-state-custom/docs/guide/react-compiler), [testing](https://vothanhdat.github.io/react-state-custom/docs/guide/testing), [limitations and FAQ](https://vothanhdat.github.io/react-state-custom/docs/guide/limitations)
+- **[API reference](https://vothanhdat.github.io/react-state-custom/docs/api/create-store)**: every export, including the low-level primitives
 
 ---
 
@@ -181,7 +179,7 @@ Both subscribe to the socket when the first component reads that symbol and unsu
 | **Ecosystem** | every React hook works inside a store | a large set of atom utilities |
 | **To learn** | nothing beyond React hooks | the atom model |
 
-If you tune thousands of high-frequency updates per second, Jotai's update path is cheaper. If your state is a graph of things that fetch, subscribe and derive, such as `config → market data → order book → positions → summary`, write each node as a hook, keep the graph acyclic, and import the hook where it is needed.
+Jotai's update path costs about half as much per update. At a thousand subscribed components both stay well under a frame, and frame time is decided by the DOM work an update causes (see [Limitations](https://vothanhdat.github.io/react-state-custom/docs/guide/limitations)). If your state is a graph of things that fetch, subscribe and derive, such as `config → market data → order book → positions → summary`, write each node as a hook, keep the graph acyclic, and import the hook where it is needed.
 
 **Zustand** is the least code for a flat global bag of values, with no per-key instances or lifecycle: you write the ref-counting around sockets yourself. **Redux** is a different model (actions and reducers) aimed at a different scale of ceremony. A plain **React context** re-renders every consumer on every change.
 
