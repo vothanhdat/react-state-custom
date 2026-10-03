@@ -3,6 +3,7 @@ import { render, act, fireEvent } from '@testing-library/react'
 import * as React from 'react'
 import { Suspense, memo, startTransition, useDeferredValue, useEffect, useState } from 'react'
 import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
+import { useDataSubscribeWithTransform } from '../src/state-utils/ctx'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
 
@@ -68,6 +69,45 @@ describe('a transition that suspends', () => {
     await tick()
     expect(getByTestId('v').textContent).toBe('5')
   })
+})
+
+describe('a transition that suspends, when the discarded render selects what is on screen', () => {
+  // `b` equals the value of `a` on screen, so the selection of the discarded render (`b`) equals the
+  // selection on screen: checking changes with it would miss the change of `a`.
+  const run = async (name: string, Reader: (props: { mode: 'a' | 'b', store: ReturnType<typeof createAB> }) => React.ReactNode) => {
+    const store = createAB(name)
+    const never = new Promise<void>(() => {})
+    const Suspender = ({ on }: { on: boolean }) => { if (on) throw never; return null }
+    let setMode: (m: 'a' | 'b') => void = () => {}
+    const App = () => {
+      const [mode, _setMode] = useState<'a' | 'b'>('a')
+      setMode = _setMode
+      return <Suspense fallback="loading"><Reader mode={mode} store={store} /><Suspender on={mode === 'b'} /></Suspense>
+    }
+    const { getByTestId } = render(<><AutoRootCtx /><App /></>)
+    await tick()
+    act(() => { startTransition(() => setMode('b')) })
+    await tick()
+    act(() => { store.setA(5) })
+    await tick()
+    expect(getByTestId('v').textContent).toBe('5')
+  }
+
+  const createAB = (name: string) => {
+    let setA: (n: number) => void = () => {}
+    const store = createStore(name, () => {
+      const [a, _setA] = useState(0)
+      setA = _setA
+      return { a, b: 0 }
+    })
+    return { ...store, setA: (n: number) => setA(n) }
+  }
+
+  it('useStore with a selector', () => run('coincide-selector', ({ mode, store }) =>
+    <span data-testid="v">{String(store.useStore(undefined, s => mode === 'a' ? s.a : s.b))}</span>))
+
+  it('useDataSubscribeWithTransform', () => run('coincide-transform', ({ mode, store }) =>
+    <span data-testid="v">{String(useDataSubscribeWithTransform(store.useCtxState(), 'a', a => mode === 'a' ? a : 0))}</span>))
 })
 
 describe('useDeferredValue on a store value', () => {

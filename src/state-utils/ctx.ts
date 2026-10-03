@@ -422,31 +422,39 @@ export const useDataSubscribe = <D, K extends keyof D>(ctx: Context<D> | undefin
  * @returns The transformed value.
  */
 export const useDataSubscribeWithTransform = <D, K extends keyof D, E>(ctx: Context<D> | undefined, key: K, transform: (e: D[K] | undefined) => E): E => {
-  const transformRef = useRef(transform)
-  transformRef.current = transform
+  const subscribe = useMemo(
+    () => (onStoreChange: () => void) => ctx ? ctx.subscribe(key, onStoreChange) : () => { },
+    [ctx, key]
+  )
 
-  const store = useMemo(() => {
+  // A new getSnapshot whenever the transform changes. useSyncExternalStore checks for changes with the
+  // one of the committed render, so a transform from a render React discarded is never used for that.
+  const getSnapshot = useMemo(() => {
+    let computed = false
     let raw: D[K] | undefined
-    let usedTransform: typeof transform | undefined
     let out: E
-
-    const getSnapshot = () => {
+    return () => {
       const current = ctx?.data[key]
-      const fn = transformRef.current
-      if (usedTransform !== fn || !Object.is(current, raw)) {
+      if (!computed || !Object.is(current, raw)) {
+        computed = true
         raw = current
-        usedTransform = fn
-        out = fn(current)
+        out = transform(current)
       }
       return out
     }
+  }, [ctx, key, transform])
 
-    const subscribe = (onStoreChange: () => void) => ctx ? ctx.subscribe(key, onStoreChange) : () => { }
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+}
 
-    return { subscribe, getSnapshot }
-  }, [ctx, key])
-
-  return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
+/** Run a selector; a store function it calls is a render-time dependency (see functionSources). */
+const select = <D, R>(selector: (data: Partial<D>) => R, data: Partial<D>) => {
+  selectorScope.depth++
+  try {
+    return selector(data)
+  } finally {
+    selectorScope.depth--
+  }
 }
 
 /**
@@ -465,63 +473,61 @@ export const useDataSelector = <D, R>(
   /** What the server rendered for this context (a store's `initialState`), selected from while hydrating. */
   serverData?: () => Partial<D>
 ): R => {
-  const selectorRef = useRef(selector)
-  selectorRef.current = selector
-  const isEqualRef = useRef(isEqual)
-  isEqualRef.current = isEqual
+  // Read only for the server snapshot, which React uses while hydrating.
   const serverDataRef = useRef(serverData)
   serverDataRef.current = serverData
 
-  const store = useMemo(() => {
+  // Bumped on every change of the context: the selection is recomputed only after one.
+  const source = useMemo(() => {
     let version = 0
-    let computedVersion = -1
-    let computedWith: typeof selector | undefined
-    let result: R
-    let serverWith: typeof selector | undefined
-    let serverResult: R
-
-    const select = (fn: typeof selector, data: Partial<D>) => {
-      // a store function the selector calls is a render-time dependency (see functionSources)
-      selectorScope.depth++
-      try {
-        return fn(data)
-      } finally {
-        selectorScope.depth--
-      }
+    return {
+      version: () => version,
+      subscribe: (onStoreChange: () => void) => ctx
+        ? ctx.subscribeAll(() => { version++; onStoreChange() })
+        : () => { },
     }
+  }, [ctx])
+
+  /** The selection on screen. Set after commit, so a render React discards never changes it. */
+  const shown = useRef<{ value: R }>(undefined)
+
+  // New snapshot functions whenever the selector or isEqual changes. useSyncExternalStore checks for
+  // changes with those of the committed render, so a selector from a render React discarded (a
+  // transition waiting on a suspended sibling) is never used for that.
+  const snapshots = useMemo(() => {
+    let computedVersion = -1
+    let result: R
+    let server: { value: R } | undefined
 
     const getSnapshot = () => {
-      const fn = selectorRef.current
-      if (computedVersion === version && computedWith === fn) return result
-      const next = select(fn, (ctx?.data ?? {}) as Partial<D>)
-      // keep the previous reference when the selection is equal, so React sees no change
-      if (computedVersion === -1 || !isEqualRef.current(result, next)) result = next
+      const version = source.version()
+      if (computedVersion === version) return result
+      const next = select(selector, (ctx?.data ?? {}) as Partial<D>)
+      // keep an equal reference, the one on screen first, so React sees no change
+      result = shown.current && isEqual(shown.current.value, next) ? shown.current.value
+        : computedVersion !== -1 && isEqual(result, next) ? result
+        : next
       computedVersion = version
-      computedWith = fn
       return result
     }
 
     // On the server and while hydrating: what the server rendered, unless it equals the live selection.
     // React re-renders with the live selection once hydrated.
     const getServerSnapshot = () => {
-      const fn = selectorRef.current
-      if (serverWith === fn) return serverResult
+      if (server) return server.value
       const live = getSnapshot()
-      const server = serverDataRef.current
-      const fromServer = server ? select(fn, server()) : live
-      serverResult = server && !isEqualRef.current(fromServer, live) ? fromServer : live
-      serverWith = fn
-      return serverResult
+      const data = serverDataRef.current
+      const fromServer = data ? select(selector, data()) : live
+      server = { value: data && !isEqual(fromServer, live) ? fromServer : live }
+      return server.value
     }
 
-    const subscribe = (onStoreChange: () => void) => ctx
-      ? ctx.subscribeAll(() => { version++; onStoreChange() })
-      : () => { }
+    return { getSnapshot, getServerSnapshot }
+  }, [source, selector, isEqual])
 
-    return { subscribe, getSnapshot, getServerSnapshot }
-  }, [ctx])
-
-  return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot)
+  const value = useSyncExternalStore(source.subscribe, snapshots.getSnapshot, snapshots.getServerSnapshot)
+  useIsomorphicLayoutEffect(() => { shown.current = { value } }, [value])
+  return value
 }
 
 /**

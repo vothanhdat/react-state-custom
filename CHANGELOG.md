@@ -4,7 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 ### Fixed
-- A component reading the `useStore()` proxy keeps updating while a transition that re-renders it is suspended. The proxy recorded the keys of each render as it ran, so a render React then put aside (a transition waiting on a suspended sibling keeps the previous UI on screen) replaced the keys of the UI on screen: a component switching from `s.a` to `s.b` in that transition stopped following `a` and showed a stale value until the transition finished. Changes are now checked against the keys of the committed render. Selectors were not affected.
+- A component reading the `useStore()` proxy keeps updating while a transition that re-renders it is suspended. The proxy recorded the keys of each render as it ran, so a render React then put aside (a transition waiting on a suspended sibling keeps the previous UI on screen) replaced the keys of the UI on screen: a component switching from `s.a` to `s.b` in that transition stopped following `a` and showed a stale value until the transition finished. Changes are now checked against the keys of the committed render.
+- Selectors (`useStore(params, selector)`, `useDataSelector`) and `useDataSubscribeWithTransform` check changes with the selector of the committed render. They read the selector of the latest render, so in the same situation a component whose put-aside render selected a value equal to the one on screen (switching from `s => s.a` to `s => s.b` while `b` equalled `a`) missed the next change of `a`.
 
 ## [1.3.1] - 2026-10-03
 ### Fixed
