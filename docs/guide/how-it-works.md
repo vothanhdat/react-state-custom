@@ -17,12 +17,12 @@ Because the store *is* a hook, everything you already know works inside it: `use
    │                                     │
    │                                     │ useStore(params)       render 1: initialState or undefined
    │  ◄─── "mount name?params" ──────────┤
-   │ mounts <StateRunner>                │
+   │ mounts <Store(name)>                │
    │   runs useFn(params)                │
    │   publishes keys (layout effect) ──►│ re-render with data    render 2
    │                                     │
    │ store state changes                 │
-   │   re-renders StateRunner            │
+   │   re-renders Store(name)            │
    │   publishes changed key ───────────►│ re-render only if that key was read
 ```
 

@@ -15,17 +15,40 @@ export type StateDebugRenderer = React.ComponentType<{ name: string, value: Reco
 const DebugState: StateDebugRenderer = ({ name, value }) => <pre data-store={name}>{formatState(value)}</pre>
 
 /**
- * Runs one store hook. Memoized so that AutoRootCtx re-rendering (which happens every time
- * any consumer subscribes or unsubscribes) does not re-run every other store's hook.
+ * Name a component for React DevTools. The published package is minified, so function and class
+ * names come out mangled or empty; a displayName survives. For a memo component, name the function
+ * it wraps: that is the type DevTools reads.
  */
-const StateRunner = memo(function StateRunner({ name, useStateFn, params, debugging }: {
-  name: string, useStateFn: Function, params: ParamsToIdRecord, debugging: boolean | StateDebugRenderer
-}) {
-  const state = useStateFn(params)
-  if (!debugging) return null
-  const Debug = debugging === true ? DebugState : debugging
-  return <Debug name={name} value={state} />
-})
+const named = <T extends Function>(displayName: string, component: T): T => Object.assign(component, { displayName })
+
+type RunnerProps = { name: string, useStateFn: Function, params: ParamsToIdRecord, debugging: boolean | StateDebugRenderer }
+
+/** The runner component of each store name (see runnerFor). */
+const runners = new Map<string, React.ComponentType<RunnerProps>>()
+
+/**
+ * The component that runs a store's hook. Memoized so that its bucket re-rendering (an instance
+ * next to it starting or stopping) does not re-run this hook.
+ *
+ * One component per store name, so React DevTools shows the instances of "todos" as `Store(todos)`
+ * and its search finds them. Keyed by name, not by hook: a hot update brings a new hook for the
+ * same name, and a new component type would remount the store on every edit. The map holds one
+ * entry per store name the app defines.
+ */
+const runnerFor = (storeName: string) => {
+  let runner = runners.get(storeName)
+  if (!runner) {
+    const StoreRunner = ({ name, useStateFn, params, debugging }: RunnerProps) => {
+      const state = useStateFn(params)
+      if (!debugging) return null
+      const Debug = debugging === true ? DebugState : debugging
+      return <Debug name={name} value={state} />
+    }
+    runner = memo(named(`Store(${storeName})`, StoreRunner))
+    runners.set(storeName, runner)
+  }
+  return runner
+}
 
 /**
  * Default Wrapper: an error boundary that isolates one crashing store from the others.
@@ -34,6 +57,7 @@ const StateRunner = memo(function StateRunner({ name, useStateFn, params, debugg
  * re-created. Pass your own `Wrapper` to AutoRootCtx to customise this.
  */
 export class StoreErrorBoundary extends React.Component<{ children?: React.ReactNode }, { error: unknown }> {
+  static displayName = "StoreErrorBoundary"
   state = { error: undefined as unknown }
 
   static getDerivedStateFromError(error: unknown) {
@@ -80,6 +104,8 @@ export class StoreErrorBoundary extends React.Component<{ children?: React.React
  */
 
 type StoreRecord = {
+  /** The name given to createStore, which names the runner component (see runnerFor). */
+  storeName: string,
   useStateFn: Function,
   AttatchedComponent: React.FC<any> | undefined
   params: ParamsToIdRecord,
@@ -195,7 +221,7 @@ const createBuckets = () => {
 
 type Buckets = ReturnType<typeof createBuckets>
 
-const Bucket = memo(function Bucket({ index, buckets, Wrapper, debugging }: {
+const Bucket = memo(named("Bucket", function Bucket({ index, buckets, Wrapper, debugging }: {
   index: number,
   buckets: Buckets,
   Wrapper: React.ComponentType<{ children?: React.ReactNode }>,
@@ -211,78 +237,90 @@ const Bucket = memo(function Bucket({ index, buckets, Wrapper, debugging }: {
       .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
       .map(([key, record]) => <StoreInstance key={key} name={key} record={record} Wrapper={Wrapper} debugging={debugging} />)}
   </>
-})
+}))
 
-/**
- * Records a store failure on its context, then rethrows so the user's `Wrapper` still receives it.
- * `useStoreSuspense` consumers read the failure and throw it into their own error boundary.
- */
-class StoreFailure extends React.Component<{ ctx: Context<any>, children?: React.ReactNode }, { error?: { value: unknown } }> {
-  state: { error?: { value: unknown } } = {}
-
-  static getDerivedStateFromError(error: unknown) {
-    return { error: { value: error } }
-  }
-
-  render() {
-    if (this.state.error) {
-      this.props.ctx.fail(this.state.error.value)
-      throw this.state.error.value
-    }
-    return this.props.children
-  }
+type StoreFailureProps = {
+  ctx: Context<any>
+  useStateFn: Function
+  /** The store's runner element, remounted after a hot update that changed its hooks. */
+  runner: React.ReactNode
+  attached: React.ReactNode
 }
 
-type HotSwapState = {
+type StoreFailureState = {
   error: { value: unknown } | undefined
-  /** Key of the runner: a new one mounts the hook fresh. */
+  /** Key of the runner's Suspense boundary: a new one mounts the hook fresh. */
   generation: number
   /** The hook last restarted this way, so a hook that keeps failing is restarted only once. */
   retried: Function | undefined
-  /** The hook of the last commit. Mutable: written on commit, read by getDerivedStateFromProps. */
-  committed: { fn: Function }
 }
 
 /**
- * Restarts a store hook that a hot update replaced with one calling different hooks.
+ * The error boundary of one store instance.
  *
- * AutoRootCtx runs a new hook for a running instance in place, so the store keeps its state across
- * an edit. When the edit added, removed or reordered hooks, the old hook state no longer fits and
- * React throws on the first render ("Rendered more hooks ..."). This boundary then mounts the new
- * hook fresh, once, warm-started from `preState`. Any other error, or a second one, goes on to
- * StoreFailure, which disables the instance.
+ * A hot update can replace the hook of a running instance, and AutoRootCtx runs the new hook in
+ * place so the store keeps its state across an edit. When the edit added, removed or reordered
+ * hooks, the old hook state no longer fits and React throws on the first render ("Rendered more
+ * hooks ..."). An error from a hook that has not committed yet therefore remounts the runner, once,
+ * warm-started from `preState`.
+ *
+ * Any other error, or a second one, disables the instance: it is recorded on the context, so
+ * `useStoreSuspense` consumers throw it into their own error boundary, then rethrown for the
+ * user's `Wrapper`.
  */
-class HotSwap extends React.Component<{ useStateFn: Function, children?: React.ReactNode }, HotSwapState> {
-  state: HotSwapState = { error: undefined, generation: 0, retried: undefined, committed: { fn: this.props.useStateFn } }
+class StoreFailure extends React.Component<StoreFailureProps, StoreFailureState> {
+  static displayName = "StoreFailure"
+  state: StoreFailureState = { error: undefined, generation: 0, retried: undefined }
+
+  /** The hook of the last successful commit. */
+  private committed = this.props.useStateFn
 
   static getDerivedStateFromError(error: unknown) {
     return { error: { value: error } }
   }
 
-  static getDerivedStateFromProps(props: { useStateFn: Function }, state: HotSwapState): Partial<HotSwapState> | null {
-    // the error came from a hook that has not committed yet, which the old hook state may not fit
-    if (state.error && props.useStateFn !== state.committed.fn && state.retried !== props.useStateFn) {
-      return { error: undefined, generation: state.generation + 1, retried: props.useStateFn }
+  /** The error came from a hook that has not committed yet, which the old hook state may not fit. */
+  private restartable() {
+    const { useStateFn } = this.props
+    return useStateFn !== this.committed && this.state.retried !== useStateFn
+  }
+
+  componentDidCatch() {
+    // Restart in a new render: within one render a boundary catches only one error, so a restarted
+    // hook that throws again would pass this boundary by and never be recorded as a failure.
+    if (this.restartable()) {
+      const retried = this.props.useStateFn
+      this.setState(state => ({ error: undefined, generation: state.generation + 1, retried }))
     }
-    return null
   }
 
   componentDidMount() {
-    this.state.committed.fn = this.props.useStateFn
+    this.committed = this.props.useStateFn
   }
 
   componentDidUpdate() {
-    if (!this.state.error) this.state.committed.fn = this.props.useStateFn
+    if (!this.state.error) this.committed = this.props.useStateFn
   }
 
   render() {
-    if (this.state.error) throw this.state.error.value
-    return <React.Fragment key={this.state.generation}>{this.props.children}</React.Fragment>
+    const { error } = this.state
+    if (error) {
+      if (this.restartable()) return null
+      this.props.ctx.fail(error.value)
+      throw error.value
+    }
+    return <>
+      {/* Each store suspends on its own: a store hook calling `use(promise)` or a suspense query would
+          otherwise suspend the boundary above AutoRootCtx and hide the whole app. A suspended store
+          has not published yet (or keeps its last values); consumers wait with useStoreSuspense. */}
+      <Suspense key={this.state.generation} fallback={null}>{this.props.runner}</Suspense>
+      {this.props.attached}
+    </>
   }
 }
 
 /** One running store instance: its hook, its AttachedComponent, the error and Suspense boundaries around them. */
-const StoreInstance = memo(function StoreInstance({ name, record: { useStateFn, params, AttatchedComponent }, Wrapper, debugging }: {
+const StoreInstance = memo(named("StoreInstance", function StoreInstance({ name, record: { storeName, useStateFn, params, AttatchedComponent }, Wrapper, debugging }: {
   name: string,
   record: StoreRecord,
   Wrapper: React.ComponentType<{ children?: React.ReactNode }>,
@@ -300,20 +338,16 @@ const StoreInstance = memo(function StoreInstance({ name, record: { useStateFn, 
       queueMicrotask(() => { if (!mounted.current) ctx.recover() })
     }
   }, [ctx])
+  const Runner = runnerFor(storeName)
   return <Wrapper>
-    <StoreFailure ctx={ctx}>
-      {/* Each store suspends on its own: a store hook calling `use(promise)` or a suspense query would
-          otherwise suspend the boundary above AutoRootCtx and hide the whole app. A suspended store
-          has not published yet (or keeps its last values); consumers wait with useStoreSuspense. */}
-      <Suspense fallback={null}>
-        <HotSwap useStateFn={useStateFn}>
-          <StateRunner name={name} params={params} useStateFn={useStateFn} debugging={debugging} />
-        </HotSwap>
-      </Suspense>
-      {AttatchedComponent && <Suspense fallback={null}><AttatchedComponent {...params} /></Suspense>}
-    </StoreFailure>
+    <StoreFailure
+      ctx={ctx}
+      useStateFn={useStateFn}
+      runner={<Runner name={name} params={params} useStateFn={useStateFn} debugging={debugging} />}
+      attached={AttatchedComponent && <Suspense fallback={null}><AttatchedComponent {...params} /></Suspense>}
+    />
   </Wrapper>
-})
+}))
 
 export const AutoRootCtx: React.FC<{
   Wrapper?: React.ComponentType<{ children?: React.ReactNode }>
@@ -364,7 +398,7 @@ export const AutoRootCtx: React.FC<{
         }
       } else {
         books.set(recordKey, { counter: 1, useStateFn })
-        records.update(recordKey, () => ({ useStateFn, params, AttatchedComponent }))
+        records.update(recordKey, () => ({ storeName: contextName, useStateFn, params, AttatchedComponent }))
       }
 
       const current = books.get(recordKey)!
@@ -408,6 +442,8 @@ export const AutoRootCtx: React.FC<{
   </>
 
 }
+
+AutoRootCtx.displayName = "AutoRootCtx"
 
 /**
  * Development check for `useStore`: the proxy and the selector form run different hooks, so a call
@@ -813,3 +849,5 @@ export const StateScopeProvider: React.FC<{
     {children}
   </StateScopeContext.Provider>
 }
+
+StateScopeProvider.displayName = "StateScopeProvider"

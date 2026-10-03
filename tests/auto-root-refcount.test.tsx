@@ -123,3 +123,44 @@ describe('AutoRootCtx reference counting', () => {
     expect(wrapperRenders).toBeLessThan(100)
   })
 })
+
+/**
+ * The displayNames of the components rendered under `container`, depth-first: what React DevTools
+ * shows for the published package, whose function and class names are minified.
+ */
+const componentNames = (container: HTMLElement) => {
+  const key = Object.keys(container).find(k => k.startsWith('__reactContainer$'))!
+  const names: string[] = []
+  const walk = (fiber: any) => {
+    for (let f = fiber; f; f = f.sibling) {
+      const type = typeof f.type === 'object' && f.type ? f.type.type ?? f.type : f.type
+      if (typeof type === 'function' && type.displayName) names.push(type.displayName)
+      walk(f.child)
+    }
+  }
+  // the container points at the HostRoot fiber it was created with; its FiberRoot knows the current one
+  walk((container as any)[key].stateNode.current.child)
+  return names
+}
+
+const count = (names: string[], name: string) => names.filter(n => n === name).length
+
+describe('AutoRootCtx component tree', () => {
+  it('names the components it renders, minified or not', async () => {
+    const a = createStore('tree-a', () => ({ v: 'a' }))
+    const A = () => <i>{a.useStore().v}</i>
+    const { container } = render(<><AutoRootCtx /><A /></>)
+    await tick()
+    const names = componentNames(container).filter(n => n !== 'Bucket')
+    expect(names).toEqual(['AutoRootCtx', 'StoreInstance', 'StoreErrorBoundary', 'StoreFailure', 'Store(tree-a)'])
+  })
+
+  it('names each store runner after its store', async () => {
+    const { useStore } = createStore('tree-named', ({ id }: { id: number }) => ({ id }))
+    const Row = ({ id }: { id: number }) => <i>{useStore({ id }).id}</i>
+    const { container } = render(<><AutoRootCtx /><Row id={1} /><Row id={2} /></>)
+    await tick()
+    const names = componentNames(container)
+    expect(count(names, 'Store(tree-named)')).toBe(2)
+  })
+})

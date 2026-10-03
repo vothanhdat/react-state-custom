@@ -26,6 +26,20 @@ function App() {
 
 The panel is read-only: it never creates a store, so inspecting an evicted instance does not bring it back.
 
+## React DevTools
+
+Each running store shows up under `AutoRootCtx` in the React DevTools component tree, named after the store, so the search box finds it:
+
+```
+AutoRootCtx
+└ Bucket
+  └ StoreInstance key="todos?listId=work"
+    └ StoreErrorBoundary › StoreFailure
+      └ Store(todos)        ← your hook runs here; its hooks show in the inspector
+```
+
+The key of `StoreInstance` is the instance's name and params. Instances are spread over 64 `Bucket` components so that starting or stopping one re-renders only its bucket. `StoreErrorBoundary` is the default `Wrapper`, replaced by yours when you pass one.
+
 ## Placing the button
 
 Any prop other than `Component`, `defaultOpen` and `defaultHeight` is forwarded to the trigger button, which is `position: fixed`. Use `style` or `className` to place it, and `children` to change its label. The button is hidden while the panel is open; the panel has its own close button.

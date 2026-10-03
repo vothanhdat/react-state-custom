@@ -11,6 +11,7 @@ All notable changes to this project are documented here.
 - A store whose hook gains, loses or reorders hooks in a hot update restarts instead of being disabled. The running instance ran the new hook on the old hook state, React threw ("change in the order of Hooks") and the store stayed off until every consumer unmounted, so the page needed a reload. It now remounts once with the new hook, warm-started from `preState`; an edit that keeps the hooks still keeps the state.
 
 ### Changed
+- React DevTools names every store after itself: the component running the hook of store `todos` is `Store(todos)`, so the DevTools search finds it. Every store was a `StateRunner`, and in the published package, which is minified, the other components showed mangled or empty names; `AutoRootCtx`, `Bucket`, `StoreInstance`, `StoreErrorBoundary`, `StoreFailure` and `StateScopeProvider` now have display names. The hot-reload boundary is merged into `StoreFailure`, one level less per store.
 - CI runs the test suite on React 18.3 too. The peer range has always been `react >= 18`, but only React 19 was tested. Three tests relied on React 19 behavior (`use`, StrictMode reusing the first render's state) and now pass on both; the library needed no change.
 
 ## [1.3.0] - 2026-10-03
