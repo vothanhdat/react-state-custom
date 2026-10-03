@@ -3,6 +3,9 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Fixed
+- Dev tool: the inspector panel and its toggle button now have a `z-index` (`--rs-z-index`, default 9999), so page content no longer paints over them when the page scrolls. The store list hides the internal `auto-ctx` entry of scoped roots too, not only the global one.
+
 ### Added
 - Documentation site at https://vothanhdat.github.io/react-state-custom/docs/ (VitePress, `yarn docs:dev` / `yarn docs:build`): a guide split into pages (store options, params, composing, scopes, errors, selectors, Suspense, outside React, dev tools, SSR, React Compiler), new Testing and Limitations/FAQ pages, the API reference split per export, benchmarks and this changelog, with local search. Deployed next to the demo by the Pages workflow.
 

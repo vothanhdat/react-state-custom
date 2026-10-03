@@ -44,7 +44,8 @@ export const DevToolState: React.FC<{ Component: DataViewComponent }> = ({ Compo
 
     const groupedKeys = useMemo(
         () => preParseKeys
-            .filter(e => e && e != 'auto-ctx')
+            // hide the internal auto-ctx of every scope (scoped names are "<scopeId>/auto-ctx")
+            .filter(e => e && !/(^|\/)auto-ctx$/.test(e))
             .filter(filterFn)
             .reduce<Record<string, string[]>>((groups, key) => {
                 const group = key.split("?")[0] ?? key
@@ -66,7 +67,9 @@ export const DevToolState: React.FC<{ Component: DataViewComponent }> = ({ Compo
                 {Object.entries(groupedKeys)
                     .map(([name, values]) => <Fragment key={name}>
                         <div className="state-group-header">
-                            <HighlightString text={name} />
+                            {/* scoped stores are named "<scopeId>/<name>": show the name, then the scope */}
+                            <HighlightString text={name.slice(name.lastIndexOf('/') + 1)} />
+                            {name.includes('/') && <small> {name.slice(0, name.lastIndexOf('/'))}</small>}
                         </div>
                         {values.map(currentKey => <StateLabelRender
                             key={currentKey}
