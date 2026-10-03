@@ -44,6 +44,7 @@ export default defineConfig({
           items: [
             { text: 'Selectors', link: '/guide/selectors' },
             { text: 'Suspense', link: '/guide/suspense' },
+            { text: 'Concurrent rendering', link: '/guide/concurrent' },
             { text: 'Outside React', link: '/guide/outside-react' },
             { text: 'Reads outside render', link: '/guide/reads-outside-render' },
           ],

@@ -21,9 +21,10 @@ function Profile({ userId }: { userId: string }) {
 
 ## Behaviour
 
-- **Without a predicate**, the component suspends until the hook has published at least once. Keys are then typed as present, which matches a hook whose return value is complete after its first run.
+- **Without a predicate**, the component suspends until the hook has published at least once. Keys are then typed as present, which matches a hook whose return value is complete after its first run. A hook that fetches publishes on its first run, before the response arrives: give it a predicate such as `s => !s.isLoading`, or the component resumes with the data still missing.
 - **With a predicate**, readiness is the predicate alone, evaluated against `initialState` merged with the live data. A seed that already satisfies it resolves immediately without suspending.
 - **Only the first load suspends.** Once a component has rendered an instance ready, it never suspends on it again, even if the predicate turns false later (a refetch setting `isLoading`): replacing content already on screen with the fallback, in an update no transition can hold, is rarely wanted. Show a refresh indicator from the state instead. New params are a new instance and suspend again (or, inside `startTransition`, keep the previous content until ready).
+- **The store starts while the component is suspended**, so every `useStoreSuspense` in a boundary starts its store at once. A component of the same boundary that reads with `useStore` starts its store only once the boundary commits; see [Load in parallel](/guide/concurrent#load-in-parallel).
 - **The store keeps running while the component is suspended.** React discards a suspended component's state, so the store is retained imperatively. The retain lasts until a component reading the store commits, which can be well after the promise resolves: React throttles revealing a boundary that showed its fallback (300 ms in React 19). A resolved render that never commits releases it after a second.
 - After it resolves, the component is subscribed through the same tracking proxy as `useStore`: it re-renders only when a key it reads changes.
 - **If the store hook throws**, before its first result or later, the component throws that error into its nearest error boundary. See [Error handling](/guide/error-handling#errors-in-consumers).
@@ -59,7 +60,7 @@ const select = (id: string) => startTransition(() => setUserId(id))
 
 The new instance mounts and fetches while the transition is pending; the old one is torn down once nothing reads it.
 
-**Calling a store action inside a transition** marks the store's own render as a transition, not its consumers'. They render in the regular commit that follows the store's publish, so `isPending` turns `false` one commit before they show the new value, and a consumer that suspends on that value shows its fallback. Use transitions around component state, such as the params above, rather than around store actions.
+**Calling a store action inside a transition** marks the store's own render as a transition, not its consumers'. They render in the regular commit that follows the store's publish, so `isPending` turns `false` one commit before they show the new value, and a consumer that suspends on that value shows its fallback. Use transitions around component state, such as the params above, rather than around store actions, and [`useDeferredValue`](/guide/concurrent#keep-input-responsive-with-usedeferredvalue) to keep input responsive while consumers update.
 
 ## Store hooks that suspend
 

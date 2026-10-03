@@ -14,7 +14,11 @@ What decides frame time is usually the DOM, not the store: reconciling rendered 
 
 **Store hooks see the providers above `AutoRootCtx`.** A store hook runs inside `AutoRootCtx`, not inside the component that calls `useStore`, so `useContext` in a store reads the providers wrapping `AutoRootCtx`. Put the query client, router, theme or i18n providers a store needs outside it.
 
-**Transitions stop at the store.** An action called inside `startTransition` makes the store's render a transition, but its consumers update in a regular commit afterwards. Transitions around component state, such as a param change with `useStoreSuspense`, work as usual. See [Suspense](/guide/suspense#transitions).
+**Transitions stop at the store.** An action called inside `startTransition` makes the store's render a transition, but its consumers update in a regular commit afterwards. Transitions around component state, such as a param change with `useStoreSuspense`, work as usual. Defer expensive consumers with `useDeferredValue` instead. See [Concurrent rendering](/guide/concurrent).
+
+**Stores start when their consumer commits.** `useStore` starts its store from an effect, so a component in a Suspense boundary that is showing its fallback starts its store only once that boundary commits. `useStoreSuspense` starts its store while suspended. See [Load in parallel](/guide/concurrent#load-in-parallel).
+
+**A hidden `<Activity>` releases its stores.** Effects inside `<Activity mode="hidden">` are cleaned up, so its `useStore` calls release their instances as an unmount would. Keep `AutoRootCtx` outside it, and use `timeToClean` or a `preState` warm start to keep state. See [Hidden content with `<Activity>`](/guide/concurrent#hidden-content-with-activity).
 
 **Client only.** Store hooks never run on the server. Server HTML shows `initialState`. See [Server-side rendering](/guide/ssr).
 
