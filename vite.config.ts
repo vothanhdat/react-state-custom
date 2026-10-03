@@ -1,14 +1,16 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import dts from 'vite-plugin-dts'
-import "babel-plugin-react-compiler"
+
+// The React Compiler is for the examples only (they are written without useCallback/useMemo).
+// The library itself must never be compiled: it reads mutable data and tracks reads during render
+// on purpose, and compiler memoisation changes that behaviour (e.g. it cached the useStore proxy).
+const isExample = (id: string) => /[\\/]src[\\/]examples[\\/]/.test(id)
 
 export default defineConfig({
   plugins: [
     react({
-      babel: {
-        plugins: ["babel-plugin-react-compiler"]
-      }
+      babel: (id) => ({ plugins: isExample(id) ? ["babel-plugin-react-compiler"] : [] }),
     }),
     dts({
       include: ['src/index.ts', 'src/state-utils', 'src/dev-tool'],
