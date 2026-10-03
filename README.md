@@ -124,6 +124,8 @@ The full guide lives on the **[documentation site](https://vothanhdat.github.io/
 | **Selective Renders** | ✅ Automatic | ⚠️ Selectors | ❌ Manual | ✅ Selectors | ✅ Per atom |
 | **Learning Curve** | 🟢 Low | 🔴 High | 🟡 Medium | 🟢 Low | 🟡 Medium |
 
+Boilerplate means library ceremony: store objects, actions, reducers, selectors, atoms, providers. Here there is one `createStore`, and the hook it returns is used like any React hook.
+
 ## 📊 Benchmarks
 
 Measured with `yarn bench` (vitest + jsdom, React 19.2, no StrictMode; 1000 consumers, means in ms). Full method, render and derive counts, code size and caveats in [bench/README.md](./bench/README.md).

@@ -79,7 +79,9 @@ export function Counter() {
 -   **Destructure immediately**: `const { data } = useStore(...)`. The returned object is a proxy that tracks usage during render. It is a new object every render (React Compiler safe); never use it as a dependency.
 -   **No Providers**: Never manually wrap components in providers. `AutoRootCtx` handles everything.
 -   **Keep it simple**: Don't use `createRootCtx` or `createAutoCtx` directly. `createStore` is the only API you usually need.
--   **First render**: store values are `undefined` until the store hook has run once. Pass `createStore(name, useFn, { initialState: {...} })` to avoid that and to get non-optional types for those keys.
+-   **First render**: stores are lazy, so values are `undefined` until the store hook has run once. Read with `??` / `?.`, or pass `createStore(name, useFn, { initialState: {...} })` when you want non-optional types for those keys, values in server HTML, or a single render on mount.
+-   **Collections**: keep independently changing items as an object keyed by id (`return { ...byId, setItem }`), not an array under one key, so a reader of one item re-renders only for that item. An item with its own lifecycle (fetch, subscription) is a parameterized store: `useItem({ id })`.
+-   **Many instances in one store**: never call a store hook in a loop. One store returns an object keyed by id; the store above calls that hook once and reads the keys it needs.
 -   **No params**: a store whose hook takes no required params can be consumed as `useStore()`.
 -   **SSR / Next.js**: client-side library, SSR-safe. Server output shows `initialState`; stores run after hydration. In the App Router put `AutoRootCtx` and every `useStore` caller in a `'use client'` module.
 -   **Dev tool** lives in a separate entry: `import { DevToolContainer } from 'react-state-custom/dev-tool'` plus `import 'react-state-custom/style.css'`. For an expandable tree, `ObjectDataView` from `react-state-custom/dev-tool/obj-view` (needs the optional peer `react-obj-view`). In tests, `<AutoRootCtx debugging />` renders each store's state as `<pre data-store="name?params">`.
@@ -128,7 +130,5 @@ const useCartState = () => {
   return { items, total };
 };
 
-export const { useStore: useCartStore } = createStore('cart', useCartState, {
-  initialState: { items: [], total: 0 },
-});
+export const { useStore: useCartStore } = createStore('cart', useCartState);
 ```

@@ -38,6 +38,36 @@ return { profile: { name, email, avatar, settings } }
 return { name, email, avatar, settings }
 ```
 
+## Collections: keys, not arrays
+
+The same rule applies to a list of items that change independently. An array under one key is one key: when any item changes, every component reading from that array re-renders, whatever item it shows.
+
+```ts
+// one key: every reader of any item re-renders when one item changes
+const useListState = () => {
+  const [items, setItems] = useState<Item[]>([])
+  return { items, setItem: (i: number, item: Item) => setItems(s => s.map((x, j) => j === i ? item : x)) }
+}
+```
+
+Return an object keyed by id instead. Each id is a top-level key, so a reader of `items[id]` subscribes to that id alone, and the store publishes only the keys whose value changed (`Object.is`). Reading one key through the proxy is a property access; no selector runs.
+
+```ts
+// one key per item: only the readers of the changed item re-render
+const useItemsState = () => {
+  const [items, setItems] = useState<Record<string, Item>>({})
+  const setItem = (id: string, item: Item) => setItems(s => ({ ...s, [id]: item }))
+  return { ...items, setItem } as Record<string, Item> & { setItem: typeof setItem }
+}
+export const { useStore: useItems } = createStore('items', useItemsState)
+
+const price = useItems()[id]?.price
+```
+
+(The cast is there because TypeScript drops the index signature when an object with one is spread next to a named property.)
+
+When each item has its own lifecycle, a fetch or a subscription, make it a [parameterized store](/guide/parameterized-stores) instead: `useItem({ id })` is one instance per id, mounted while someone reads it. The collection scenario in [Benchmarks](/benchmarks) measures the array and the keyed shapes side by side: 1000 renders against 5 for one changed item.
+
 ## Under the hood
 
 Selectors are implemented by `useDataSelector(ctx, selector, isEqual?)`, exported for use with raw contexts. See [Primitives](/api/primitives).

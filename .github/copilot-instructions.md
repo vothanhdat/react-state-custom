@@ -24,7 +24,7 @@ up to date with every release. This file only adds repository-specific notes.
 - `useStore(params?)` from the result. Destructure during render; the proxy tracks reads and is a new object every render (React Compiler safe).
 - `<AutoRootCtx />` mounted once at the root. `<StateScopeProvider>` for an isolated subtree.
 - Params are primitives only (`paramsToId` throws otherwise). Same params = shared instance.
-- Prefer `initialState` so consumers never see `undefined` and get non-optional types.
+- Stores are lazy: values are `undefined` until the hook has run. Read with `??`/`?.`, or pass `initialState` for non-optional types, server HTML with values, or a single render on mount.
 
 ## Internals worth knowing when editing the core
 - `Context.publish` uses `Object.is`; subscribe hooks are built on `useSyncExternalStore`.

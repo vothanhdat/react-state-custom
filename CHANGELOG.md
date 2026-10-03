@@ -23,6 +23,7 @@ All notable changes to this project are documented here.
 - Dev tool: `@uiw/react-split` replaced by a small pointer-capture resize hook; `dev-tool.es.js` no longer bundles it and `style.css` drops its rules. The compare columns share the space equally instead of being individually resizable. `DevToolState`'s `Component` prop is now optional (defaults to `DataViewDefault`, like `StateView`).
 - Demo: Form and Cart examples removed (same parameterised-instances pattern as Todo and Timer). Example views use a small shared stylesheet instead of inline styles, and the explanatory paragraph that duplicated each example's description is gone.
 - README reduced to the pitch, quick start and links into the site. `API_DOCUMENTATION.md` is now a redirect; the reference sources are `docs/api/*.md`. AI_CONTEXT examples are typed and use `initialState`.
+- Docs: a Collections section (items as an object keyed by id, not an array under one key), a "Many instances at once" section on composing stores without calling hooks in loops and on the commit cost of deep chains, and `initialState` presented as an option over the lazy default (read with `??` / `?.`) in the guide, FAQ, AI_CONTEXT and Copilot notes. The README comparison table says what "boilerplate" means.
 - Docs fixes: `markReady` / `onReady` documented on `Context`, the unused `toggleButton` prop dropped from the dev-tool reference, snippets fixed to type-check (`user` narrowing, optional `items`), spreading the `useStore` proxy documented as subscribing to every key.
 
 ## [1.2.2] - 2026-10-02

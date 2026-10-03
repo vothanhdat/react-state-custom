@@ -23,6 +23,33 @@ When `taxRate` changes, the `invoice` store re-renders, recomputes `total` and p
 
 The inner store is mounted by the same `AutoRootCtx` and is torn down when the outer store, its last consumer, is torn down.
 
+## Many instances at once
+
+A store hook follows the rules of hooks, so it cannot call `useLineStore({ id })` once per item in a loop. To derive something from many items, let one store return an object keyed by id, and let the store above call that hook once and read the keys it needs.
+
+```ts
+// one store, one key per line
+const useLinesState = () => {
+  const items = useItems()                 // keyed by id, see Collections under Selectors
+  const { discount } = useSettingsStore()
+  return Object.fromEntries(itemIds.map(id => [id, items[id] ? lineTotal(items[id], discount ?? 0) : 0]))
+}
+export const { useStore: useLines } = createStore('lines', useLinesState)
+
+// a checkout reads its lines with one hook call
+const useCheckoutState = ({ group }: { group: string }) => {
+  const lines = useLines()
+  const { vat } = useSettingsStore()
+  const subtotal = groupIds(group).reduce((sum, id) => sum + (lines[id] ?? 0), 0)
+  return { total: subtotal * (1 + (vat ?? 0)) }
+}
+export const { useStore: useCheckoutStore } = createStore('checkout', useCheckoutState)
+```
+
+`lines` re-runs when any item it read changes and recomputes every line, but publishes only the keys whose value changed, so a checkout re-renders only when one of its own lines did. Granularity is per key at the output and per store at the computation. (`itemIds` and `groupIds` come from wherever the list is defined: a catalog, a route, or another key of the store such as `ids`.)
+
+Every store in such a chain is one more React commit per update: `items` publishes, `lines` renders and publishes, `checkout` renders and publishes, then the components render. Deep graphs cost accordingly; the shop scenario in [Benchmarks](/benchmarks) measures a four-layer one.
+
 ## Derived values in a plain hook
 
 A derived value that only one component needs can stay in an ordinary hook instead of a store:

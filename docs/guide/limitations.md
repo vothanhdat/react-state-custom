@@ -4,7 +4,7 @@
 
 **Params must be primitives.** Store identity is a serialized string, so params are limited to `string`, `number`, `bigint`, `boolean`, `null` and `undefined`. Pass ids and look objects up inside the hook.
 
-**Two commits per update.** A store is a hook in a headless component: an update re-renders the store, which publishes from a layout effect, then the subscribed consumers render. That is about twice the cost of Zustand or Jotai per update, and still well under a frame at a thousand subscribed components. See [Benchmarks](/benchmarks).
+**Two commits per update.** A store is a hook in a headless component: an update re-renders the store, which publishes from a layout effect, then the subscribed consumers render. That is about twice the cost of Zustand or Jotai per update, and still well under a frame at a thousand subscribed components. Each store in a chain of stores adds one more commit. See [Benchmarks](/benchmarks).
 
 **One extra render per consumer on mount** when `initialState` is absent or does not match the hook's first publish.
 
@@ -14,7 +14,7 @@
 
 **No in-place recovery after a store throws.** The error boundary disables the instance until it is torn down and mounted again. Catch inside the hook when you need recovery.
 
-**Top-level key tracking.** The proxy subscribes to top-level keys. Use a selector for deep or derived values.
+**Top-level key tracking.** The proxy subscribes to top-level keys. Use a selector for deep or derived values, and keep a list of independently changing items as an object keyed by id rather than an array under one key. See [Collections](/guide/selectors#collections-keys-not-arrays).
 
 ## FAQ
 
@@ -24,7 +24,7 @@ One `AutoRootCtx` near the root, mounted once. No provider per store. `StateScop
 
 ### Why do I see `undefined` on the first render?
 
-The store hook has not run yet. Pass `initialState` to seed the values and type those keys as present.
+The store hook has not run yet; stores are lazy. Read with `??` or `?.`, or pass `initialState` to seed the values and type those keys as present. See [Store options](/guide/store-options#initialstate).
 
 ### A consumer re-renders more than I expect
 

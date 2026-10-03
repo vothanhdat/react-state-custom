@@ -157,7 +157,10 @@ re-render only the five readers of the changed item, like a Zustand selector or 
   plus a one-line selector, or an `atom` per value, is hard to beat; our layer is
   `createStore(name, hook)` with `useState` inside, and a write from outside React is `getStore().get().action()`
   instead of `store.setState()`. Some of the difference is bench plumbing (a unique name per run, typed
-  casts), but the shape is real: the hook form costs more words per layer. What it buys is not brevity
-  but that each layer can hold effects, async work and other hooks, which these scenarios do not exercise.
+  casts), but the shape is real: the hook form costs more words per layer. None of them are library
+  ceremony, though: there is no store object, selector, atom or provider to write, only `createStore` and
+  the hook it returns; the extra tokens are the `useState` and the `??` defaults inside the hook itself.
+  What the hook form buys is not brevity but that each layer can hold effects, async work and other hooks,
+  which these scenarios do not exercise.
 - At these sizes every operation is well under one frame. Choose on ergonomics unless you update
   thousands of subscribed components per frame.

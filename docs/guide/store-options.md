@@ -14,7 +14,14 @@ A bare number is accepted as `timeToClean`: `createStore('name', useFn, 5000)`.
 
 ## `initialState`
 
-Before a store's hook has run for the first time, its values read as `undefined`. Pass `initialState` to give consumers something on the very first render. Keys listed there are typed as always present on the `useStore` result.
+Stores are lazy: nothing exists until the first consumer asks, and until the hook has run once its values read as `undefined`. Many stores are fine with that. The consumer renders once more on mount and reads with `??` or `?.`:
+
+```ts
+const { user } = useUserStore({ userId })   // User | undefined until the hook has run
+return <span>{user?.name ?? '…'}</span>
+```
+
+Pass `initialState` when you want more than that: consumers get those values on the very first render, and the keys listed there are typed as always present on the `useStore` result.
 
 ```ts
 export const { useStore: useUserStore } = createStore('user', useUserState, {
