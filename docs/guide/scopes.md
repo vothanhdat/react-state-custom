@@ -23,7 +23,7 @@ A `StateScopeProvider` is its own root: it does not need an `AutoRootCtx` inside
 
 ## Use cases
 
-- Rendering several independent copies of a feature side by side: two editors, a comparison view, a multi-tab workspace.
+- Rendering several independent copies of a feature side by side: two editors, a comparison view, a multi-tab workspace. To share part of the state between copies, such as the document two editors show, use params instead; see [What an instance shares](/guide/parameterized-stores#what-an-instance-shares).
 - Isolating a preview or a modal from the main application state.
 - Test isolation: each test renders its subject inside a fresh `StateScopeProvider`. See [Testing](/guide/testing).
 

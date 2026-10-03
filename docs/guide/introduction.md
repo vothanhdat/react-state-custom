@@ -28,9 +28,25 @@ Every component that calls `useCartStore({ userId: '42' })` shares one running i
 - **Escape hatches.** `getStore()` for sockets, routers and tests; `useStoreSuspense()` for Suspense; `StateScopeProvider` for isolated subtrees.
 - **TypeScript first.** Params and state are inferred from the hook. Keys given in `initialState` are typed as always present.
 
-## When to use something else
+## When it fits
 
-A store here is a hook running in a headless component, so an update takes two commits: the store renders and publishes, then its consumers render, each once. That costs about twice what Zustand or Jotai spend per update (see [Benchmarks](/benchmarks)). It is well under a frame at a thousand subscribed components; at high update rates the cost that matters is the HTML React has to update, not the store. The [Limitations and FAQ](/guide/limitations) page lists the other constraints.
+A store pays off when several components need the same running piece of state, effects included, per id.
+
+- **A good fit**
+  - A socket, a presence channel or a poll per room, symbol or document, read by several widgets: one subscription and one state for all of them.
+  - A task in progress, such as an upload or an export, followed on more than one screen. See [Keep a task running after its screen closes](/guide/outside-react#keep-a-task-running-after-its-screen-closes).
+  - A screen's state combined from several sources: fetched data, a socket, the session. See [Progressive data](/guide/progressive-data).
+  - Domain hooks you already have and now need to share: wrap them with `createStore` and they run as written.
+- **A small gain**
+  - Global UI flags such as the theme or an open modal: a context or a plain store does this already.
+  - Server data you only fetch and cache: a query library already shares responses per key. Combine its results in a store when you need more.
+  - State that belongs to one component: keep it in `useState`.
+- **Not a fit**
+  - Logic that must run without React. A store is a hook: `getStore()` reads and drives it from outside, but it runs only under a mounted `AutoRootCtx`.
+
+Sharing changes behaviour: callers with the same params share everything the hook holds. Decide what belongs to the shared instance and what stays with each view; see [What an instance shares](/guide/parameterized-stores#what-an-instance-shares).
+
+An update takes two commits: the store renders and publishes, then its consumers render, each once. That costs about twice what Zustand or Jotai spend per update (see [Benchmarks](/benchmarks)), and each store in a chain of stores adds one commit. It is well under a frame at a thousand subscribed components; at high update rates the cost that matters is the HTML React has to update, not the store. The [Limitations and FAQ](/guide/limitations) page lists the other constraints.
 
 ## Where to go next
 

@@ -20,6 +20,32 @@ Each instance runs its own copy of the hook with its own state and effects, and 
 - **`undefined` means absent.** `{ listId: 'work', filter: undefined }` and `{ listId: 'work' }` are the same instance, so optional params can be passed straight through.
 - **Types stay apart.** `{ id: 1 }` and `{ id: '1' }` are different instances: a string that reads like a number, bigint, boolean or `null` is quoted in the identity (`id='1'`), and a bigint ends in `n`.
 
+## What an instance shares
+
+Callers with the same params share everything the hook holds, not only the values they came for. Put in a store what every caller should see, and keep what belongs to one view outside it.
+
+Two editors open on the same document show the same text, but each has its own cursor, selection and undo history:
+
+```tsx
+// shared: one instance per document, however many editors show it
+const useDocumentState = ({ documentId }: { documentId: string }) => {
+  const [text, setText] = useState('')
+  useEffect(() => documents.subscribe(documentId, setText), [documentId])
+  return { text, setText }
+}
+export const { useStore: useDocument } = createStore('document', useDocumentState)
+
+// per view: component state
+const Editor = ({ documentId }: { documentId: string }) => {
+  const { text, setText } = useDocument({ documentId })
+  const [selection, setSelection] = useState<{ start: number, end: number }>()
+  const [undo, setUndo] = useState<string[]>([])
+  ...
+}
+```
+
+When the per-view part becomes a store of its own, because several components of one editor read it, give it its own identity: `useEditorView({ documentId, viewId })`. A [`StateScopeProvider`](/guide/scopes) around each editor isolates every store it uses, the document included, so use a scope when the copies must not share anything.
+
 ## Stores without params
 
 A store whose hook takes no required params can be consumed as `useStore()`.
