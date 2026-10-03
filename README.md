@@ -1,8 +1,8 @@
 # React State Custom
 
-**The "It's Just a Hook" State Manager for React.**
+**Write a hook once, use it anywhere.**
 
-Turn any React hook into a shared store. Zero boilerplate. Full type safety. Automatic lifecycle management.
+One running instance per params, shared by every component and every store that calls it. Composed with hooks, rendered as soon as each piece arrives.
 
 [![Docs](https://img.shields.io/badge/Docs-Website-2563eb?style=flat-square)](https://vothanhdat.github.io/react-state-custom/docs/)
 [![Demo](https://img.shields.io/badge/Demo-Live-blue?style=flat-square)](https://vothanhdat.github.io/react-state-custom/)
@@ -20,41 +20,62 @@ npm install react-state-custom
 
 ## ⚡ The 30-Second Pitch
 
-Stop writing reducers, actions, and manual providers. If you can write a React hook, you've already written your store.
+A custom hook is reused as code, not as state. Call `useTicker('BTC')` in three components and the hook runs three times: three `useState`s, three socket subscriptions, three values that can drift apart.
+
+Wrap the same hook with `createStore` and those three components share **one** running instance: one state, one subscription.
 
 ```tsx
-import { useState } from 'react'
+// plain custom hook: every call is its own instance
+<Header />     // useTicker('BTC') → own useState, socket subscription #1
+<Chart />      // useTicker('BTC') → own useState, socket subscription #2
+<OrderForm />  // useTicker('BTC') → own useState, socket subscription #3
+
+// store: every call shares one instance
+<Header />     // useTicker({ symbol: 'BTC' }) ┐
+<Chart />      // useTicker({ symbol: 'BTC' }) ├─ one useState, one subscription
+<OrderForm />  // useTicker({ symbol: 'BTC' }) ┘
+```
+
+- **Shared, not duplicated.** Call a store in ten components or in other stores: the hook runs once per params, and each caller re-renders only for the keys it reads.
+- **Composed with hooks.** A store reads another store by calling it. Dependencies update by themselves.
+- **Progressive by default.** Each source fetches on its own; a store that combines them shows every piece as soon as it arrives. See [Progressive data](https://vothanhdat.github.io/react-state-custom/docs/guide/progressive-data).
+
+```tsx
+import { useEffect, useState } from 'react'
 import { createStore, AutoRootCtx } from 'react-state-custom'
 
-// 1. Write a standard hook (your store logic)
-const useCountState = ({ initial = 0 }: { initial?: number }) => {
-  const [count, setCount] = useState(initial)
-  const increment = () => setCount(c => c + 1)
-  return { count, increment }
+// 1. A hook, written as usual: the live price of one symbol
+const useTickerState = ({ symbol }: { symbol: string }) => {
+  const [price, setPrice] = useState<number>()
+  useEffect(() => socket.subscribe(`ticker:${symbol}`, setPrice), [symbol])
+  return { price }
 }
+export const { useStore: useTicker } = createStore('ticker', useTickerState)
 
-// 2. Create a store
-export const { useStore } = createStore('counter', useCountState, {
-  initialState: { count: 0 },
-})
-
-// 3. Mount AutoRootCtx once, then use the store anywhere
-function App() {
-  return (
-    <>
-      <AutoRootCtx /> {/* 👈 runs your store hooks for you */}
-      <Counter />
-    </>
-  )
+// 2. Another store uses it, like a hook calling a hook
+const usePositionState = ({ symbol }: { symbol: string }) => {
+  const [position, setPosition] = useState<Position>()
+  useEffect(() => { fetchPosition(symbol).then(setPosition) }, [symbol])
+  const { price } = useTicker({ symbol })
+  return { pnl: price !== undefined && position ? (price - position.entry) * position.qty : undefined }
 }
+export const { useStore: usePosition } = createStore('position', usePositionState)
 
-function Counter() {
-  const { count, increment } = useStore({ initial: 10 })
-  return <button onClick={increment}>{count}</button>
+// 3. Mount AutoRootCtx once, near the root
+<AutoRootCtx />
+
+// 4. Call the stores like hooks, anywhere
+const Price = ({ symbol }: { symbol: string }) => {
+  const { price } = useTicker({ symbol })
+  return <b>{price ?? '…'}</b>
+}
+const Pnl = ({ symbol }: { symbol: string }) => {
+  const { pnl } = usePosition({ symbol })
+  return <b>{pnl ?? '…'}</b>
 }
 ```
 
-**That's it.** No `Provider` wrapping per store. No complex setup. Just hooks.
+`<Price symbol="BTC" />` in the header, another in the order form, and the `position` store all ask for the BTC ticker: the socket is subscribed **once**. The price shows on the first tick, the P&L as soon as the position has loaded too. When the last of them unmounts, the subscription is cleaned up. No provider per store, no selectors, no loading logic in the view.
 
 ---
 
