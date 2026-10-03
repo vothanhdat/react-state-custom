@@ -1,6 +1,8 @@
 # Concurrent rendering
 
-A store is React state inside a headless component, and its consumers read it through `useSyncExternalStore`. That decides how stores behave with transitions, deferred values, Suspense and `<Activity>`.
+Stores keep loading and progress in their own state (`isLoading`, values that stay `undefined` until they arrive; see [Progressive data](/guide/progressive-data)), so most apps need none of the features on this page. It is for apps that combine stores with transitions, deferred values, Suspense or `<Activity>`.
+
+A store is React state inside a headless component, and its consumers read it through `useSyncExternalStore`. That decides how stores behave with these features.
 
 ## Transitions
 
@@ -40,7 +42,7 @@ On each keystroke the input shows the new text right away, and `Results` renders
 
 ## Load in parallel
 
-`useStore` starts its store from an effect, once the component has committed. A component in a Suspense boundary that is showing its fallback has rendered but not committed, so its store waits for the boundary:
+A store that keeps its loading state in its values never holds back a commit: every consumer commits right away and every store starts at once. Only Suspense can make a store wait. `useStore` starts its store from an effect, once the component has committed, and a component in a boundary that is showing its fallback has rendered but not committed, so its store waits for the boundary:
 
 ```tsx
 // Feed's store starts only after the user has loaded: two 200 ms requests take 400 ms
