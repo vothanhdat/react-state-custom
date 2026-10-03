@@ -1,0 +1,13 @@
+/* Shared, minimal styling for the demo examples. Views use these few classes instead of inline styles. */
+.card { padding: 1rem; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 1rem; }
+.card h3 { margin: 0 0 0.75rem; }
+.card h3 small { font-weight: normal; color: #666; margin-left: 0.5rem; }
+.row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.row + .row { margin-top: 0.5rem; }
+.grow { flex: 1; }
+.list { list-style: none; padding: 0; margin: 0 0 0.75rem; }
+.list li { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.25rem; }
+.done { text-decoration: line-through; opacity: 0.6; }
+.clock { font-size: 2rem; font-family: monospace; margin-bottom: 0.75rem; }
+.error { color: #b91c1c; }
+.log { font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; margin: 0; }

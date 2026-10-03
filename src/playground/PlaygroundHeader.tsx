@@ -1,4 +1,9 @@
-export const PlaygroundHeader = () => {
+interface PlaygroundHeaderProps {
+    devTools: boolean
+    onDevToolsChange: (on: boolean) => void
+}
+
+export const PlaygroundHeader = ({ devTools, onDevToolsChange }: PlaygroundHeaderProps) => {
     return (
         <header className="playground-header">
             <h1 className="playground-title">React State Custom</h1>
@@ -40,6 +45,18 @@ export const PlaygroundHeader = () => {
                     </svg>
                     Documentation
                 </a>
+                <button
+                    type="button"
+                    className="playground-link"
+                    aria-pressed={devTools}
+                    onClick={() => onDevToolsChange(!devTools)}
+                    title="Show the store inspector inside every example"
+                >
+                    <svg viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M6.5 1.75a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 .75.75V3h1.25A1.75 1.75 0 0 1 12.5 4.75v6.5A1.75 1.75 0 0 1 10.75 13H5.25A1.75 1.75 0 0 1 3.5 11.25v-6.5A1.75 1.75 0 0 1 5.25 3H6.5V1.75zM5 5v5.5h6V5H5z" />
+                    </svg>
+                    Dev tools: {devTools ? 'on' : 'off'}
+                </button>
             </div>
         </header>
     )

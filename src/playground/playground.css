@@ -88,6 +88,16 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+button.playground-link {
+  border: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.playground-link[aria-pressed="true"] {
+  background: rgba(255, 255, 255, 0.35);
+}
+
 .playground-link svg {
   width: 20px;
   height: 20px;

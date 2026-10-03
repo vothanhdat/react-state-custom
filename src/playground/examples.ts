@@ -3,9 +3,9 @@ import type { ComponentType } from 'react'
 // Live example apps (rendered natively in the playground)
 import CounterApp from '../examples/counter/app'
 import TodoApp from '../examples/todo/app'
-import FormApp from '../examples/form/app'
+import SelectorsApp from '../examples/selectors/app'
 import TimerApp from '../examples/timer/app'
-import CartApp from '../examples/cart/app'
+import OutsideApp from '../examples/outside/app'
 import AsyncApp from '../examples/async/app'
 import ComposeApp from '../examples/compose/app'
 import ScopeApp from '../examples/scope/app'
@@ -20,12 +20,12 @@ import todoApp from "../examples/todo/app.tsx?raw"
 import timerState from "../examples/timer/state.ts?raw"
 import timerView from "../examples/timer/view.tsx?raw"
 import timerApp from "../examples/timer/app.tsx?raw"
-import formState from "../examples/form/state.ts?raw"
-import formView from "../examples/form/view.tsx?raw"
-import formApp from "../examples/form/app.tsx?raw"
-import cartState from "../examples/cart/state.ts?raw"
-import cartView from "../examples/cart/view.tsx?raw"
-import cartApp from "../examples/cart/app.tsx?raw"
+import selectorsState from "../examples/selectors/state.ts?raw"
+import selectorsView from "../examples/selectors/view.tsx?raw"
+import selectorsApp from "../examples/selectors/app.tsx?raw"
+import outsideState from "../examples/outside/state.ts?raw"
+import outsideView from "../examples/outside/view.tsx?raw"
+import outsideApp from "../examples/outside/app.tsx?raw"
 import asyncState from "../examples/async/state.ts?raw"
 import asyncView from "../examples/async/view.tsx?raw"
 import asyncApp from "../examples/async/app.tsx?raw"
@@ -51,6 +51,8 @@ export interface Example {
     state: string
     view: string
     app: string
+    /** Run in the global scope (needed by getStore) instead of an isolated StateScopeProvider. */
+    global?: boolean
 }
 
 export const examples = {
@@ -72,15 +74,6 @@ export const examples = {
         view: updateImport(todoView),
         app: updateImport(todoApp),
     },
-    form: {
-        App: FormApp,
-        label: '📝 Form',
-        title: 'Form Validation',
-        description: 'Two independent form instances keyed by formId, with validation and error state living in the store.',
-        state: updateImport(formState),
-        view: updateImport(formView),
-        app: updateImport(formApp),
-    },
     timer: {
         App: TimerApp,
         label: '⏱️ Timer',
@@ -90,14 +83,14 @@ export const examples = {
         view: updateImport(timerView),
         app: updateImport(timerApp),
     },
-    cart: {
-        App: CartApp,
-        label: '🛒 Cart',
-        title: 'Shopping Cart',
-        description: 'Shopping cart with product selection and quantity management. Shows how to handle derived state (total, itemCount) and complex state updates.',
-        state: updateImport(cartState),
-        view: updateImport(cartView),
-        app: updateImport(cartApp),
+    selectors: {
+        App: SelectorsApp,
+        label: '🎯 Selectors',
+        title: 'Selectors and Suspense',
+        description: 'Every action replaces the whole profile object. useStore(params, selector) re-renders a component only when its selected value changes (with a custom isEqual for arrays), and useStoreSuspense drops the loading branch in favour of a Suspense boundary. Watch the render counters.',
+        state: updateImport(selectorsState),
+        view: updateImport(selectorsView),
+        app: updateImport(selectorsApp),
     },
     async: {
         App: AsyncApp,
@@ -116,6 +109,16 @@ export const examples = {
         state: updateImport(composeState),
         view: updateImport(composeView),
         app: updateImport(composeApp),
+    },
+    outside: {
+        App: OutsideApp,
+        label: '🔌 Outside React',
+        title: 'Outside React',
+        description: 'getStore() is the imperative handle: a price feed written as plain module code keeps the store alive with retain() and pushes updates through get().setPrice, while subscribe() delivers every change with its key. Open the console for get() snapshots.',
+        state: updateImport(outsideState),
+        view: updateImport(outsideView),
+        app: updateImport(outsideApp),
+        global: true,
     },
     scope: {
         App: ScopeApp,

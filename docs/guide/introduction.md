@@ -36,4 +36,4 @@ A store here is a hook running in a headless component, so every update is two R
 - [Getting started](/guide/getting-started) walks through the four steps of a real app.
 - [How it works](/guide/how-it-works) explains the model in one page.
 - The [API reference](/api/create-store) documents every export.
-- The [live demo](https://vothanhdat.github.io/react-state-custom/) has editable examples: counter, todo list, form validation, timer, cart, async data, composed stores and scoped state.
+- The [live demo](https://vothanhdat.github.io/react-state-custom/) has editable examples: counter, todo list, selectors and Suspense, timer, outside React, async data, composed stores and scoped state.

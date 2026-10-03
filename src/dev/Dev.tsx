@@ -4,9 +4,9 @@ import './dev.css'
 // Import all example apps
 import CounterApp from '../examples/counter/app'
 import TodoApp from '../examples/todo/app'
-import FormApp from '../examples/form/app'
+import SelectorsApp from '../examples/selectors/app'
 import TimerApp from '../examples/timer/app'
-import CartApp from '../examples/cart/app'
+import OutsideApp from '../examples/outside/app'
 import AsyncApp from '../examples/async/app'
 import ComposeApp from '../examples/compose/app'
 import ScopeApp from '../examples/scope/app'
@@ -24,20 +24,20 @@ const examples = {
     description: 'Multiple independent todo lists showing how contexts can be scoped by parameters. Each list maintains its own state.',
     component: <TodoApp />,
   },
-  form: {
-    title: '📝 Form Validation',
-    description: 'Form validation example with multiple independent form instances. Shows real-time validation and error handling.',
-    component: <FormApp />,
+  selectors: {
+    title: '🎯 Selectors',
+    description: 'useStore(params, selector) re-renders only when the selected value changes; useStoreSuspense drops the loading branch.',
+    component: <SelectorsApp />,
   },
   timer: {
     title: '⏱️ Timer',
     description: 'Multiple independent timers with millisecond precision demonstrating side effects and cleanup.',
     component: <TimerApp />,
   },
-  cart: {
-    title: '🛒 Shopping Cart',
-    description: 'Shopping cart with product selection and quantity management. Shows derived state (total, itemCount) and complex updates.',
-    component: <CartApp />,
+  outside: {
+    title: '🔌 Outside React',
+    description: 'getStore(): a feed written as plain module code retains the store and pushes updates; subscribe() logs every change.',
+    component: <OutsideApp />,
   },
   async: {
     title: '🌐 Async Data',

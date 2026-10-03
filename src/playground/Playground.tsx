@@ -8,6 +8,7 @@ import { DocumentationSection } from './DocumentationSection'
 
 export const Playground = () => {
     const [activeExample, setActiveExample] = useState<ExampleKey>('counter')
+    const [devTools, setDevTools] = useState(false)
     const example = examples[activeExample]
 
     // Highlight code blocks on mount and when content changes
@@ -19,7 +20,7 @@ export const Playground = () => {
 
     return (
         <div className="playground-container">
-            <PlaygroundHeader />
+            <PlaygroundHeader devTools={devTools} onDevToolsChange={setDevTools} />
 
             <div className="content-card">
                 <ExampleSelector 
@@ -34,7 +35,7 @@ export const Playground = () => {
                     </p>
                 </div>
 
-                <ExamplePreview exampleKey={activeExample} example={example} />
+                <ExamplePreview exampleKey={activeExample} example={example} devTools={devTools} />
             </div>
 
             <DocumentationSection />

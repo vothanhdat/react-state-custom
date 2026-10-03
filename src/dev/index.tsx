@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import { Dev } from './Dev'
+import '../examples/examples.css'
 import { AutoRootCtx } from '../state-utils/createAutoCtx'
 import { DataViewComponent } from '../dev-tool/DataViewComponent'
 import { ObjectView } from 'react-obj-view'

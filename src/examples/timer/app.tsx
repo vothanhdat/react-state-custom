@@ -1,14 +1,11 @@
 import { TimerExample } from './view'
 
+// setInterval lives in the store hook's effect; it is cleaned up when the instance is torn down.
 export default function App() {
     return (
         <>
-            <TimerExample timerId="timer1" />
-            <TimerExample timerId="timer2" />
-            <p style={{ color: '#666', fontSize: '0.875rem' }}>
-                Multiple independent timers demonstrating side effects (setInterval) within context state.
-                Each timer can run independently.
-            </p>
+            <TimerExample timerId="A" />
+            <TimerExample timerId="B" />
         </>
     )
 }

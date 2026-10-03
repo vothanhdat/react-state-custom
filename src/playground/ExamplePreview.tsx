@@ -2,13 +2,15 @@ import sdk from '@stackblitz/sdk'
 import { useEffect, useRef, useState } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { ObjectView } from 'react-obj-view'
-import { StateScopeProvider } from '../index'
+import { AutoRootCtx, StateScopeProvider } from '../index'
+import '../examples/examples.css'
 import { DevToolContainer, type DataViewComponent } from '../dev-tool'
 import '../dev-tool/DevTool.css'
 import { Example, ExampleKey } from './examples'
 
 // Shared StackBlitz project files
 import devToolCode from './files/src/dev-tool.tsx?raw'
+import examplesCss from '../examples/examples.css?raw'
 import errorWrapperCode from './files/src/error-wrapper.tsx?raw'
 import mainCode from './files/src/main.tsx?raw'
 import indexHtmlTemplate from './files/index.html?raw'
@@ -38,6 +40,7 @@ const openInStackBlitz = (example: Example) =>
                 'src/view.tsx': example.view,
                 'src/App.tsx': example.app,
                 'src/dev-tool.tsx': devToolCode,
+                'src/examples.css': examplesCss,
                 'src/error-wrapper.tsx': errorWrapperCode,
                 'src/main.tsx': mainCode,
                 'index.html': indexHtmlTemplate.replace('{{TITLE}}', example.title),
@@ -53,6 +56,9 @@ const DataView: DataViewComponent = ({ name, value }) => (
     <ObjectView valueGetter={() => value} expandLevel={5} name={name} showLineNumbers includeSymbols />
 )
 
+const Scope = ({ global, children }: { global?: boolean; children: React.ReactNode }) =>
+    global ? <><AutoRootCtx />{children}</> : <StateScopeProvider>{children}</StateScopeProvider>
+
 const PreviewError = ({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) => (
     <div role="alert" className="preview-error">
         <strong>The example threw:</strong>
@@ -64,9 +70,10 @@ const PreviewError = ({ error, resetErrorBoundary }: { error: Error; resetErrorB
 interface ExamplePreviewProps {
     exampleKey: ExampleKey
     example: Example
+    devTools: boolean
 }
 
-export const ExamplePreview = ({ exampleKey, example }: ExamplePreviewProps) => {
+export const ExamplePreview = ({ exampleKey, example, devTools }: ExamplePreviewProps) => {
     const [file, setFile] = useState<(typeof FILES)[number]['name']>('state.ts')
     const [runId, setRunId] = useState(0)
     const codeRef = useRef<HTMLElement>(null)
@@ -110,17 +117,20 @@ export const ExamplePreview = ({ exampleKey, example }: ExamplePreviewProps) => 
                         Reset state
                     </button>
                 </div>
-                {/* Each example (and each reset) gets its own isolated set of stores. */}
-                <StateScopeProvider key={`${exampleKey}-${runId}`}>
+                {/* Each example (and each reset) gets its own set of stores: an isolated scope, or a
+                    fresh global root for examples that use getStore(). */}
+                <Scope key={`${exampleKey}-${runId}`} global={example.global}>
                     <ErrorBoundary FallbackComponent={PreviewError}>
                         <div className="preview-canvas">
                             <App />
                         </div>
                     </ErrorBoundary>
-                    <DevToolContainer Component={DataView} className="preview-devtool-button">
-                        Inspect stores
-                    </DevToolContainer>
-                </StateScopeProvider>
+                    {devTools && (
+                        <DevToolContainer Component={DataView} className="preview-devtool-button">
+                            Inspect stores
+                        </DevToolContainer>
+                    )}
+                </Scope>
             </div>
         </div>
     )

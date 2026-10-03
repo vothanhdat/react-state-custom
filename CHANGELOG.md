@@ -6,7 +6,10 @@ All notable changes to this project are documented here.
 ### Added
 - Documentation site at https://vothanhdat.github.io/react-state-custom/docs/ (VitePress, `yarn docs:dev` / `yarn docs:build`): a guide split into pages (store options, params, composing, scopes, errors, selectors, Suspense, outside React, dev tools, SSR, React Compiler), new Testing and Limitations/FAQ pages, the API reference split per export, benchmarks and this changelog, with local search. Deployed next to the demo by the Pages workflow.
 
+- Demo: "Selectors and Suspense" (render counters show which consumers a selector spares; `useStoreSuspense` with a boundary) and "Outside React" (`getStore()` with `retain()`, `get()` and `subscribe()` from plain module code) examples. A "Dev tools" toggle in the header (off by default) shows the store inspector inside every example.
+
 ### Changed
+- Demo: Form and Cart examples removed (same parameterised-instances pattern as Todo and Timer). Example views use a small shared stylesheet instead of inline styles, and the explanatory paragraph that duplicated each example's description is gone.
 - README reduced to the pitch, quick start and links into the site. `API_DOCUMENTATION.md` is now a redirect; the reference sources are `docs/api/*.md`. AI_CONTEXT examples are typed and use `initialState`.
 - Docs fixes: `markReady` / `onReady` documented on `Context`, the unused `toggleButton` prop dropped from the dev-tool reference, snippets fixed to type-check (`user` narrowing, optional `items`), spreading the `useStore` proxy documented as subscribing to every key.
 
