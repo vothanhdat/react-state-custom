@@ -126,7 +126,7 @@ The full guide lives on the **[documentation site](https://vothanhdat.github.io/
 
 ## 📊 Benchmarks
 
-Measured with `yarn bench` (vitest + jsdom, React 19.2, no StrictMode; 1000 consumers, means in ms). Full method, render and derive counts, lines of code and caveats in [bench/README.md](./bench/README.md).
+Measured with `yarn bench` (vitest + jsdom, React 19.2, no StrictMode; 1000 consumers, means in ms). Full method, render and derive counts, code size and caveats in [bench/README.md](./bench/README.md).
 
 | scenario | react-state-custom | zustand | jotai | React context |
 |---|---|---|---|---|
