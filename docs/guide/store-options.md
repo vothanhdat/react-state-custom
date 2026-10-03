@@ -43,7 +43,7 @@ It seeds the store's context once per instance, before the first consumer render
 
 - On the server and during hydration, consumers render the seeded values, so server HTML shows a loading state instead of empty markup. See [Server-side rendering](/guide/ssr).
 - A consumer whose first render reads only seeded keys renders once instead of twice when the hook's first publish matches the seed.
-- `useStoreSuspense` with an `isReady` predicate resolves immediately when the seed already satisfies it.
+- `useStoreSuspense` with an `isReady` predicate resolves immediately when the seed already satisfies it. That render sees only the seeded keys; see [Suspense](/guide/suspense#behaviour).
 
 The hook's own first publish overwrites the seed key by key, so a key whose published value differs still triggers a re-render.
 
