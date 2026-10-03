@@ -5,6 +5,9 @@
 .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 .row + .row { margin-top: 0.5rem; }
 .grow { flex: 1; }
+.end { margin-left: auto; }
+.row + .card { margin-top: 1rem; }
+button[aria-pressed="true"] { font-weight: 600; border-color: #4f46e5; }
 .list { list-style: none; padding: 0; margin: 0 0 0.75rem; }
 .list li { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.25rem; }
 .done { text-decoration: line-through; opacity: 0.6; }

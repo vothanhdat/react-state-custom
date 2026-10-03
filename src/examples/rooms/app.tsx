@@ -19,7 +19,6 @@ export default function App() {
                     </button>
                 ))}
             </div>
-            <br />
             {open.map(roomId => <RoomPanel key={roomId} roomId={roomId} onClose={() => toggle(roomId)} />)}
             <SocketLog />
         </>

@@ -32,9 +32,9 @@ export const MessageList = ({ roomId }: { roomId: string }) => {
 
 export const RoomPanel = ({ roomId, onClose }: { roomId: string, onClose: () => void }) => (
     <div className="card">
-        <h3>
+        <h3 className="row">
             <UnreadBadge roomId={roomId} /> <ConnectionStatus roomId={roomId} />
-            <button style={{ float: 'right' }} onClick={onClose}>Close</button>
+            <button className="end" onClick={onClose}>Close</button>
         </h3>
         <MessageList roomId={roomId} />
     </div>
