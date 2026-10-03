@@ -108,6 +108,37 @@ export class Context<D> extends EventTarget {
     return () => { this.readyListeners.delete(listener) }
   }
 
+  /** True while the store hook behind this context has thrown and is disabled (see `fail`). */
+  public failed = false
+  /** What the store hook threw, while `failed`. */
+  public error: unknown = undefined
+  private statusListeners = new Set<() => void>()
+
+  /**
+   * Record that the store hook threw. Called by AutoRootCtx while React handles the error, so the
+   * listeners run in a microtask, outside that render.
+   */
+  public fail(error: unknown) {
+    if (this.failed && Object.is(this.error, error)) return
+    this.failed = true
+    this.error = error
+    queueMicrotask(() => notify(this.statusListeners, listener => listener()))
+  }
+
+  /** Clear a failure: the failed instance was torn down, the next one starts clean. */
+  public recover() {
+    if (!this.failed) return
+    this.failed = false
+    this.error = undefined
+    notify(this.statusListeners, listener => listener())
+  }
+
+  /** Run `listener` when the context fails or recovers. Stable, so it can be passed to useSyncExternalStore. */
+  public onStatus = (listener: () => void) => {
+    this.statusListeners.add(listener)
+    return () => { this.statusListeners.delete(listener) }
+  }
+
   private keyListeners = new Map<keyof D, Set<KeyListener<D, any>>>()
   private allListeners = new Set<AllListener<D>>()
 

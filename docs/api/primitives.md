@@ -47,6 +47,11 @@ class Context<T> extends EventTarget {
   touch(keys: Iterable<keyof T>): void                       // notify without a value change
   markReady(): void                                          // set ready and run onReady listeners once
   onReady(listener: () => void): () => void                  // run when ready (immediately if already)
+  readonly failed: boolean                                   // the store hook threw and is disabled
+  readonly error: unknown                                    // what it threw, while failed
+  fail(error: unknown): void                                 // record a failure (listeners run in a microtask)
+  recover(): void                                            // clear it: the failed instance was torn down
+  onStatus(listener: () => void): () => void                 // run on fail and recover
 }
 ```
 

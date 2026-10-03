@@ -10,6 +10,7 @@ Returned by `getStore(params)`.
 type StoreHandle<State, Initial> = {
   readonly name: string            // "name?params"
   readonly ready: boolean          // the store hook has published at least once
+  readonly error: unknown          // what the hook threw while the instance is disabled, else undefined
   get(): StoreState<State, Initial>
   subscribe(listener: (state: StoreState<State, Initial>, changedKey: keyof State) => void): () => void
   retain(): () => void

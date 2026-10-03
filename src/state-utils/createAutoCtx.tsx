@@ -177,16 +177,60 @@ const Bucket = memo(function Bucket({ index, buckets, Wrapper, debugging }: {
       .entries(records)
       // stable order so existing store fibers are never re-placed when records are added/removed
       .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
-      // Each store suspends on its own: a store hook calling `use(promise)` or a suspense query would
-      // otherwise suspend the boundary above AutoRootCtx and hide the whole app. A suspended store
-      // has not published yet (or keeps its last values); consumers wait with useStoreSuspense.
-      .map(([key, { useStateFn, params, AttatchedComponent }]) => <Wrapper key={key}>
-        <Suspense fallback={null}>
-          <StateRunner name={key} params={params} useStateFn={useStateFn} debugging={debugging} />
-        </Suspense>
-        {AttatchedComponent && <Suspense fallback={null}><AttatchedComponent {...params} /></Suspense>}
-      </Wrapper>)}
+      .map(([key, record]) => <StoreInstance key={key} name={key} record={record} Wrapper={Wrapper} debugging={debugging} />)}
   </>
+})
+
+/**
+ * Records a store failure on its context, then rethrows so the user's `Wrapper` still receives it.
+ * `useStoreSuspense` consumers read the failure and throw it into their own error boundary.
+ */
+class StoreFailure extends React.Component<{ ctx: Context<any>, children?: React.ReactNode }, { error?: { value: unknown } }> {
+  state: { error?: { value: unknown } } = {}
+
+  static getDerivedStateFromError(error: unknown) {
+    return { error: { value: error } }
+  }
+
+  render() {
+    if (this.state.error) {
+      this.props.ctx.fail(this.state.error.value)
+      throw this.state.error.value
+    }
+    return this.props.children
+  }
+}
+
+/** One running store instance: its hook, its AttachedComponent, the error and Suspense boundaries around them. */
+const StoreInstance = memo(function StoreInstance({ name, record: { useStateFn, params, AttatchedComponent }, Wrapper, debugging }: {
+  name: string,
+  record: StoreRecord,
+  Wrapper: React.ComponentType<{ children?: React.ReactNode }>,
+  debugging: boolean | StateDebugRenderer,
+}) {
+  const ctx = useDataContext<any>(name)
+  // A failed instance stays failed until it is torn down; the next one starts clean. This component
+  // sits outside Wrapper, so it unmounts with the instance and not when Wrapper shows its fallback.
+  // StrictMode runs the cleanup and the effect again at once on mount: only a real unmount recovers.
+  const mounted = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      queueMicrotask(() => { if (!mounted.current) ctx.recover() })
+    }
+  }, [ctx])
+  return <Wrapper>
+    <StoreFailure ctx={ctx}>
+      {/* Each store suspends on its own: a store hook calling `use(promise)` or a suspense query would
+          otherwise suspend the boundary above AutoRootCtx and hide the whole app. A suspended store
+          has not published yet (or keeps its last values); consumers wait with useStoreSuspense. */}
+      <Suspense fallback={null}>
+        <StateRunner name={name} params={params} useStateFn={useStateFn} debugging={debugging} />
+      </Suspense>
+      {AttatchedComponent && <Suspense fallback={null}><AttatchedComponent {...params} /></Suspense>}
+    </StoreFailure>
+  </Wrapper>
 })
 
 export const AutoRootCtx: React.FC<{
@@ -314,6 +358,8 @@ export type StoreHandle<V, I> = {
   retain(): () => void
   /** True once the store hook has published its first result. */
   readonly ready: boolean
+  /** What the store hook threw while it is disabled, `undefined` while it runs. Cleared when the instance is torn down. */
+  readonly error: unknown
 }
 
 /**
@@ -444,6 +490,7 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
       name: ctxName,
       get: () => snapshot(live()),
       get ready() { return live()?.ready ?? false },
+      get error() { return live()?.error },
       subscribe: (listener) => {
         const { ctx, release } = acquireContext<V>(ctxName)
         seedContext(ctx, params)
@@ -483,6 +530,10 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
     const [params, isReady] = args as unknown as [U | undefined, ((state: StoreState<V, I>) => boolean)?]
     const scopeId = useContext(StateScopeContext)
     const ctx = useCtxState(params as any)
+    // A store hook that threw is disabled: hand its error to this component's error boundary,
+    // whether it failed before the first result or later.
+    const failed = useSyncExternalStore(ctx.onStatus, () => ctx.failed, () => ctx.failed)
+    if (failed) throw ctx.error
     // With a predicate, readiness is the predicate alone (initialState may already satisfy it);
     // without one, readiness means the store hook has published once.
     const ready = isReady ? isReady(ctx.data as StoreState<V, I>) : ctx.ready
@@ -576,13 +627,16 @@ const waitUntilReady = <V, I>(
     let release: (() => void) | undefined
     let unsubAll = () => { }
     let unsubReady = () => { }
+    let unsubStatus = () => { }
     pending.check = () => {
       if (done) return
       const fn = pending.isReady
-      if (!(fn ? fn(ctx.data as StoreState<V, I>) : ctx.ready)) return
+      // a failure resolves the wait too: the retried render throws the store's error
+      if (!ctx.failed && !(fn ? fn(ctx.data as StoreState<V, I>) : ctx.ready)) return
       done = true
       unsubAll()
       unsubReady()
+      unsubStatus()
       pendingReady.delete(ctx)
       resolve()
       if (release) holdRetain(ctx, release)
@@ -592,6 +646,7 @@ const waitUntilReady = <V, I>(
       release = retain()
       unsubAll = ctx.subscribeAll(pending.check)
       unsubReady = ctx.onReady(pending.check)
+      unsubStatus = ctx.onStatus(pending.check)
       pending.check()
     })
   })
