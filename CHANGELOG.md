@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.2.4] - 2026-10-03
 ### Fixed
 - `useStoreSuspense`: the store retained while a component was suspended was released 100 ms after the promise resolved, but React reveals a resolved boundary 300 ms (React 19) or 500 ms (React 18) after its fallback. The store was torn down before the component committed, so the commit mounted a fresh instance, refetched and showed the fallback again. The retain now lasts until a component reading the store commits, with a one-second safety release for renders that never commit. Tests run on React's real scheduler, which `act()` hid.
 
@@ -120,7 +122,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.3...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.4...HEAD
+[1.2.4]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.0...v1.2.1
