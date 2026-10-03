@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.2.6] - 2026-10-03
 ### Fixed
 - Store identity: a param passed as `undefined` no longer creates a separate instance. `useStore({ id, page: undefined })` and `useStore({ id })` now share one instance, so an optional param passed straight through no longer runs the hook twice.
 - Store identity: values of different types no longer collide. `{ id: 1 }` and `{ id: '1' }`, or `null` and `'null'`, were one instance whose hook saw whichever params mounted first. A string that reads like a number, bigint, boolean or `null` is now quoted in the id (`id='1'`) and a bigint ends in `n`. Ids of ordinary strings and numbers are unchanged; keys shown by the dev tool and `debugging` change only for those quoted strings.
@@ -13,6 +15,7 @@ All notable changes to this project are documented here.
 
 ### Changed
 - SSR guide: says plainly that a store cannot be seeded from server data, and lists what works instead.
+- Docs on update cost: stores commit before their consumers, every component renders once per change (StrictMode doubles render calls, not commits), and frame time is decided by the DOM, not the store.
 
 ## [1.2.5] - 2026-10-03
 ### Changed
@@ -136,7 +139,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.5...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.6...HEAD
+[1.2.6]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.2...v1.2.3
