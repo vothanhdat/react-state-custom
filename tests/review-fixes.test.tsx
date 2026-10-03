@@ -154,3 +154,24 @@ describe('missing AutoRootCtx', () => {
     expect(err).not.toHaveBeenCalled()
   })
 })
+
+describe('duplicate store names', () => {
+  it('logs a console.error when two different stores share a name', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const a = createStore('dup-name', () => ({ who: 'a' }))
+    const b = createStore('dup-name', () => ({ who: 'b' }))
+    const C = () => { a.useStore(); b.useStore(); return null }
+    render(<><AutoRootCtx /><C /></>)
+    await tick()
+    expect(err).toHaveBeenCalledWith(expect.stringContaining('Two different stores are named "dup-name"'))
+  })
+
+  it('does not log for one store read with several params and by several components', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { useStore } = createStore('dup-none', ({ id }: { id: number }) => ({ id }))
+    const C = ({ id }: { id: number }) => { useStore({ id }); return null }
+    render(<><AutoRootCtx /><C id={1} /><C id={1} /><C id={2} /></>)
+    await tick()
+    expect(err).not.toHaveBeenCalled()
+  })
+})

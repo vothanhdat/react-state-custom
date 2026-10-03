@@ -109,6 +109,19 @@ const setRecord = (state: Record<string, StoreRecord>, key: string, next: StoreR
   return out
 }
 
+const warnedDuplicateNames = new Set<string>()
+
+/** Two createStore calls with one name share a context and a record, so only one of the hooks would run. */
+const warnDuplicateName = (name: string) => {
+  if (warnedDuplicateNames.has(name)) return
+  warnedDuplicateNames.add(name)
+  console.error(
+    `[react-state-custom] Two different stores are named "${name}". They share one instance and only one of ` +
+    `their hooks runs, so both return the same state. Give each createStore call a unique name. ` +
+    `(Right after a hot reload this can be a stale module: reload the page.)`
+  )
+}
+
 export const AutoRootCtx: React.FC<{
   Wrapper?: React.ComponentType<{ children?: React.ReactNode }>
   /** Render each store's state into the DOM: `true` for JSON text, or a component receiving `{ name, value }`. */
@@ -127,6 +140,7 @@ export const AutoRootCtx: React.FC<{
 
       setState(state => {
         const current = state[recordKey]
+        if (!isProduction && current && current.counter > 0 && current.useStateFn !== useStateFn) warnDuplicateName(contextName)
         return setRecord(state, recordKey, {
           useStateFn,
           params: current?.params ?? params,
