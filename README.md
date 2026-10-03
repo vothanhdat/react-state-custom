@@ -126,15 +126,18 @@ The full guide lives on the **[documentation site](https://vothanhdat.github.io/
 
 ## 📊 Benchmarks
 
-Measured with `yarn bench` (vitest + jsdom, React 19.2, no StrictMode; 1000 consumers over 10 keys, means in ms). Full method, tables and caveats in [bench/README.md](./bench/README.md).
+Measured with `yarn bench` (vitest + jsdom, React 19.2, no StrictMode; 1000 consumers, means in ms). Full method, render and derive counts, lines of code and caveats in [bench/README.md](./bench/README.md).
 
 | scenario | react-state-custom | zustand | jotai | React context |
 |---|---|---|---|---|
 | consumer renders per update (1 key of 10 changed) | 100 | 100 | 100 | 1000 |
-| update 1 key, 100 of 1000 consumers affected | 0.70 | 0.41 | 0.37 | 1.51 |
-| mount + unmount 1000 consumers | 19.1 | 9.6 | 10.9 | 8.2 |
+| update 1 key, 100 of 1000 consumers affected | 0.72 | 0.50 | 0.38 | 1.49 |
+| derived sum changes, 1000 consumers (derive calls) | 4.49 (1) | 4.28 (4000) | 2.04 (1) | 3.14 (1000) |
+| derived sum unchanged, none affected | 0.044 | 0.56 | 0.002 | 2.73 |
+| root key changed that no derived store reads (derive calls) | 0.018 (0) | 0.019 (1000) | 0.014 (10) | 1.55 (0) |
+| mount + unmount 1000 consumers | 18.5 | 8.7 | 9.2 | 8.7 |
 
-Re-render selectivity matches Zustand and Jotai. Each update costs about twice as much because a store is a hook in a headless component: the store renders and publishes first, then its consumers render. All of it stays well under a frame at these sizes.
+Re-render selectivity matches Zustand and Jotai. A plain update costs about twice as much because a store is a hook in a headless component: the store renders and publishes first, then its consumers render. Derived values are computed once per update, where Zustand recomputes a selector in every consumer, and a store re-runs only when a key it actually read changes. All of it stays well under a frame at these sizes.
 
 ---
 
