@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, useId, useContext, memo } from "react"
+import React, { useEffect, useState, useCallback, useRef, useId, useContext, memo } from "react"
 import { useDataContext, useDataSourceMultiple, useDataSelector, acquireContext, getContext, isServer, StateScopeContext, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
@@ -83,8 +83,13 @@ type StoreRecord = {
   useStateFn: Function,
   AttatchedComponent: React.FC<any> | undefined
   params: ParamsToIdRecord,
+}
+
+/** AutoRootCtx's bookkeeping for one instance: consumers and retainers, and the pending timeToClean removal. */
+type StoreBook = {
   counter: number,
-  keepUntil?: number
+  useStateFn: Function,
+  timer?: ReturnType<typeof setTimeout>
 }
 
 /**
@@ -130,62 +135,59 @@ export const AutoRootCtx: React.FC<{
 
   const ctx = useDataContext<any>("auto-ctx")
 
+  // What to render, one record per running instance. Changes only when an instance starts or stops.
   const [state, setState] = useState<Record<string, StoreRecord>>({})
 
+  // Reference counts and pending `timeToClean` timers, kept out of React state: a consumer mounting
+  // or unmounting on an instance that is already running must not re-render AutoRootCtx, which costs
+  // O(number of instances).
+  const books = useRef(new Map<string, StoreBook>()).current
+
+  useEffect(() => () => books.forEach(book => clearTimeout(book.timer)), [books])
 
   const subscribeRoot = useCallback(
     (contextName: string, useStateFn: Function, params: ParamsToIdRecord, timeToCleanState = 0, AttatchedComponent = undefined) => {
 
       const recordKey = [contextName, paramsToId(params)].filter(Boolean).join("?")
+      const book = books.get(recordKey)
 
-      setState(state => {
-        const current = state[recordKey]
-        if (!isProduction && current && current.counter > 0 && current.useStateFn !== useStateFn) warnDuplicateName(contextName)
-        return setRecord(state, recordKey, {
-          useStateFn,
-          params: current?.params ?? params,
-          AttatchedComponent,
-          counter: (current?.counter ?? 0) + 1,
-          keepUntil: undefined,
-        })
-      })
+      if (book) {
+        if (!isProduction && book.counter > 0 && book.useStateFn !== useStateFn) warnDuplicateName(contextName)
+        // a consumer came back during timeToClean: keep the instance
+        clearTimeout(book.timer)
+        book.timer = undefined
+        book.counter += 1
+        if (book.useStateFn !== useStateFn) {
+          // a new hook for the same name (hot reload): run it in place of the old one
+          book.useStateFn = useStateFn
+          setState(state => state[recordKey]
+            ? setRecord(state, recordKey, { ...state[recordKey], useStateFn, AttatchedComponent })
+            : state)
+        }
+      } else {
+        books.set(recordKey, { counter: 1, useStateFn })
+        setState(state => setRecord(state, recordKey, { useStateFn, params, AttatchedComponent }))
+      }
 
-      return () => setState(state => {
-        const current = state[recordKey]
-        if (!current) return state
-        const counter = current.counter - 1
-        if (counter > 0) return setRecord(state, recordKey, { ...current, counter, keepUntil: undefined })
-        if (timeToCleanState > 0) return setRecord(state, recordKey, { ...current, counter: 0, keepUntil: Date.now() + timeToCleanState })
-        return setRecord(state, recordKey, undefined)
-      })
+      const current = books.get(recordKey)!
+      let released = false
+      return () => {
+        if (released) return
+        released = true
+        current.counter -= 1
+        if (current.counter > 0) return
+        const remove = () => {
+          if (books.get(recordKey) !== current || current.counter > 0) return
+          books.delete(recordKey)
+          setState(state => setRecord(state, recordKey, undefined))
+        }
+        if (timeToCleanState > 0) current.timer = setTimeout(remove, timeToCleanState)
+        else remove()
+      }
 
     },
-    []
+    [books]
   )
-
-  const nextDelete = useMemo(() => Object.entries(state)
-    .filter(([, { counter, keepUntil }]) => counter <= 0 && keepUntil)
-    .sort(([, { keepUntil: k1 = 0 }], [, { keepUntil: k2 = 0 }]) => k1 - k2)
-    .at(0),
-    [state]
-  )
-
-  useEffect(() => {
-    if (nextDelete) {
-      const [key, { keepUntil }] = nextDelete
-      if (typeof keepUntil == 'undefined')
-        throw new Error("Invalid state mgr")
-
-      let t = setTimeout(() => {
-        // console.log("Delay Cleaned")
-        setState(({ [key]: _, ...rest }) => rest)
-      }, Math.max(0, keepUntil - Date.now()))
-      return () => {
-        // console.log("Cancel clean")
-        clearTimeout(t)
-      };
-    }
-  }, [nextDelete])
 
   useDataSourceMultiple(ctx,
     ["subscribe", subscribeRoot],
@@ -195,7 +197,6 @@ export const AutoRootCtx: React.FC<{
   return <>
     {Object
       .entries(state)
-      .filter(([, { counter, keepUntil = 0 }]) => counter > 0 || keepUntil >= Date.now())
       // stable order so existing store fibers are never re-placed when records are added/removed
       .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
       .map(([key, { useStateFn, params, AttatchedComponent }]) => <Wrapper key={key}>
