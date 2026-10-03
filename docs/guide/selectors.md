@@ -62,6 +62,9 @@ const useItemsState = () => {
 export const { useStore: useItems } = createStore('items', useItemsState)
 
 const price = useItems()[id]?.price
+
+// the list of ids re-renders only when an item is added or removed
+const ids = Object.keys(useItems()).filter(id => id !== 'setItem')
 ```
 
 (The cast is there because TypeScript drops the index signature when an object with one is spread next to a named property.)

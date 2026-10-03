@@ -19,7 +19,9 @@ Destructure what you need at the top of the component. The value in `count` is t
 
 ## Spreading the proxy
 
-`{ ...useStore() }` and `Object.keys(useStore())` enumerate every key and therefore subscribe to all of them. The library logs a development warning (once per store) when it sees this during render, because the component then re-renders on every change in the store. Pick the keys you need instead.
+`{ ...useStore() }` and `Object.entries(useStore())` read every key, so the component re-renders whenever any of them changes, and when a key is added or removed. The library logs a development warning (once per store) when it sees this during render. Pick the keys you need instead.
+
+`Object.keys(useStore())`, `for...in` and `'id' in store` read only which keys exist: the component re-renders when a key is added or removed, not when a value changes. That is how a list gets the ids of a [keyed collection](/guide/selectors#collections-keys-not-arrays).
 
 ## Writing to the proxy
 

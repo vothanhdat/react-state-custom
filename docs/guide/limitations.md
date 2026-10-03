@@ -41,7 +41,7 @@ The store hook has not run yet; stores are lazy. Read with `??` or `?.`, or pass
 ### A consumer re-renders more than I expect
 
 - It reads a key that changes, even if it only uses part of that key's value: use a [selector](/guide/selectors).
-- It spreads or enumerates the proxy, which subscribes to every key. A warning is logged for this.
+- It spreads the proxy (`{ ...store }`, `Object.entries(store)`), which subscribes to every key. A warning is logged for this.
 - Its store returns a fresh object or array on every render for some key, so `Object.is` sees a change. Memoize with `useMemo` inside the hook.
 - StrictMode doubles renders in development.
 
