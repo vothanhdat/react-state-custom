@@ -140,6 +140,23 @@ describe('Context', () => {
     ctx.publish('count', 2)
     expect(listener).toHaveBeenCalledTimes(3)
   })
+
+  it('bumps revision on every change, before subscribers run, and not for equal values', () => {
+    const seen: number[] = []
+    ctx.subscribeAll(() => seen.push(ctx.revision))
+    const start = ctx.revision
+
+    ctx.publish('count', 1)
+    ctx.publish('count', 1)
+    expect(ctx.revision).toBe(start + 1)
+
+    ctx.publishMany([['count', 2], ['name', 'x']])
+    expect(ctx.revision).toBe(start + 2)
+
+    ctx.touch(['count'])
+    expect(ctx.revision).toBe(start + 3)
+    expect(seen).toEqual([start + 1, start + 2, start + 2, start + 3])
+  })
 })
 
 describe('getContext', () => {

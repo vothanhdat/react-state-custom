@@ -41,6 +41,7 @@ class Context<T> extends EventTarget {
   readonly name: string
   data: Partial<T>
   readonly ready: boolean                                    // true once a store root has published
+  readonly revision: number                                  // bumped on every publish, publishMany and touch
   publish<K extends keyof T>(key: K, value: T[K] | undefined): void
   subscribe<K extends keyof T>(key: K, listener: (value: T[K] | undefined) => void): () => void
   subscribeAll(listener: (changedKey: keyof T, data: Partial<T>) => void): () => void

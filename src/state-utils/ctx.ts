@@ -146,6 +146,13 @@ export class Context<D> extends EventTarget {
   private allListeners = new Set<AllListener<D>>()
 
   /**
+   * Bumped on every `publish`, `publishMany` and `touch`, before any subscriber runs. A reader that
+   * caches what it derived from `data` compares it to know whether `data` changed, including while it
+   * had no subscription yet (between its render and its subscribe).
+   */
+  public revision = 0
+
+  /**
    * Publish a value to the context and notify subscribers if it changed.
    * Change detection uses `Object.is`, so `0` vs `""` and `null` vs `undefined` are distinct.
    * Every subscriber is notified even if one throws; the first error is then rethrown to the caller.
@@ -155,6 +162,7 @@ export class Context<D> extends EventTarget {
   public publish(key: keyof D, value: D[typeof key] | undefined) {
     if (Object.is(value, this.data[key])) return
     this.data[key] = value
+    this.revision++
     const forKey = this.keyListeners.get(key)
     let error: unknown
     let failed = false
@@ -221,6 +229,7 @@ export class Context<D> extends EventTarget {
    * implementation changed behind its stable wrapper. Subscribers decide whether that matters to them.
    */
   public touch(keys: Iterable<keyof D>) {
+    this.revision++
     let error: unknown
     let failed = false
     const run = (fn: () => void) => {
@@ -477,16 +486,9 @@ export const useDataSelector = <D, R>(
   const serverDataRef = useRef(serverData)
   serverDataRef.current = serverData
 
-  // Bumped on every change of the context: the selection is recomputed only after one.
-  const source = useMemo(() => {
-    let version = 0
-    return {
-      version: () => version,
-      subscribe: (onStoreChange: () => void) => ctx
-        ? ctx.subscribeAll(() => { version++; onStoreChange() })
-        : () => { },
-    }
-  }, [ctx])
+  const subscribe = useMemo(() => (onStoreChange: () => void) => ctx
+    ? ctx.subscribeAll(onStoreChange)
+    : () => { }, [ctx])
 
   /** The selection on screen. Set after commit, so a render React discards never changes it. */
   const shown = useRef<{ value: R }>(undefined)
@@ -495,19 +497,22 @@ export const useDataSelector = <D, R>(
   // changes with those of the committed render, so a selector from a render React discarded (a
   // transition waiting on a suspended sibling) is never used for that.
   const snapshots = useMemo(() => {
-    let computedVersion = -1
+    let computedRevision = -1
     let result: R
     let server: { value: R } | undefined
 
+    // The selection is recomputed only after `data` changed. The context's revision says so even for a
+    // change made before this component subscribed: React checks the snapshot once more after
+    // subscribing, and a counter bumped by our own listener would have missed it.
     const getSnapshot = () => {
-      const version = source.version()
-      if (computedVersion === version) return result
+      const revision = ctx?.revision ?? 0
+      if (computedRevision === revision) return result
       const next = select(selector, (ctx?.data ?? {}) as Partial<D>)
       // keep an equal reference, the one on screen first, so React sees no change
       result = shown.current && isEqual(shown.current.value, next) ? shown.current.value
-        : computedVersion !== -1 && isEqual(result, next) ? result
+        : computedRevision !== -1 && isEqual(result, next) ? result
         : next
-      computedVersion = version
+      computedRevision = revision
       return result
     }
 
@@ -523,9 +528,9 @@ export const useDataSelector = <D, R>(
     }
 
     return { getSnapshot, getServerSnapshot }
-  }, [source, selector, isEqual])
+  }, [ctx, selector, isEqual])
 
-  const value = useSyncExternalStore(source.subscribe, snapshots.getSnapshot, snapshots.getServerSnapshot)
+  const value = useSyncExternalStore(subscribe, snapshots.getSnapshot, snapshots.getServerSnapshot)
   useIsomorphicLayoutEffect(() => { shown.current = { value } }, [value])
   return value
 }

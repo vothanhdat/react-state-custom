@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, act } from '@testing-library/react'
-import { Component, useState, type ReactNode } from 'react'
+import { Component, useLayoutEffect, useState, type ReactNode } from 'react'
 import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
+import { getContext, useDataSelector } from '../src/state-utils/ctx'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
 
@@ -103,3 +104,41 @@ describe('useStore call sites', () => {
   })
 })
 
+
+describe('a change between rendering and subscribing', () => {
+  // React subscribes in a passive effect, after the layout effects of the same commit. A change made
+  // in between reaches no listener of the reader; React then checks the snapshot once more, which
+  // must see it.
+  it('a value published in a layout effect of the commit that mounts the reader', async () => {
+    const ctx = getContext('selector-layout-publish')
+    ctx.publish('a', 0)
+    const Reader = () => <span data-testid="v">{String(useDataSelector(ctx, (d: { a?: number }) => d.a))}</span>
+    const Sibling = () => { useLayoutEffect(() => { ctx.publish('a', 1) }, []); return null }
+    const { getByTestId } = render(<><Reader /><Sibling /></>)
+    await tick()
+    expect(getByTestId('v').textContent).toBe('1')
+  })
+
+  it('an event that shows a reader and changes the store', async () => {
+    // the store re-renders and publishes (layout effect) in the commit that mounts the reader
+    let increment = () => { }
+    const { useStore } = createStore('selector-same-commit', () => {
+      const [n, setN] = useState(0)
+      increment = () => setN(x => x + 1)
+      return { n }
+    })
+    const Running = () => { useStore(); return null }
+    const Reader = () => <span data-testid="v">{String(useStore(undefined, s => s.n))}</span>
+    let show = () => { }
+    const App = () => {
+      const [visible, setVisible] = useState(false)
+      show = () => setVisible(true)
+      return <><Running />{visible && <Reader />}</>
+    }
+    const { getByTestId } = render(<><AutoRootCtx /><App /></>)
+    await tick()
+    act(() => { show(); increment() })
+    await tick()
+    expect(getByTestId('v').textContent).toBe('1')
+  })
+})
