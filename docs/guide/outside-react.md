@@ -36,6 +36,31 @@ const release = getSessionStore().retain()
 socket.on('close', release)
 ```
 
+## Keep a task running after its screen closes
+
+A store can retain itself while it has work to finish, so the work outlives the screen that started it. An upload keeps going when the user navigates away, and the store is released once it is done:
+
+```ts
+export const { useStore: useUpload, getStore: getUpload } = createStore('upload', ({ id }: { id: string }) => {
+  const [status, setStatus] = useState<'idle' | 'uploading' | 'done' | 'failed'>('idle')
+  const [progress, setProgress] = useState(0)
+
+  // while uploading, the store holds itself: closing the screen does not cancel the upload
+  useEffect(() => {
+    if (status !== 'uploading') return
+    return getUpload({ id }).retain()
+  }, [status, id])
+
+  const start = (file: File) => {
+    setStatus('uploading')
+    uploadFile(id, file, setProgress).then(() => setStatus('done'), () => setStatus('failed'))
+  }
+  return { status, progress, start }
+}, { timeToClean: 10_000 }) // a screen opened soon after still sees "done"
+```
+
+Every screen that calls `useUpload({ id })` shows the same progress, including one opened after the first has closed. `getStore` reaches the global scope only, so keep such a store out of a `StateScopeProvider`.
+
 ## Scopes
 
 `getStore` works in the **global** scope only. Inside a `StateScopeProvider`, components reach their instance through `useCtxState(params)`, which returns the scope's `Context`:

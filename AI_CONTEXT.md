@@ -92,6 +92,8 @@ export function Counter() {
 -   **Deep or derived reads**: `useStore(params, s => s.user?.name)` re-renders only when the selected value changes. Prefer it over reading a big object and re-rendering on every change inside it.
 -   **Suspense**: `useStoreSuspense(params, s => !s.isLoading)` instead of `if (isLoading) return <Spinner />`. Client only.
 -   **Outside React**: `getStore(params).get()` for a snapshot, `.subscribe(listener)` for changes, `.retain()` to keep a store running with no component. Use it in socket handlers, routers and tests, and in event handlers that need the latest value.
+-   **What to share**: callers with the same params share everything the hook holds. Keep per-view state (cursor, selection, an open panel) in the component, or in a store with its own identity (`{ documentId, viewId }`).
+-   **Lifecycle**: `timeToClean` keeps the instance running, effects included (polls keep polling). To keep only the values after a screen closes, put them in a store without effects and a long `timeToClean`, and run the socket or poll in another store that writes into it. A task that must outlive its screen (an upload) retains its own store while it runs: `useEffect(() => { if (status === 'uploading') return getUpload({ id }).retain() }, [status, id])`. `preState` does not survive a navigation.
 
 ## 🛠️ Common Patterns
 

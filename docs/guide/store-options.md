@@ -57,6 +57,32 @@ createStore('search', useSearchState, { timeToClean: 30_000 })
 
 Retainers from `getStore().retain()` count as consumers.
 
+The instance keeps running during that time, effects included: a store that polls keeps polling, and a socket stays open. That is what you want when the next screen needs the live resource right away.
+
+### Keeping the values, not the resource
+
+To keep only the values once the screen closes, split the store: one store holds the values and has no effects, kept with a long `timeToClean`; another runs the resource with the default `timeToClean: 0` and writes into the first. Coming back shows the kept values at once while the resource reconnects.
+
+```ts
+// the values: no effects, kept for five minutes after the last reader leaves
+export const { useStore: useRoomHistory } = createStore('room-history', ({ roomId }: { roomId: string }) => {
+  const [messages, setMessages] = useState<Message[]>([])
+  return { messages, setMessages }
+}, { initialState: { messages: [] }, timeToClean: 5 * 60_000 })
+
+// the resource: the socket closes as soon as the last screen leaves
+export const { useStore: useRoom } = createStore('room', ({ roomId }: { roomId: string }) => {
+  const { messages, setMessages } = useRoomHistory({ roomId })
+  useEffect(() => {
+    if (!setMessages) return
+    return socket.subscribe(roomId, message => setMessages(list => [...list, message]))
+  }, [roomId, setMessages])
+  return { messages }
+})
+```
+
+Server data fetched through a query library can stay in that library's cache instead: a store mounted again starts from the cached response while it refetches.
+
 ## `AttachedComponent`
 
 A component rendered next to each store instance, inside the same error boundary, receiving the store params as props. Use it for side effects that should run once per instance rather than once per consumer.
@@ -74,7 +100,7 @@ Most of what `AttachedComponent` can do also fits inside the store hook itself a
 
 ## The `preState` argument
 
-The store hook receives a second argument: the values previously published by an instance with the same identity, or an empty object. It is read once, when the instance mounts, and stays the same object for the life of the instance. It lets a store warm-start after a remount, for example when `timeToClean` expired but the context is still cached.
+The store hook receives a second argument: the values previously published by an instance with the same identity, or an empty object. It is read once, when the instance mounts, and stays the same object for the life of the instance. It lets a store pick up where the previous instance stopped when it remounts while its context is still alive: a hot update that restarts the hook, an [`<Activity>`](/guide/concurrent#hidden-content-with-activity) shown again, a remount right after a teardown. The context is dropped within a tenth of a second once nothing uses it, so `preState` does not carry values across a navigation; [keep the values in a store of their own](#keeping-the-values-not-the-resource) for that.
 
 ```ts
 const useDraft = ({ id }: { id: string }, preState: Partial<{ text: string }>) => {
