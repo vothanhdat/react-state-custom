@@ -10,6 +10,9 @@ All notable changes to this project are documented here.
 - A `useStore` call site that passes a selector on some renders only (`useStore(p, cond ? select : undefined)`) gets an error naming the cause in development. The proxy and the selector form run different hooks, so React failed with an unrelated message ("Cannot create property ..."). TypeScript already rejects an optional selector; this covers JavaScript and non-null assertions.
 - A store whose hook gains, loses or reorders hooks in a hot update restarts instead of being disabled. The running instance ran the new hook on the old hook state, React threw ("change in the order of Hooks") and the store stayed off until every consumer unmounted, so the page needed a reload. It now remounts once with the new hook, warm-started from `preState`; an edit that keeps the hooks still keeps the state.
 
+### Changed
+- CI runs the test suite on React 18.3 too. The peer range has always been `react >= 18`, but only React 19 was tested. Three tests relied on React 19 behavior (`use`, StrictMode reusing the first render's state) and now pass on both; the library needed no change.
+
 ## [1.3.0] - 2026-10-03
 ### Fixed
 - Functions returned by a store reach the consumers that call them while rendering. Every function was published as one stable wrapper, so a getter such as `useCallback(id => items[id], [items])`, a sort order kept in `useState`, or a component returned by the store never updated its consumers: they kept rendering the old result. A consumer that calls a store function during render (directly, through a selector, or in a memoized child it passes the function to) now re-renders when the store returns a new implementation, and a returned component remounts when it is replaced. Actions called from event handlers keep a stable identity and never re-render their readers.

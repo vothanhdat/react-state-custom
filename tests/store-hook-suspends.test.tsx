@@ -1,6 +1,7 @@
 // Runs on React's real scheduler, without act(): see store-suspense-reveal.test.tsx
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { Suspense, use, useState } from 'react'
+import * as React from 'react'
+import { Suspense, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
 
@@ -19,6 +20,15 @@ beforeAll(() => {
   ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = false
 })
 afterAll(() => { (globalThis as any).IS_REACT_ACT_ENVIRONMENT = actEnvironment })
+
+const settled = new WeakMap<Promise<unknown>, { value: unknown }>()
+
+/** React 19's `use(promise)`; on React 18, which has no `use`, the older form: throw the pending promise. */
+const use: <T>(promise: Promise<T>) => T = (React as any).use ?? (<T,>(promise: Promise<T>): T => {
+  const result = settled.get(promise)
+  if (result) return result.value as T
+  throw promise.then(value => { settled.set(promise, { value }) })
+})
 
 const deferred = <T,>() => {
   let resolve!: (value: T) => void

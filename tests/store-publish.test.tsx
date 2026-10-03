@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, act } from '@testing-library/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
 import { getContext } from '../src/state-utils/ctx'
 
@@ -48,7 +48,8 @@ describe('what a store publishes', () => {
   it('preState is what an earlier instance published, read once on mount', async () => {
     const seen: unknown[] = []
     const { useStore, getStore } = createStore('publish-prestate', (_: {}, preState: Partial<{ n: number }>) => {
-      seen.push(preState)
+      // committed renders only: StrictMode in React 18 also mounts, then discards, a first render
+      useEffect(() => { seen.push(preState) })
       const [n, setN] = useState(preState.n ?? 0)
       return { n, setN }
     }, { timeToClean: 0 })

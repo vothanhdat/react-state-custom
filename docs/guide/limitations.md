@@ -63,7 +63,7 @@ The running instance picks up the new hook and keeps its state, like a component
 
 ### Does it work with React 18?
 
-Yes. `react >= 18` is the peer range. Nothing React 19-specific is used.
+Yes. `react >= 18` is the peer range, nothing React 19-specific is used, and CI runs the test suite on React 18.3 as well as 19.
 
 ### Does it work with the React Compiler?
 

@@ -159,11 +159,16 @@ describe('createAutoCtx', () => {
 
   it('should share instances for identical params', async () => {
     let renderCount = 0
+    let mounted = 0
     const useCounter = () => {
       const [count] = React.useState(() => {
         renderCount++
         return renderCount
       })
+      React.useEffect(() => {
+        mounted++
+        return () => { mounted-- }
+      }, [])
       return { count }
     }
 
@@ -190,7 +195,9 @@ describe('createAutoCtx', () => {
         const count2 = screen.getByTestId('count-2').textContent
         // Both should have the same count, proving they share the same Root instance
         expect(count1).toBe(count2)
-        expect(count1).toBe('1') // Verify they both show 1, meaning single instance
+        expect(count1).not.toBe('')
+        // one instance mounted (StrictMode in React 18 runs the useState initializer of a discarded render too)
+        expect(mounted).toBe(1)
       }, { timeout: 5000 })
     })
   }, 5000)
