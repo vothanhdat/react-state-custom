@@ -44,6 +44,7 @@ class Context<T> extends EventTarget {
   publish<K extends keyof T>(key: K, value: T[K] | undefined): void
   subscribe<K extends keyof T>(key: K, listener: (value: T[K] | undefined) => void): () => void
   subscribeAll(listener: (changedKey: keyof T, data: Partial<T>) => void): () => void
+  publishMany(entries: Iterable<[keyof T, T[keyof T]]>, removed?: Iterable<keyof T>): void
   touch(keys: Iterable<keyof T>): void                       // notify without a value change
   markReady(): void                                          // set ready and run onReady listeners once
   onReady(listener: () => void): () => void                  // run when ready (immediately if already)
@@ -56,6 +57,7 @@ class Context<T> extends EventTarget {
 ```
 
 - `publish` skips values equal by `Object.is`, calls the key's subscribers and then the `subscribeAll` listeners, and rethrows the first error a listener threw after every listener has run. A store publishes from a layout effect, so such an error reaches that store's `StoreErrorBoundary`.
+- `publishMany` publishes several keys as one update: every value is assigned and every `removed` key deleted before any subscriber runs, so no subscriber sees a mix of new and old keys. A store publishes this way.
 - `touch` notifies the subscribers of `keys` although their values are unchanged. A store calls it when a function it publishes got a new implementation behind its stable wrapper and a consumer calls that function while rendering.
 - `subscribe` calls the listener right away when the key already has a value. The same function can be registered twice; each unsubscribe removes one registration.
 - `Context` still extends `EventTarget` for compatibility, but no DOM events are dispatched.

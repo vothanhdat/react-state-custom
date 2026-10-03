@@ -194,6 +194,26 @@ export class Context<D> extends EventTarget {
   }
 
   /**
+   * Publish several keys as one update: every value is assigned (and every key in `removed` deleted)
+   * before any subscriber runs, so each of them sees the complete new state, never a mix of new and
+   * old keys. Keys equal by `Object.is` are skipped. Errors are handled as in `publish`.
+   */
+  public publishMany(entries: Iterable<readonly [keyof D, D[keyof D] | undefined]>, removed: Iterable<keyof D> = []) {
+    const changed: (keyof D)[] = []
+    for (const [key, value] of entries) {
+      if (Object.is(value, this.data[key])) continue
+      this.data[key] = value
+      changed.push(key)
+    }
+    for (const key of removed) {
+      if (!Object.hasOwn(this.data, key)) continue
+      delete this.data[key]
+      changed.push(key)
+    }
+    if (changed.length > 0) this.touch(changed)
+  }
+
+  /**
    * Notify the subscribers of `keys` although their values are unchanged: a store function whose
    * implementation changed behind its stable wrapper. Subscribers decide whether that matters to them.
    */
@@ -507,17 +527,11 @@ export const useDataSourceMultiple = <D, T extends readonly (keyof D)[]>(
     if (published.current.ctx !== ctx) published.current = { ctx, keys: new Set() }
 
     const next = new Set<keyof D>()
-    for (const [key, value] of entries) {
-      next.add(key)
-      if (!Object.is(ctx.data[key], value)) ctx.publish(key, value)
-    }
-    for (const key of published.current.keys) {
-      if (!next.has(key) && Object.hasOwn(ctx.data, key)) {
-        ctx.publish(key, undefined)
-        delete ctx.data[key]
-      }
-    }
+    for (const [key] of entries) next.add(key)
+    const removed = [...published.current.keys].filter(key => !next.has(key))
     published.current.keys = next
+    // one update: subscribers never see some keys new and others still old
+    ctx.publishMany(entries as [keyof D, D[keyof D]][], removed)
   }, [ctx, changeId])
 }
 

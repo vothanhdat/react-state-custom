@@ -18,7 +18,7 @@ type StoreHandle<State, Initial> = {
 ```
 
 - `get()` never subscribes and never creates a store. It returns `initialState` merged with the live data, or `initialState` (or `{}`) before anything has run.
-- `subscribe()` keeps the context alive while subscribed and fires once per changed key with a fresh snapshot. The listener must not throw: an error thrown by any subscriber is rethrown to the store that published the change, and its error boundary disables that store.
+- `subscribe()` keeps the context alive while subscribed and fires once per changed key with a fresh snapshot. Every snapshot of one store update is the complete new state: all keys of the update are applied before the first call. The listener must not throw: an error thrown by any subscriber is rethrown to the store that published the change, and its error boundary disables that store.
 - `retain()` mounts the store through the global `AutoRootCtx` and counts as a consumer. Call the returned function to release. Logs a development error if no `AutoRootCtx` is mounted within a second.
 
 ## `StoreOptions`
