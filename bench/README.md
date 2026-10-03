@@ -56,36 +56,37 @@ computed: the summary or mid store hook, the derived atom, the selector, or the 
 
 | derived (renders / derive calls) | change one key | move 1 between two keys | tokens |
 |---|---|---|---|
-| react-state-custom | 1000 / 1 | 0 / 1 | 245 |
+| react-state-custom | 1000 / 1 | 0 / 1 | 227 |
 | zustand | 1000 / 4000 | 0 / 1000 | 138 |
 | jotai | 1000 / 1 | 0 / 1 | 158 |
 | React context | 1000 / 1000 | 1000 / 1000 | 241 |
 
 | topology (renders / derive calls) | one threshold | all thresholds | unrelated root key | tokens |
 |---|---|---|---|---|
-| react-state-custom | 100 / 10 | 1000 / 10 | 0 / 0 | 260 |
+| react-state-custom | 100 / 10 | 1000 / 10 | 0 / 0 | 247 |
 | zustand | 100 / 1300 | 1000 / 4000 | 0 / 1000 | 165 |
 | jotai | 100 / 10 | 1000 / 10 | 0 / 10 | 185 |
 | React context | 1000 / 1000 | 1000 / 1000 | 1000 / 0 | 231 |
 
 | shop (renders / derive calls) | qty of one item | vat | theme | discount | tokens |
 |---|---|---|---|---|---|
-| react-state-custom | 235 / 111 | 500 / 11 | 0 / 0 | 1000 / 111 | 616 |
+| react-state-custom | 235 / 111 | 500 / 11 | 0 / 0 | 1000 / 111 | 556 |
 | zustand | 235 / 111 | 500 / 111 | 0 / 111 | 1000 / 111 | 307 |
 | jotai | 235 / 3 | 500 / 11 | 0 / 0 | 1000 / 111 | 470 |
 | React context | 1000 / 111 | 1000 / 111 | 1000 / 111 | 1000 / 111 | 361 |
 
 | collection | consumer renders per update | tokens |
 |---|---|---|
-| react-state-custom | 5 | 210 |
-| react-state-custom, array in one key | 1000 | 228 |
+| react-state-custom | 5 | 202 |
+| react-state-custom, array in one key | 1000 | 205 |
 | zustand | 5 | 163 |
 | jotai | 5 | 148 |
 | React context | 1000 | 206 |
 
 `react-state-custom` renders each consumer twice on mount: once to ask for the store, once when the store
 hook has published. Pass `initialState` to render once when the seed already matches (see
-`tests/render-count.test.tsx`; the derived and topology adapters do). Per update, selective subscriptions
+`tests/render-count.test.tsx`). The adapters here stay lazy, as the library is designed: no `initialState`,
+and a derived layer defaults with `??` or `?.` while the layer below has not published yet. Per update, selective subscriptions
 re-render only the consumers that read the changed value, like Zustand and Jotai; a plain context
 re-renders all of them.
 
@@ -154,7 +155,7 @@ re-render only the five readers of the changed item, like a Zustand selector or 
   It loses by 10x whenever only some consumers care.
 - **Code size favours Zustand and Jotai in every scenario**, by roughly 1.5x. `createStore(() => init)`
   plus a one-line selector, or an `atom` per value, is hard to beat; our layer is
-  `createStore(name, hook, { initialState })` and a write from outside React is `getStore().get().action()`
+  `createStore(name, hook)` with `useState` inside, and a write from outside React is `getStore().get().action()`
   instead of `store.setState()`. Some of the difference is bench plumbing (a unique name per run, typed
   casts), but the shape is real: the hook form costs more words per layer. What it buys is not brevity
   but that each layer can hold effects, async work and other hooks, which these scenarios do not exercise.

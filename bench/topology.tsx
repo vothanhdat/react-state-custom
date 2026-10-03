@@ -21,8 +21,8 @@ type RootState = { thresholds: number[], label: string }
 const initial = (): RootState => ({ thresholds: Array.from({ length: MIDS }, () => 0), label: '' })
 const nextThresholds = (kind: TopologyUpdate, tick: number, t: number[]) =>
   kind === 'one' ? t.map((v, i) => i === tick % MIDS ? tick : v) : t.map(v => v + 1)
-const patchFor = (kind: TopologyUpdate, tick: number, s: RootState): Partial<RootState> =>
-  kind === 'unrelated' ? { label: `label-${tick}` } : { thresholds: nextThresholds(kind, tick, s.thresholds) }
+const patchFor = (kind: TopologyUpdate, tick: number, s: Partial<RootState>): Partial<RootState> =>
+  kind === 'unrelated' ? { label: `label-${tick}` } : { thresholds: nextThresholds(kind, tick, s.thresholds ?? []) }
 
 let worldId = 0
 
@@ -34,12 +34,12 @@ export const reactStateCustom: TopologyAdapter = {
       const [state, setState] = useState(initial)
       const patch = (p: Partial<RootState>) => setState(s => ({ ...s, ...p }))
       return { ...state, patch }
-    }, { initialState: initial() })
+    })
     const mid = createStore(`bench-topology-mid-${worldId++}`, ({ i }: { i: number }) => {
       const { thresholds } = root.useStore()
       counters.derives++
-      return { value: thresholds[i] * 2 }
-    }, { initialState: { value: 0 } })
+      return { value: (thresholds?.[i] ?? 0) * 2 }
+    })
     return {
       counters,
       Providers: ({ children }) => <><AutoRootCtx />{children}</>,

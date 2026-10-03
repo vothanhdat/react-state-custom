@@ -19,9 +19,9 @@ export type DerivedAdapter = { name: string, create(): DerivedWorld }
 type Base = Record<string, number>
 const keyName = (k: number) => `k${k}`
 const initial = () => Object.fromEntries(Array.from({ length: KEYS }, (_, k) => [keyName(k), 0])) as Base
-const sumOf = (base: Base) => Array.from({ length: KEYS }, (_, k) => base[keyName(k)]).reduce((a, b) => a + b, 0)
-const patchFor = (kind: DerivedUpdate, tick: number, base: Base): Base =>
-  kind === 'change' ? { [keyName(tick % KEYS)]: tick } : { k0: base.k0 + 1, k1: base.k1 - 1 }
+const sumOf = (base: Partial<Base>) => Array.from({ length: KEYS }, (_, k) => base[keyName(k)] ?? 0).reduce((a, b) => a + b, 0)
+const patchFor = (kind: DerivedUpdate, tick: number, base: Partial<Base>): Base =>
+  kind === 'change' ? { [keyName(tick % KEYS)]: tick } : { k0: (base.k0 ?? 0) + 1, k1: (base.k1 ?? 0) - 1 }
 
 let worldId = 0
 
@@ -33,12 +33,12 @@ export const reactStateCustom: DerivedAdapter = {
       const [state, setState] = useState(initial)
       const patch = (p: Base) => setState(s => ({ ...s, ...p }))
       return { ...state, patch } as Base & { patch: typeof patch }
-    }, { initialState: initial() })
+    })
     const summary = createStore(`bench-derived-summary-${worldId++}`, () => {
       const data = base.useStore()
       counters.derives++
       return { sum: sumOf(data) }
-    }, { initialState: { sum: 0 } })
+    })
     return {
       counters,
       Providers: ({ children }) => <><AutoRootCtx />{children}</>,

@@ -29,7 +29,7 @@ export const reactStateCustom: CollectionAdapter = {
       const [state, setState] = useState(initial)
       const set = (id: string, v: number) => setState(s => ({ ...s, [id]: v }))
       return { ...state, set } as Record<string, number> & { set: typeof set }
-    }, { initialState: initial() })
+    })
     return {
       counters,
       Providers: ({ children }) => <><AutoRootCtx />{children}</>,
@@ -47,11 +47,11 @@ export const reactStateCustomArray: CollectionAdapter = {
     const list = createStore(`collection-array-${worldId++}`, () => {
       const [items, setItems] = useState(() => Array.from({ length: ITEMS }, () => 0))
       return { items, set: (i: number, v: number) => setItems(s => s.map((x, j) => j === i ? v : x)) }
-    }, { initialState: { items: Array.from({ length: ITEMS }, () => 0) } })
+    })
     return {
       counters,
       Providers: ({ children }) => <><AutoRootCtx />{children}</>,
-      Consumer: ({ k }) => { counters.renders++; return <i>{list.useStore().items[k]}</i> },
+      Consumer: ({ k }) => { counters.renders++; return <i>{list.useStore().items?.[k]}</i> },
       update: tick => list.getStore().get().set!(tick % ITEMS, tick),
     }
   },
