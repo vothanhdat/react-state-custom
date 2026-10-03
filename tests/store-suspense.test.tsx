@@ -97,4 +97,34 @@ describe('useStoreSuspense', () => {
     expect(counter.renders).toBe(0)
     expect(['0', '1']).toContain(getByTestId('n').textContent)
   })
+
+  it('suspends only on first load: a refetch turning isReady false again keeps the content', async () => {
+    let setLoading: (v: boolean) => void = () => { }
+    let setData: (v: string) => void = () => { }
+    const { useStoreSuspense } = createStore('suspense-first-load-only', () => {
+      const [isLoading, _setLoading] = useState(false)
+      const [data, _setData] = useState('x')
+      setLoading = _setLoading
+      setData = _setData
+      return { isLoading, data }
+    })
+    const View = () => {
+      const { data, isLoading } = useStoreSuspense(undefined, s => !s.isLoading)
+      return <span data-testid="v">{data}{isLoading ? ' (refreshing)' : ''}</span>
+    }
+    const { counter, Fallback } = makeFallback()
+    const { getByTestId, queryByTestId } = render(
+      <><AutoRootCtx /><Suspense fallback={<Fallback />}><View /></Suspense></>
+    )
+    await tick(50)
+    expect(getByTestId('v').textContent).toBe('x')
+    const fallbacks = counter.renders
+
+    act(() => { setLoading(true); setData('y') })
+    await tick()
+    expect(queryByTestId('fb')).toBeNull()
+    expect(counter.renders).toBe(fallbacks)
+    expect(getByTestId('v').textContent).toBe('y (refreshing)')
+  })
 })
+

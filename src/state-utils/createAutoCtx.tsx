@@ -585,14 +585,18 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
     const [params, isReady] = args as unknown as [U | undefined, ((state: StoreState<V, I>) => boolean)?]
     const scopeId = useContext(StateScopeContext)
     const ctx = useCtxState(params as any)
+    // The instance this component has already rendered ready (it only suspends on first load)
+    const readyFor = useRef<Context<V> | null>(null)
     // A store hook that threw is disabled: hand its error to this component's error boundary,
     // whether it failed before the first result or later.
     // stores never run on the server, so the server (and hydration) snapshot is "not failed"
     const failed = useSyncExternalStore(ctx.onStatus, () => ctx.failed, () => false)
     if (failed) throw ctx.error
     // With a predicate, readiness is the predicate alone (initialState may already satisfy it);
-    // without one, readiness means the store hook has published once.
-    const ready = isReady ? isReady(ctx.data as StoreState<V, I>) : ctx.ready
+    // without one, readiness means the store hook has published once. Once ready for this instance,
+    // the component never suspends again: a refetch turning the predicate false would otherwise swap
+    // committed content for the fallback, in an urgent update no transition can hold.
+    const ready = readyFor.current === ctx || (isReady ? isReady(ctx.data as StoreState<V, I>) : ctx.ready)
     if (!ready) {
       if (isServer()) {
         throw new Error(
@@ -605,6 +609,7 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
     // React may wait a while before committing a resolved boundary (it throttles reveals after a
     // fallback). Keep the retain taken while suspended until then, and drop it once this component has
     // committed: useCtxState's effect, declared above, has subscribed by the time this one runs.
+    readyFor.current = ctx
     extendHeldRetain(ctx)
     useEffect(() => releaseHeldRetain(ctx), [ctx])
     return useQuickSubscribe(ctx, serverValues((params ?? {}) as U)) as V
