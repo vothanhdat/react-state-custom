@@ -3,6 +3,10 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Fixed
+- A selector (`useStore(params, selector)`, `useDataSelector`) no longer misses a change made between its component's render and its subscription. It recomputed only after its own listener had run, and React subscribes after the layout effects of the commit, so a store publishing in that commit left the component showing the old value until the next change. An event that both shows a component reading a selector and changes the store did this. Selectors now recompute after any change of the context, which counts them in `Context.revision`.
+- `useStoreSuspense` consumers of one instance wait for their own predicates. The instance had one pending wait holding the predicate of the last component that suspended, so with `s => s.a` in one boundary and `s => s.b` in another, the first kept its fallback until `b` was ready too, and for good if the second component went away. The wait now resolves as soon as one predicate holds, and the components still not ready wait again.
+- A component that goes away while `useStoreSuspense` is suspended no longer keeps its store running until the store gets ready. A suspended component never commits, so nothing released the retain it took; with a predicate the store never satisfied, the store ran, fetches and subscriptions included, until the page closed. The wait now wakes its components every 5 seconds: those still there wait again on the same instance, and the store of one that went away is released about a second later.
 
 ## [1.3.2] - 2026-10-03
 ### Fixed
