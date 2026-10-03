@@ -48,7 +48,25 @@ export const NoParamsConsumer = () => {
 
 // Optional params only: the argument may be omitted
 export const optional = createStore('types-optional', ({ initial = 0 }: { initial?: number }) => ({ initial }))
-export const OptionalConsumer = () => { optional.useStore(); optional.useStore({ initial: 2 }); return null }
+export const OptionalConsumer = () => {
+  optional.useStore()
+  optional.useStore({ initial: 2 })
+  optional.useStore(undefined, s => s.initial)
+  return null
+}
+
+// Required params are required by every form, the selector form included
+export const required = createStore('types-required', ({ id }: { id: string }) => ({ name: id }))
+export const RequiredConsumer = () => {
+  required.useStore({ id: 'a' }, s => s.name)
+  // @ts-expect-error params are required
+  required.useStore()
+  // @ts-expect-error params are required with a selector too
+  required.useStore(undefined, s => s.name)
+  // @ts-expect-error params are required by useStoreSuspense
+  required.useStoreSuspense()
+  return null
+}
 
 // Params must be primitives
 interface User { id: string }

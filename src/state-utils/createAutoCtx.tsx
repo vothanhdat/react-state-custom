@@ -698,7 +698,8 @@ export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, I
    * value changes: use it for deep reads (`s => s.user?.name`) and derived values.
    */
   function useStore(...args: StoreParams<U>): StoreState<V, I>
-  function useStore<R>(params: U | undefined, selector: (state: StoreState<V, I>) => R, isEqual?: (a: R, b: R) => boolean): R
+  // params may be undefined only when every param is optional, as in the form above
+  function useStore<R>(params: {} extends U ? U | undefined : U, selector: (state: StoreState<V, I>) => R, isEqual?: (a: R, b: R) => boolean): R
   function useStore(...args: any[]) {
     const [params, selector, isEqual] = args as [U | undefined, ((state: StoreState<V, I>) => unknown)?, ((a: unknown, b: unknown) => boolean)?]
     const ctx = useCtxState(params as any)
