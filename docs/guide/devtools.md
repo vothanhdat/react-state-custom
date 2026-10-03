@@ -38,7 +38,7 @@ AutoRootCtx
       └ Store(todos)        ← your hook runs here; its hooks show in the inspector
 ```
 
-The key of `StoreInstance` is the instance's name and params. Instances are spread over 64 `Bucket` components so that starting or stopping one re-renders only its bucket. `StoreErrorBoundary` is the default `Wrapper`, replaced by yours when you pass one.
+The key of `StoreInstance` is the instance's name and params. Instances are spread over up to 64 `Bucket` components so that starting or stopping one re-renders only its bucket; only buckets that hold an instance are rendered. `StoreErrorBoundary` is the default `Wrapper`, replaced by yours when you pass one.
 
 ## Placing the button
 

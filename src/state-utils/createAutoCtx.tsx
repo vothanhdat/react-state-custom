@@ -199,16 +199,35 @@ const bucketOf = (key: string) => {
   return (h >>> 0) % BUCKETS
 }
 
-/** The records of one AutoRootCtx, split into buckets that are each an external store for one Bucket. */
+const isEmpty = (records: Record<string, StoreRecord>) => {
+  for (const _ in records) return false
+  return true
+}
+
+/**
+ * The records of one AutoRootCtx, split into buckets that are each an external store for one Bucket.
+ * Only buckets holding a record are rendered: `used` lists them and changes only when a bucket
+ * fills or empties, so a small app renders a few Buckets instead of 64.
+ */
 const createBuckets = () => {
   const records: Record<string, StoreRecord>[] = Array.from({ length: BUCKETS }, () => ({}))
   const listeners: Set<() => void>[] = Array.from({ length: BUCKETS }, () => new Set())
+  /** Indices of the buckets holding a record, ascending. */
+  let used: number[] = []
+  const usedListeners = new Set<() => void>()
   return {
     update(key: string, next: (current: StoreRecord | undefined) => StoreRecord | undefined) {
       const i = bucketOf(key)
-      const updated = setRecord(records[i], key, next(records[i][key]))
-      if (updated === records[i]) return
+      const before = records[i]
+      const updated = setRecord(before, key, next(before[key]))
+      if (updated === before) return
       records[i] = updated
+      const empty = isEmpty(updated)
+      if (empty !== isEmpty(before)) {
+        // ascending, so a bucket coming or going never moves the fibers of the others
+        used = empty ? used.filter(j => j !== i) : [...used, i].sort((a, b) => a - b)
+        usedListeners.forEach(l => l())
+      }
       listeners[i].forEach(l => l())
     },
     subscribe(i: number, listener: () => void) {
@@ -216,6 +235,11 @@ const createBuckets = () => {
       return () => { listeners[i].delete(listener) }
     },
     get: (i: number) => records[i],
+    subscribeUsed(listener: () => void) {
+      usedListeners.add(listener)
+      return () => { usedListeners.delete(listener) }
+    },
+    getUsed: () => used,
   }
 }
 
@@ -371,6 +395,7 @@ export const AutoRootCtx: React.FC<{
   // instance starts or stops, and then re-renders only that instance's bucket.
   const buckets = useRef<Buckets | null>(null)
   buckets.current ??= createBuckets()
+  const used = useSyncExternalStore(buckets.current.subscribeUsed, buckets.current.getUsed, buckets.current.getUsed)
 
   // Reference counts and pending `timeToClean` timers, kept out of React state: a consumer mounting
   // or unmounting on an instance that is already running must not re-render anything.
@@ -437,8 +462,7 @@ export const AutoRootCtx: React.FC<{
   }, [ctx, subscribeRoot])
 
   return <>
-    {Array.from({ length: BUCKETS }, (_, i) =>
-      <Bucket key={i} index={i} buckets={buckets.current!} Wrapper={Wrapper} debugging={debugging} />)}
+    {used.map(i => <Bucket key={i} index={i} buckets={buckets.current!} Wrapper={Wrapper} debugging={debugging} />)}
   </>
 
 }

@@ -146,13 +146,28 @@ const componentNames = (container: HTMLElement) => {
 const count = (names: string[], name: string) => names.filter(n => n === name).length
 
 describe('AutoRootCtx component tree', () => {
-  it('names the components it renders, minified or not', async () => {
+  it('renders only the buckets that hold a running instance', async () => {
     const a = createStore('tree-a', () => ({ v: 'a' }))
+    const b = createStore('tree-b', () => ({ v: 'b' }))
     const A = () => <i>{a.useStore().v}</i>
-    const { container } = render(<><AutoRootCtx /><A /></>)
+    const B = () => <i>{b.useStore().v}</i>
+    const { container, rerender } = render(<AutoRootCtx />)
     await tick()
-    const names = componentNames(container).filter(n => n !== 'Bucket')
-    expect(names).toEqual(['AutoRootCtx', 'StoreInstance', 'StoreErrorBoundary', 'StoreFailure', 'Store(tree-a)'])
+    expect(count(componentNames(container), 'Bucket')).toBe(0)
+
+    rerender(<><AutoRootCtx /><A /><B /></>)
+    await tick()
+    const names = componentNames(container)
+    expect(count(names, 'StoreInstance')).toBe(2)
+    expect(count(names, 'Bucket')).toBeGreaterThanOrEqual(1)
+    expect(count(names, 'Bucket')).toBeLessThanOrEqual(2)
+    // one store under its bucket
+    expect(names.slice(0, 6)).toEqual(['AutoRootCtx', 'Bucket', 'StoreInstance', 'StoreErrorBoundary', 'StoreFailure', names[5]])
+    expect(names.filter(n => n.startsWith('Store(')).sort()).toEqual(['Store(tree-a)', 'Store(tree-b)'])
+
+    rerender(<AutoRootCtx />)
+    await tick()
+    expect(count(componentNames(container), 'Bucket')).toBe(0)
   })
 
   it('names each store runner after its store', async () => {
@@ -162,5 +177,33 @@ describe('AutoRootCtx component tree', () => {
     await tick()
     const names = componentNames(container)
     expect(count(names, 'Store(tree-named)')).toBe(2)
+  })
+
+  it('keeps every running store mounted while buckets around it come and go', async () => {
+    let setCount!: (n: number) => void
+    const kept = createStore('tree-kept', () => {
+      const [n, set] = useState(0)
+      setCount = set
+      return { n }
+    })
+    const others = createStore('tree-others', ({ id }: { id: number }) => ({ id }))
+    const Kept = () => <b data-testid="kept">{kept.useStore().n}</b>
+    const Other = ({ id }: { id: number }) => <i>{others.useStore({ id }).id}</i>
+    const tree = (from: number, to: number) => <>
+      <AutoRootCtx />
+      <Kept />
+      {Array.from({ length: to - from }, (_, i) => <Other key={from + i} id={from + i} />)}
+    </>
+    const { rerender } = render(tree(0, 0))
+    await tick()
+    act(() => setCount(5))
+    await tick()
+
+    // fill most buckets, empty them, and fill others: under StrictMode a moved fiber would remount
+    for (const [from, to] of [[0, 200], [0, 0], [500, 520], [0, 0]]) {
+      rerender(tree(from, to))
+      await tick()
+    }
+    expect(screen.getByTestId('kept').textContent).toBe('5')
   })
 })

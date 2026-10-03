@@ -14,6 +14,9 @@ All notable changes to this project are documented here.
 - React DevTools names every store after itself: the component running the hook of store `todos` is `Store(todos)`, so the DevTools search finds it. Every store was a `StateRunner`, and in the published package, which is minified, the other components showed mangled or empty names; `AutoRootCtx`, `Bucket`, `StoreInstance`, `StoreErrorBoundary`, `StoreFailure` and `StateScopeProvider` now have display names. The hot-reload boundary is merged into `StoreFailure`, one level less per store.
 - CI runs the test suite on React 18.3 too. The peer range has always been `react >= 18`, but only React 19 was tested. Three tests relied on React 19 behavior (`use`, StrictMode reusing the first render's state) and now pass on both; the library needed no change.
 
+### Performance
+- `AutoRootCtx` renders only the buckets that hold a running instance instead of always 64, so an app with a few stores mounts a few `Bucket` components. Mounting `AutoRootCtx` with 3 stores: ~1.2 ms → ~0.6 ms. Mounting 1000 and 3000 instances at once: ~72 → ~67 ms and ~259 → ~210 ms; starting or stopping one instance is unchanged (jsdom).
+
 ## [1.3.0] - 2026-10-03
 ### Fixed
 - Functions returned by a store reach the consumers that call them while rendering. Every function was published as one stable wrapper, so a getter such as `useCallback(id => items[id], [items])`, a sort order kept in `useState`, or a component returned by the store never updated its consumers: they kept rendering the old result. A consumer that calls a store function during render (directly, through a selector, or in a memoized child it passes the function to) now re-renders when the store returns a new implementation, and a returned component remounts when it is replaced. Actions called from event handlers keep a stable identity and never re-render their readers.
