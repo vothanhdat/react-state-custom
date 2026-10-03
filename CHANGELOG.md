@@ -8,6 +8,7 @@ All notable changes to this project are documented here.
 - The `useStore()` proxy warns about spreading only in development, and once per store. The warning was logged in production builds too, on every render of every component that spread the proxy.
 - Writing to the `useStore()` proxy throws a `TypeError` in development. `store.count = 1` wrote straight into the shared data without notifying anyone, so other readers kept the old value until the store published again. Production builds are unchanged, as React only freezes props in development.
 - A `useStore` call site that passes a selector on some renders only (`useStore(p, cond ? select : undefined)`) gets an error naming the cause in development. The proxy and the selector form run different hooks, so React failed with an unrelated message ("Cannot create property ..."). TypeScript already rejects an optional selector; this covers JavaScript and non-null assertions.
+- A store whose hook gains, loses or reorders hooks in a hot update restarts instead of being disabled. The running instance ran the new hook on the old hook state, React threw ("change in the order of Hooks") and the store stayed off until every consumer unmounted, so the page needed a reload. It now remounts once with the new hook, warm-started from `preState`; an edit that keeps the hooks still keeps the state.
 
 ## [1.3.0] - 2026-10-03
 ### Fixed

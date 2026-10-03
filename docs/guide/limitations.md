@@ -57,6 +57,10 @@ Give the store a `timeToClean` so the instance survives the gap between the last
 
 Unmount every consumer and let it tear down, or expose a `reset` action from the hook. For per-instance resets, change a param: a new identity is a fresh instance.
 
+### What happens to a store when I edit it with hot reload on?
+
+The running instance picks up the new hook and keeps its state, like a component under Fast Refresh. If the edit added, removed or reordered hooks, the old state no longer fits: the instance restarts with the new hook, and `preState` holds what it last published. A hook that still throws after the restart is disabled like any failing store. Editing a hook that the store calls from another module can also change its hooks; it is handled the same way.
+
 ### Does it work with React 18?
 
 Yes. `react >= 18` is the peer range. Nothing React 19-specific is used.
