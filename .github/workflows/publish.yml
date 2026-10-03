@@ -33,6 +33,12 @@ jobs:
       - name: Test
         run: yarn test
 
+      - name: Build and test the package that will be published
+        run: |
+          yarn build
+          if grep -rl memo_cache_sentinel dist; then echo "dist contains React Compiler output"; exit 1; fi
+          yarn test:dist
+
       - name: Check tag matches package.json version
         if: github.ref_type == 'tag'
         run: |

@@ -65,6 +65,7 @@
     "prepublishOnly": "yarn build",
     "bench": "vitest bench --run --config vitest.config.bench.ts",
     "test:compiler": "vitest run --config vitest.config.compiler.ts",
+    "test:dist": "TEST_TARGET=dist vitest run --config vitest.config.compiler.ts",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"

@@ -1,6 +1,6 @@
 # React Compiler
 
-The library works with the React Compiler. Components and store hooks compiled by `babel-plugin-react-compiler` are covered by a dedicated test run (`yarn test:compiler`) in CI, including helpers that take the whole `useStore()` object.
+The library works with the React Compiler. Components and store hooks compiled by `babel-plugin-react-compiler` are covered by a dedicated test run (`yarn test:compiler`) in CI, including helpers that take the whole `useStore()` object. The package itself ships uncompiled, and CI runs the same tests against the built package (`yarn test:dist`).
 
 ## What the compiler changes
 

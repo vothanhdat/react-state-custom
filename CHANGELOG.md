@@ -6,6 +6,9 @@ All notable changes to this project are documented here.
 ### Fixed
 - The published package is no longer compiled by the React Compiler. Since 1.0.27 the library build ran `babel-plugin-react-compiler`, which was meant for the examples only, so the package differed from the tested source. In 1.2.2 to 1.2.6 the compiler cached the `useStore()` proxy, undoing the 1.2.2 fix: in an app using the React Compiler, a helper called with the whole store object (`describe(store)`) kept its cached result and stopped updating. Tests and benchmarks always ran on the uncompiled source, which is now what ships.
 
+### Changed
+- CI builds the package and runs the React Compiler tests against `dist/` (`yarn test:dist`), and fails if the build contains compiler output. The publish workflow does the same before publishing.
+
 ## [1.2.6] - 2026-10-03
 ### Fixed
 - Store identity: a param passed as `undefined` no longer creates a separate instance. `useStore({ id, page: undefined })` and `useStore({ id })` now share one instance, so an optional param passed straight through no longer runs the hook twice.

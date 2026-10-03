@@ -36,6 +36,17 @@ jobs:
 
       - name: Run tests under the React Compiler
         run: yarn test:compiler
+
+      - name: Build the package
+        run: yarn build
+
+      # The library must ship uncompiled: the React Compiler is applied to the examples only
+      - name: Check the package is not compiled by the React Compiler
+        run: |
+          if grep -rl memo_cache_sentinel dist; then echo "dist contains React Compiler output"; exit 1; fi
+
+      - name: Run the React Compiler tests against the package
+        run: yarn test:dist
       
       - name: Generate coverage
         run: yarn test:coverage
