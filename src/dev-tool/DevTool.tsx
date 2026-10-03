@@ -4,6 +4,10 @@ import { DevToolState } from "./DevToolState"
 import { DataViewDefault, type DataViewComponent } from "./DataViewComponent"
 import { useDragSize } from "./useDragSize"
 import { readSetting, writeSetting } from "./settings"
+import { useIsomorphicLayoutEffect } from "../state-utils/ctx"
+
+/** Panel height before the viewport is known (on the server, and in the render that hydrates it). */
+const SERVER_HEIGHT = 300
 
 export type DevToolContainerProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onClick' | 'type'> & {
     /** Renders one store's value. Defaults to `DataViewDefault`, a JSON text view. */
@@ -20,7 +24,9 @@ export type DevToolContainerProps = Omit<React.ButtonHTMLAttributes<HTMLButtonEl
  * which is hidden while the panel is open (the panel has its own close button).
  */
 export const DevToolContainer = ({ Component = DataViewDefault, defaultOpen = false, defaultHeight, children, ...buttonProps }: DevToolContainerProps) => {
-    const [open, setOpen] = useState(() => readSetting('open', defaultOpen))
+    const [open, setOpen] = useState(defaultOpen)
+    // The remembered state is read once mounted, so the first render matches what a server renders
+    useIsomorphicLayoutEffect(() => { setOpen(readSetting('open', defaultOpen)) }, [])
     const toggle = (next: boolean) => {
         setOpen(next)
         writeSetting('open', next)
@@ -43,6 +49,7 @@ export const DevToolContainer = ({ Component = DataViewDefault, defaultOpen = fa
 const DevToolPanel = ({ Component, defaultHeight, onClose }: { Component: DataViewComponent, defaultHeight?: number, onClose: () => void }) => {
     const { size: height, onPointerDown } = useDragSize(
         () => readSetting('height', defaultHeight ?? Math.round(window.innerHeight / 3)),
+        defaultHeight ?? SERVER_HEIGHT,
         'up',
         { min: 120, onEnd: h => writeSetting('height', h) }
     )

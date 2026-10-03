@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { renderToString } from 'react-dom/server'
 import { createStore, AutoRootCtx, StateScopeProvider } from '../src/state-utils/createAutoCtx'
 import { getContext } from '../src/state-utils/ctx'
+import { DevToolContainer } from '../src/dev-tool'
 
 describe('server rendering (node environment, no DOM)', () => {
   it('renders initialState, never runs store hooks, and leaves the shared cache empty', () => {
@@ -35,5 +36,11 @@ describe('server rendering (node environment, no DOM)', () => {
     expect(renderToString(<StateScopeProvider><C /></StateScopeProvider>)).toContain('<i>0</i>')
     expect(renderToString(<C />)).toContain('<i>0</i>')
     expect(getContext.cache.size).toBe(0)
+  })
+
+  it('renders an initially open dev tool, at a fixed height until the viewport is known', () => {
+    const html = renderToString(<DevToolContainer defaultOpen />)
+    expect(html).toContain('aria-label="react-state-custom stores"')
+    expect(html).toContain('height:300px')
   })
 })

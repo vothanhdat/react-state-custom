@@ -47,6 +47,7 @@ export const DevToolState: React.FC<{ Component?: DataViewComponent }> = ({ Comp
     const [selectedKeys, setSelectedKeys] = useState<string[]>([])
     const { size: listWidth, onPointerDown } = useDragSize(
         () => readSetting('list-width', 220),
+        220,
         'right',
         { min: 100, onEnd: w => writeSetting('list-width', w) }
     )

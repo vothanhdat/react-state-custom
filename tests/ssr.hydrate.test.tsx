@@ -5,6 +5,7 @@ import { hydrateRoot, type Root } from 'react-dom/client'
 import { useState } from 'react'
 import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
 import { getContext } from '../src/state-utils/ctx'
+import { DevToolContainer } from '../src/dev-tool'
 
 let root: Root | undefined
 afterEach(() => { if (root) act(() => root!.unmount()); root = undefined; vi.restoreAllMocks() })
@@ -38,6 +39,26 @@ describe('hydration', () => {
     const hydrationComplaints = errors.mock.calls.filter(c => /hydrat|did not match|mismatch/i.test(c.map(String).join(' ')))
     expect(hydrationComplaints).toEqual([])
     expect(container.textContent).toBe('Ada')
+    container.remove()
+  })
+
+  it('hydrates the dev tool as the server rendered it, then restores what this tab remembered', async () => {
+    const html = renderToString(<DevToolContainer />)
+    expect(html).not.toContain('react-state-custom stores')
+    // this tab had the panel open at 420 px: the server cannot know
+    sessionStorage.setItem('react-state-custom:dev-tool:open', 'true')
+    sessionStorage.setItem('react-state-custom:dev-tool:height', '420')
+
+    const container = document.createElement('div')
+    container.innerHTML = html
+    document.body.appendChild(container)
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await act(async () => { root = hydrateRoot(container, <DevToolContainer />) })
+
+    const hydrationComplaints = errors.mock.calls.filter(c => /hydrat|did not match|mismatch/i.test(c.map(String).join(' ')))
+    expect(hydrationComplaints).toEqual([])
+    expect(container.querySelector<HTMLElement>('[aria-label="react-state-custom stores"]')?.style.height).toBe('420px')
+    sessionStorage.clear()
     container.remove()
   })
 })
