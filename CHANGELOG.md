@@ -3,10 +3,16 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Fixed
+- `useStoreSuspense`: the store retained while a component was suspended was released 100 ms after the promise resolved, but React reveals a resolved boundary 300 ms (React 19) or 500 ms (React 18) after its fallback. The store was torn down before the component committed, so the commit mounted a fresh instance, refetched and showed the fallback again. The retain now lasts until a component reading the store commits, with a one-second safety release for renders that never commit. Tests run on React's real scheduler, which `act()` hid.
+
+### Added
+- A development error when two different stores share a name. They shared one instance silently, with only one of the hooks running.
+
 ### Changed
 - README, docs home and introduction lead with sharing: a hook written once runs once per params for every caller, composes with other stores and renders progressively. The 30-second example is now a ticker store and a position store reading it. The npm description follows.
 - README: the comparison section now sets the library next to Jotai with the same order-book example (hook versus atom), a table of what differs, and one paragraph on Zustand, Redux and React context.
-- Docs: new guide page Progressive data (one store per fetched source, a combining store the view renders from, switching params, `timeToClean` as a cache, use with TanStack Query). Limitations now state that layers are one commit apart and that store hooks see the providers above `AutoRootCtx`; Reads outside render notes that a passed proxy is tracked only during render.
+- Docs: new guide page Progressive data (one store per fetched source, a combining store the view renders from, switching params, `timeToClean` as a cache, use with TanStack Query). Limitations now state that layers are one commit apart, that store hooks see the providers above `AutoRootCtx` and that transitions stop at the store; the Suspense page documents switching params in `startTransition`; Reads outside render notes that a passed proxy is tracked only during render.
 
 ## [1.2.3] - 2026-10-03
 ### Fixed

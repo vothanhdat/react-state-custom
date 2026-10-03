@@ -12,6 +12,8 @@
 
 **Store hooks see the providers above `AutoRootCtx`.** A store hook runs inside `AutoRootCtx`, not inside the component that calls `useStore`, so `useContext` in a store reads the providers wrapping `AutoRootCtx`. Put the query client, router, theme or i18n providers a store needs outside it.
 
+**Transitions stop at the store.** An action called inside `startTransition` makes the store's render a transition, but its consumers update in a regular commit afterwards. Transitions around component state, such as a param change with `useStoreSuspense`, work as usual. See [Suspense](/guide/suspense#transitions).
+
 **Client only.** Store hooks never run on the server. Server HTML shows `initialState`. See [Server-side rendering](/guide/ssr).
 
 **`getStore` is global-scope only.** Instances inside a `StateScopeProvider` are reachable from components through `useCtxState`, not from module-level code.
@@ -36,6 +38,10 @@ The store hook has not run yet; stores are lazy. Read with `??` or `?.`, or pass
 - It spreads or enumerates the proxy, which subscribes to every key. A warning is logged for this.
 - Its store returns a fresh object or array on every render for some key, so `Object.is` sees a change. Memoize with `useMemo` inside the hook.
 - StrictMode doubles renders in development.
+
+### Two stores return the same state
+
+They probably share a name. A store's name is its identity: two `createStore` calls with the same name share one instance, and only one of the hooks runs. A development error is logged when that happens.
 
 ### Can a store read another store?
 
