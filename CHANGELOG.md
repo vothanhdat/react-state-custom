@@ -11,11 +11,13 @@ All notable changes to this project are documented here.
 - Hydration no longer mismatches when a store has already published on the client. Consumers read the live store data during hydration, so an island, or a Suspense boundary of a streamed page, hydrating after the store had run for an earlier one rendered the live values against server HTML made from `initialState`, and React threw away the server HTML ("Hydration failed"). While hydrating, `useStore`, selectors and `useStoreSuspense` now render the store's `initialState` when the live data differs from it, then update. A component hydrating before its store ran renders no extra time.
 - `getStore().subscribe` and `subscribeAll` listeners no longer see half-applied updates. A store published its keys one by one and notified after each, so a listener saw `price` new next to `total` still old. A store now publishes all changed keys of a render first, then notifies once per key with the complete state.
 - `useStoreSuspense` suspends only on first load. After it had resolved, the `isReady` predicate was re-checked only when a key the component read changed at the same time: a refetch setting `isLoading` alone left the content, the same refetch together with new data replaced it with the fallback. Once a component has rendered an instance ready it now never suspends on it again; new params still do.
+- TypeScript: store state and params can be declared with `interface`. The constraints were `Record<string, unknown>` and `Record<string, primitive>`, which interfaces do not satisfy (they have no index signature), so `createStore('x', (p: Params): State => ...)` failed with "Property ... is missing in type 'ParamsToIdRecord'". State is now any object type, and params any object type whose values are primitives (`StoreParamsShape`); object-valued params are still rejected.
 - The published package is no longer compiled by the React Compiler. Since 1.0.27 the library build ran `babel-plugin-react-compiler`, which was meant for the examples only, so the package differed from the tested source. In 1.2.2 to 1.2.6 the compiler cached the `useStore()` proxy, undoing the 1.2.2 fix: in an app using the React Compiler, a helper called with the whole store object (`describe(store)`) kept its cached result and stopped updating. Tests and benchmarks always ran on the uncompiled source, which is now what ships.
 
 ### Added
 - A development error when a second `AutoRootCtx` mounts in the same scope.
 - A development error when the `Wrapper` passed to `AutoRootCtx` or `StateScopeProvider` changes identity, which happens when it is written inline: every store under it is remounted and loses its state. Likewise for a `debugging` renderer, which makes every store hook run again. The error handling guide and API pages showed the inline form; they now define the Wrapper at module scope.
+- Types `StoreParamsShape<Params>` and `ParamValue`.
 - `Context.publishMany(entries, removed?)`: publish several keys as one update.
 - `useQuickSubscribe(ctx, serverData?)` and `useDataSelector(ctx, selector, isEqual?, serverData?)`: what the server rendered, used while hydrating.
 - `getStore(params).error`: what the store hook threw while the instance is disabled, `undefined` while it runs. `Context` gains `failed`, `error`, `fail()`, `recover()` and `onStatus()`.
@@ -26,6 +28,7 @@ All notable changes to this project are documented here.
 ### Changed
 - `preState` is read once when the instance mounts instead of being re-copied on every render.
 - A store function wrapper forwards to the implementation of the latest committed render, not the latest render: a render React discards no longer leaks its closures into the wrapper.
+- CI type-checks the library, the new type-level tests (`tests/types`) and the benchmarks (`yarn typecheck`); it ran no type check before.
 - CI builds the package and runs the React Compiler tests against `dist/` (`yarn test:dist`), and fails if the build contains compiler output. The publish workflow does the same before publishing.
 
 ## [1.2.6] - 2026-10-03

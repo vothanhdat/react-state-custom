@@ -1,7 +1,7 @@
 import React, { Suspense, useEffect, useCallback, useRef, useId, useContext, memo, useSyncExternalStore } from "react"
 import { useDataContext, useDataSelector, acquireContext, getContext, isServer, StateScopeContext, useIsomorphicLayoutEffect, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
-import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
+import { paramsToId, type ParamsToIdRecord, type StoreParamsShape } from "./paramsToId"
 import { useQuickSubscribe } from "./useQuickSubscribe"
 import { isProduction, formatState } from "./utils"
 
@@ -360,7 +360,7 @@ export const AutoRootCtx: React.FC<{
 }
 
 /** Options accepted by createStore / createAutoCtx (a bare number is still accepted as `timeToClean`). */
-export type StoreOptions<U extends ParamsToIdRecord, V extends Record<string, unknown>, I extends Partial<V> = {}> = {
+export type StoreOptions<U extends StoreParamsShape<U>, V extends object, I extends Partial<V> = {}> = {
   /** Milliseconds to keep the store alive after its last consumer unmounts. Default 0. */
   timeToClean?: number
   /** Component rendered next to the store root, once per store instance (side effects, logging, ...). */
@@ -379,7 +379,7 @@ export type StoreParams<U> = {} extends U ? [params?: U] : [params: U]
 /** What `useStore` returns: every key optional, except those guaranteed by `initialState`. */
 export type StoreState<V, I> = { [P in keyof V]?: V[P] | undefined } & { [P in keyof I & keyof V]: V[P] }
 
-const normalizeOptions = <U extends ParamsToIdRecord, V extends Record<string, unknown>, I extends Partial<V>>(
+const normalizeOptions = <U extends StoreParamsShape<U>, V extends object, I extends Partial<V>>(
   timeToCleanOrOptions: number | StoreOptions<U, V, I> | undefined,
   AttatchedComponent: React.ComponentType<U> | undefined
 ): Required<Pick<StoreOptions<U, V, I>, "timeToClean">> & Omit<StoreOptions<U, V, I>, "timeToClean"> => {
@@ -435,7 +435,7 @@ export type StoreHandle<V, I> = {
  * ```
  * AutoRootCtx will subscribe/unsubscribe instances per unique params and render the appropriate Root under the hood.
  */
-export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<string, unknown>, I extends Partial<V> = {}>(
+export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, I extends Partial<V> = {}>(
   { useRootState, getCtxName, name }: ReturnType<typeof createRootCtx<U, V>>,
   timeToCleanOrOptions: number | StoreOptions<U, V, I> = 0,
   AttatchedComponent: React.ComponentType<U> | undefined = undefined
@@ -725,7 +725,7 @@ const waitUntilReady = <V, I>(
  * ```
  * The third argument may be a bare number (`timeToClean`) for backwards compatibility.
  */
-export const createStore = <U extends ParamsToIdRecord, V extends Record<string, unknown>, I extends Partial<V> = {}>(
+export const createStore = <U extends StoreParamsShape<U>, V extends object, I extends Partial<V> = {}>(
   name: string,
   useFn: (params: U, preState: Partial<V>) => V,
   timeToCleanOrOptions: number | StoreOptions<U, V, I> = 0,

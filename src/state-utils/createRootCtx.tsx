@@ -1,6 +1,6 @@
 import { useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useDataContext, StateScopeContext, type Context, useIsomorphicLayoutEffect, functionSources, selectorScope, type FunctionSource } from "./ctx"
-import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
+import { paramsToId, type ParamsToIdRecord, type StoreParamsShape } from "./paramsToId"
 import { DependencyTracker } from "./utils"
 
 type StableFn = FunctionSource & { stable: Function }
@@ -120,9 +120,9 @@ const createStableFn = (key: string, value: Function, wrappers: Map<string, Stab
  * - Prefer stable, primitive props to avoid collisions; if you need automation, pair with `createAutoCtx` and
  *   mount a single <AutoRootCtx Wrapper={ErrorBoundary} /> at the app root so you don't manually mount `Root`.
  */
-export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<string, unknown>>(name: string, useFn: (e: U, preState: Partial<V>) => V) => {
+export const createRootCtx = <U extends StoreParamsShape<U>, V extends object>(name: string, useFn: (e: U, preState: Partial<V>) => V) => {
 
-  const getCtxName = (e: U) => [name, paramsToId(e)]
+  const getCtxName = (e: U) => [name, paramsToId(e as ParamsToIdRecord)]
     .filter(Boolean)
     .join("?");
 
@@ -145,7 +145,7 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
     }
     const stack = useMemo(() => new Error().stack, [])
 
-    usePublish(ctx, rawState)
+    usePublish(ctx, rawState as Record<string, unknown>)
 
     // Declared after usePublish so it runs after the first publish: the context is
     // "ready" once consumers can see real values instead of initialState (see useStoreSuspense).

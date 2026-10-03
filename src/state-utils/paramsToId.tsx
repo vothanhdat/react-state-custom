@@ -1,6 +1,13 @@
 
-export type ParamsToIdRecord = Record<string, string | number | bigint | boolean | null | undefined>
+/** A value store identity can serialize. */
+export type ParamValue = string | number | bigint | boolean | null | undefined
+export type ParamsToIdRecord = Record<string, ParamValue>
 export type ParamsToIdInput = ParamsToIdRecord | undefined
+/**
+ * The constraint on a store's params: an object type whose values are all `ParamValue`s. Written
+ * over `keyof U` so that interfaces qualify; `Record<string, ...>` would need an index signature.
+ */
+export type StoreParamsShape<U> = { [K in keyof U]: ParamValue }
 
 /** A string that would print the same as a number, bigint, boolean or null. */
 const looksLikeLiteral = (s: string) =>

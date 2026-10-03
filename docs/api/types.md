@@ -44,11 +44,21 @@ type StoreState<State, Initial> =
   { [K in keyof State]?: State[K] } & { [K in keyof Initial & keyof State]: State[K] }
 ```
 
-## `ParamsToIdRecord` / `ParamsToIdInput`
+## `StoreParamsShape` / `ParamValue`
 
-Constraint for store parameters. All values must be primitives so the identity is deterministic. `ParamsToIdInput` additionally allows `undefined` for the whole object.
+Constraint for store parameters: every value must be a primitive so the identity is deterministic. It is written over the keys of the params type, so an `interface` qualifies as well as a `type`.
 
 ```ts
-type ParamsToIdRecord = Record<string, string | number | bigint | boolean | null | undefined>
+type ParamValue = string | number | bigint | boolean | null | undefined
+type StoreParamsShape<Params> = { [K in keyof Params]: ParamValue }
+// createStore<Params extends StoreParamsShape<Params>, State extends object, ...>
+```
+
+## `ParamsToIdRecord` / `ParamsToIdInput`
+
+What `paramsToId` accepts. `ParamsToIdInput` additionally allows `undefined` for the whole object.
+
+```ts
+type ParamsToIdRecord = Record<string, ParamValue>
 type ParamsToIdInput = ParamsToIdRecord | undefined
 ```
