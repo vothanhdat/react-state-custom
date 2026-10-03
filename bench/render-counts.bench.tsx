@@ -5,6 +5,8 @@ import { derivedAdapters, KEYS } from './derived'
 import { countUpdate, mount, unmount } from './harness'
 import { linesOfCode } from './loc'
 import { topologyAdapters, MIDS } from './topology'
+import { shopAdapters, CONSUMERS as SHOP_CONSUMERS } from './shop'
+import { collectionAdapters, ITEMS } from './collection'
 
 const CONSUMERS = 1000
 
@@ -36,6 +38,14 @@ const report = () => {
     const unrelated = countUpdate(a.create, CONSUMERS, MIDS, w => w.update('unrelated', 1))
     return [a.name, cell(one), cell(all), cell(unrelated), String(linesOfCode('topology.tsx', exportName(a.name)))]
   })
+  const shop = shopAdapters.map(a => {
+    const cells = (['qty', 'vat', 'theme', 'discount'] as const).map(kind => cell(countUpdate(a.create, SHOP_CONSUMERS, SHOP_CONSUMERS, w => w.update(kind, 2))))
+    return [a.name, ...cells, String(linesOfCode('shop.tsx', exportName(a.name)))]
+  })
+  const collection = collectionAdapters.map(a => {
+    const { renders } = countUpdate(a.create, CONSUMERS, ITEMS, w => w.update(1))
+    return [a.name, String(renders), String(linesOfCode('collection.tsx', a.exportName))]
+  })
   console.log([
     `## flat: ${CONSUMERS} consumers over ${KEYS} keys, 1 key changed`,
     table(['library', 'consumer renders to mount', 'consumer renders per update', 'lines of code'], flat),
@@ -43,6 +53,10 @@ const report = () => {
     table(['library', 'change one key', 'move 1 between two keys', 'lines of code'], derived),
     `## topology: root -> ${MIDS} derived -> ${CONSUMERS} consumers (renders / derive calls)`,
     table(['library', 'one threshold', 'all thresholds', 'unrelated root key', 'lines of code'], topology),
+    `## shop: config -> items -> lines -> checkouts -> summary, ${SHOP_CONSUMERS} consumers (renders / derive calls)`,
+    table(['library', 'qty of one item', 'vat', 'theme', 'discount', 'lines of code'], shop),
+    `## collection: ${ITEMS} items, ${CONSUMERS} consumers, one item changed`,
+    table(['library', 'consumer renders per update', 'lines of code'], collection),
   ].join('\n\n'))
 }
 

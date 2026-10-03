@@ -21,7 +21,7 @@ yarn bench
 - "Lines of code" is counted by the report itself: non-blank, non-comment lines of each adapter,
   including the bench-only plumbing (render counters, the out-of-React `update`).
 
-Three scenarios:
+Five scenarios:
 
 - **flat**: one store with 10 numeric keys, 100 consumers per key. Change one key.
 - **derived**: a base store with 10 keys and a summary (`sum` of all 10) that every consumer reads.
@@ -29,6 +29,15 @@ Three scenarios:
 - **topology**: a root config store, 10 derived stores each reading its own threshold from the root,
   100 consumers per derived store. Change one threshold, change every threshold, or change a root
   key no derived store reads.
+- **shop**: a four-layer graph. `config { vat, discount, theme }` and `items { [id]: { price, qty } }`
+  (100 items) feed 100 `line` stores (`price × qty × (1 − discount)`), 10 `checkout` stores (10 lines
+  each, `× (1 + vat)`) and one `summary`. 500 consumers read a line, 300 a checkout, 200 the summary.
+  Change one item's qty, `vat`, `theme` (nothing derived reads it) or `discount`.
+  Zustand keeps the derived values in the store and recomputes them on every write (the usual pattern;
+  computing them in selectors instead would run the whole chain in every consumer). Jotai gets one atom
+  per config key and per item plus derived atoms per line, checkout and the summary.
+- **collection**: 200 numeric items, 5 consumers per item, one item changed. `react-state-custom` appears
+  twice: items spread as top-level store keys (the recommended shape), and the whole array under one key.
 
 ## Consumer renders and derive calls
 
@@ -56,6 +65,21 @@ computed: the summary or mid store hook, the derived atom, the selector, or the 
 | jotai | 100 / 10 | 1000 / 10 | 0 / 10 | 15 |
 | React context | 1000 / 1000 | 1000 / 1000 | 1000 / 0 | 25 |
 
+| shop (renders / derive calls) | qty of one item | vat | theme | discount | lines of code |
+|---|---|---|---|---|---|
+| react-state-custom | 235 / 3 | 500 / 11 | 0 / 0 | 1000 / 111 | 28 |
+| zustand | 235 / 111 | 500 / 111 | 0 / 111 | 1000 / 111 | 21 |
+| jotai | 235 / 3 | 500 / 11 | 0 / 0 | 1000 / 111 | 26 |
+| React context | 1000 / 111 | 1000 / 111 | 1000 / 111 | 1000 / 111 | 26 |
+
+| collection | consumer renders per update | lines of code |
+|---|---|---|
+| react-state-custom | 5 | 18 |
+| react-state-custom, array in one key | 1000 | 17 |
+| zustand | 5 | 14 |
+| jotai | 5 | 15 |
+| React context | 1000 | 19 |
+
 `react-state-custom` renders each consumer twice on mount: once to ask for the store, once when the store
 hook has published. Pass `initialState` to render once when the seed already matches (see
 `tests/render-count.test.tsx`; the derived and topology adapters do). Per update, selective subscriptions
@@ -73,6 +97,16 @@ The "unrelated root key" column shows what the proxy buys inside stores: a deriv
 the 10 derived atoms (they depend on the whole root atom; splitting the root into one atom per key would
 avoid it) and Zustand runs 1000 selectors; both then stop because the values are unchanged.
 
+The shop graph shows the same thing at depth. A store re-runs only when a key it read changes, so one
+qty change recomputes one line, one checkout and the summary (3 derive calls), `vat` skips the 100 lines,
+and `theme` does nothing. Jotai matches this exactly once the state is split into one atom per
+independently changing value (config keys, items), which is also what makes its adapter the same size as
+ours; Zustand's precomputed derivations recompute all 111 values on every write, `theme` included.
+
+The collection table is the limitation and its remedy side by side: the proxy tracks top-level keys, so
+an array under one key re-renders every reader on any change, while the same items spread as keys
+re-render only the five readers of the changed item, like a Zustand selector or a Jotai atom per item.
+
 ## Time per operation (mean, ms)
 
 | scenario | react-state-custom | zustand | jotai | React context |
@@ -85,6 +119,12 @@ avoid it) and Zustand runs 1000 selectors; both then stop because the values are
 | topology: one threshold (100 affected) | 0.81 | 0.47 | 0.40 | 1.60 |
 | topology: all thresholds (1000 affected) | 4.80 | 1.95 | 2.14 | 2.00 |
 | topology: unrelated root key (none affected) | 0.018 | 0.019 | 0.014 | 1.55 |
+| shop: qty of one item (235 affected) | 1.73 | 0.71 | 0.63 | 1.59 |
+| shop: vat (500 affected) | 2.96 | 1.08 | 1.33 | 1.60 |
+| shop: theme (none affected) | 0.051 | 0.036 | 0.0006 | 1.46 |
+| shop: discount (1000 affected) | 6.42 | 2.31 | 2.51 | 1.74 |
+| collection: one of 200 items, 5 of 1000 consumers affected | 0.30 | 0.25 | 0.19 | 1.67 |
+| collection: same, array under one key (1000 affected) | 4.16 | | | |
 
 ## Reading the numbers
 
@@ -98,6 +138,10 @@ avoid it) and Zustand runs 1000 selectors; both then stop because the values are
   recompute in every consumer, and when the derived value does not change we are 12x faster than Zustand
   (0.04 vs 0.56 ms): one store re-render instead of 1000 selector runs. Jotai, whose atom graph is built
   for exactly this, stays fastest in every scenario.
+- **Every derived layer is one more React commit.** In the shop graph a qty change travels items → line →
+  checkout → summary → consumers, and each store on the way renders and publishes in its own commit, so
+  the gap to Zustand and Jotai grows to about 2.5x (1.73 vs 0.71 and 0.63 ms) even though the work done
+  is the same 3 derivations. Zustand and Jotai propagate through plain objects and commit once.
 - **Updates nothing reads are free** in all three subscription libraries (under 0.02 ms); only the
   context baseline re-renders its thousand consumers.
 - **The context baseline wins when every consumer is affected anyway**: one provider `setState` re-renders
@@ -105,7 +149,8 @@ avoid it) and Zustand runs 1000 selectors; both then stop because the values are
   It loses by 10x whenever only some consumers care.
 - **Lines of code favour Zustand for a bag of values**: `createStore(() => init)` plus a one-line selector
   is hard to beat. The hook form pays off when a store has effects, async work or composes other stores,
-  which these scenarios do not exercise; the topology adapter shows the shape (a store reading another
-  store with one hook call) but not the payoff.
+  which these scenarios do not exercise. In the shop graph, where every layer is a derivation, the three
+  libraries land within a few lines of each other (28 / 21 / 26): one `createStore` per layer against one
+  `atom` per layer, with Zustand's single store and hand-written recomputation in between.
 - At these sizes every operation is well under one frame. Choose on ergonomics unless you update
   thousands of subscribed components per frame.
