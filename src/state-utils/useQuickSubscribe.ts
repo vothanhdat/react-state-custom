@@ -4,6 +4,11 @@ import { isProduction } from "./utils";
 
 type Probe = { wrapper: Function, latest: unknown, calledInRender: boolean, fn: Function }
 
+/** What one render read: each key with the value it saw, and the store functions it called with the implementation they ran. */
+type Reads<D> = { seen: Map<keyof D, unknown>, called: Map<keyof D, unknown> }
+
+const createReads = <D>(): Reads<D> => ({ seen: new Map(), called: new Map() })
+
 /** Server snapshot meaning "render what the server rendered": the live data has moved on since. */
 const FROM_SERVER = -1
 
@@ -39,9 +44,12 @@ const refuseWrite = (_target: unknown, key: PropertyKey): never => {
  * Per-(component, context) tracker behind useQuickSubscribe.
  *
  * - During render the proxy records every key that is read, together with the value seen.
- * - After commit, key subscriptions are diffed against the keys read in the latest render.
- * - A change on any tracked key (by `Object.is`) bumps `version`, which is the
+ * - After commit, those reads become the committed ones and key subscriptions are diffed against them.
+ * - A change on any committed key (by `Object.is`) bumps `version`, which is the
  *   `useSyncExternalStore` snapshot, so React re-renders synchronously and consistently.
+ * - Changes are checked against the render on screen, not the latest one: React can render and then
+ *   discard (a transition that suspends keeps the previous UI on screen while it waits), and a
+ *   discarded render must not change what the UI on screen is subscribed to.
  * - While hydrating, reads come from `serverData` (what the server rendered) when the live data has
  *   already moved on, e.g. a store that ran for an earlier island or Suspense boundary.
  */
@@ -54,11 +62,13 @@ function createTracker<D>(ctx: Context<D> | undefined) {
   let serverSnapshot: number | undefined
 
   const listeners = new Set<() => void>()
-  const readKeys = new Set<keyof D>()
-  const seen = new Map<keyof D, unknown>()
+  /** What the latest render read. It becomes `committed` only if that render commits. */
+  let reading = createReads<D>()
+  /** What the render on screen read: the keys subscribed to and checked for changes. */
+  let committed = createReads<D>()
+  /** A render has started since the last commit, so `reading` holds the reads of the render being committed. */
+  let rendered = false
   const subs = new Map<keyof D, () => void>()
-  /** Store functions called during the latest render, with the implementation they ran. */
-  const called = new Map<keyof D, unknown>()
   const probes = new Map<keyof D, Probe>()
 
   const data = () => (ctx?.data ?? {}) as Partial<D>
@@ -86,7 +96,7 @@ function createTracker<D>(ctx: Context<D> | undefined) {
       fn: function (this: unknown, ...args: unknown[]) {
         if (open) {
           created.calledInRender = true
-          called.set(key, latestOf(wrapper))
+          reading.called.set(key, latestOf(wrapper))
           functionSources.get(wrapper)!.calledInRender = true
         }
         return wrapper.apply(this, args)
@@ -115,8 +125,7 @@ function createTracker<D>(ctx: Context<D> | undefined) {
         }
         return out
       }
-      readKeys.add(key)
-      seen.set(key, value)
+      reading.seen.set(key, value)
       return out
     },
     ownKeys(target) {
@@ -139,10 +148,10 @@ function createTracker<D>(ctx: Context<D> | undefined) {
 
   const hasChanged = () => {
     const current = data()
-    for (const key of readKeys) {
-      if (!Object.is(seen.get(key), current[key])) return true
+    for (const [key, value] of committed.seen) {
+      if (!Object.is(value, current[key])) return true
     }
-    for (const [key, latest] of called) {
+    for (const [key, latest] of committed.called) {
       if (latestOf(current[key]) !== latest) return true
     }
     return false
@@ -157,24 +166,35 @@ function createTracker<D>(ctx: Context<D> | undefined) {
 
   return {
     view,
-    /** Called at the start of every render: reopen the getter and forget last render's reads. */
+    /** Called at the start of every render: reopen the getter and start recording this render's reads. */
     beginRender(snapshot: number) {
       rendering = snapshot === FROM_SERVER && serverData ? serverData() : undefined
       open = true
-      readKeys.clear()
-      called.clear()
+      rendered = true
+      reading.seen.clear()
+      reading.called.clear()
     },
-    /** Called after every commit: close the getter and sync key subscriptions to what was read. */
+    /**
+     * Called after every commit: close the getter, make the committed render's reads current and sync
+     * key subscriptions to them. When effects re-run without a new render (StrictMode on mount), it
+     * resubscribes what is on screen after `dispose`.
+     */
     commit() {
       open = false
       rendering = undefined
+      if (rendered) {
+        rendered = false
+        const shown = reading
+        reading = committed
+        committed = shown
+      }
       if (ctx) {
-        for (const key of readKeys) {
+        for (const key of committed.seen.keys()) {
           if (!subs.has(key)) subs.set(key, ctx.subscribe(key, check))
         }
       }
       for (const [key, unsub] of subs) {
-        if (!readKeys.has(key)) {
+        if (!committed.seen.has(key)) {
           unsub()
           subs.delete(key)
         }
