@@ -6,8 +6,9 @@ import { createStore, AutoRootCtx, StateScopeProvider } from '../src/state-utils
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
 afterEach(async () => {
   vi.restoreAllMocks()
-  // waitUntilReady drops its imperative retain 100 ms after resolving. Let that timer fire while the
-  // test environment is still up; under coverage it otherwise outlives the jsdom window and throws.
+  // A retain taken while suspended is released when the component commits (at once under act()), or by
+  // a 1 s safety timer when it never does. Let pending store work settle while the environment is up;
+  // under coverage a late AutoRootCtx update otherwise outlives the jsdom window and throws.
   await act(() => new Promise(resolve => setTimeout(resolve, 150)))
 })
 

@@ -425,6 +425,11 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
       }
       throw waitUntilReady(ctx, isReady, () => retainStore(scopeId, (params ?? {}) as U))
     }
+    // React may wait a while before committing a resolved boundary (it throttles reveals after a
+    // fallback). Keep the retain taken while suspended until then, and drop it once this component has
+    // committed: useCtxState's effect, declared above, has subscribed by the time this one runs.
+    extendHeldRetain(ctx)
+    useEffect(() => releaseHeldRetain(ctx), [ctx])
     return useQuickSubscribe(ctx) as V
   }
 
@@ -446,8 +451,37 @@ type PendingReady<V, I> = {
 /** One pending wait per context, shared by every render that suspends on it (StrictMode, retries). */
 const pendingReady = new WeakMap<Context<any>, PendingReady<any, any>>()
 
-/** How long the imperative retain outlives the resolved promise, giving the component time to mount and subscribe itself. */
-const RETAIN_AFTER_READY = 100
+/**
+ * Imperative retains taken while a component was suspended, kept after the promise resolves until a
+ * component reading the store commits. React throttles revealing a resolved Suspense boundary (300 ms
+ * in React 19, 500 ms in React 18), so a short fixed delay could tear the store down before anyone
+ * subscribed, and the commit would then mount a fresh instance and suspend again.
+ */
+const heldRetains = new WeakMap<Context<any>, { release: () => void, timer: ReturnType<typeof setTimeout> }>()
+
+/** Safety net for a resolved render that never commits: release this long after its last render. */
+const RETAIN_UNTIL_COMMIT = 1000
+
+const releaseHeldRetain = (ctx: Context<any>) => {
+  const held = heldRetains.get(ctx)
+  if (!held) return
+  heldRetains.delete(ctx)
+  clearTimeout(held.timer)
+  held.release()
+}
+
+const holdRetain = (ctx: Context<any>, release: () => void) => {
+  releaseHeldRetain(ctx)
+  heldRetains.set(ctx, { release, timer: setTimeout(() => releaseHeldRetain(ctx), RETAIN_UNTIL_COMMIT) })
+}
+
+/** Restart the safety timer: called from each ready render, which proves the boundary is still trying to commit. */
+const extendHeldRetain = (ctx: Context<any>) => {
+  const held = heldRetains.get(ctx)
+  if (!held) return
+  clearTimeout(held.timer)
+  held.timer = setTimeout(() => releaseHeldRetain(ctx), RETAIN_UNTIL_COMMIT)
+}
 
 /**
  * Returns a promise that resolves when `ctx` is ready (see useStoreSuspense). The store is retained
@@ -481,7 +515,7 @@ const waitUntilReady = <V, I>(
       unsubReady()
       pendingReady.delete(ctx)
       resolve()
-      if (release) setTimeout(release, RETAIN_AFTER_READY)
+      if (release) holdRetain(ctx, release)
     }
     queueMicrotask(() => {
       if (done) return
