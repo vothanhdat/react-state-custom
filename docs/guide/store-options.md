@@ -81,7 +81,7 @@ export const { useStore: useRoom } = createStore('room', ({ roomId }: { roomId: 
 })
 ```
 
-Server data fetched through a query library can stay in that library's cache instead: a store mounted again starts from the cached response while it refetches.
+The Live Rooms example of the [demo](https://vothanhdat.github.io/react-state-custom/) runs this split. Server data fetched through a query library can stay in that library's cache instead: a store mounted again starts from the cached response while it refetches.
 
 ## `AttachedComponent`
 

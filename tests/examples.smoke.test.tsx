@@ -10,8 +10,9 @@ import OutsideApp from '../src/examples/outside/app'
 import AsyncApp from '../src/examples/async/app'
 import ComposeApp from '../src/examples/compose/app'
 import ScopeApp from '../src/examples/scope/app'
+import RoomsApp from '../src/examples/rooms/app'
 
-const apps = { CounterApp, TodoApp, SelectorsApp, TimerApp, OutsideApp, AsyncApp, ComposeApp, ScopeApp }
+const apps = { CounterApp, TodoApp, SelectorsApp, TimerApp, OutsideApp, AsyncApp, ComposeApp, ScopeApp, RoomsApp }
 
 describe('demo examples', () => {
   afterEach(() => {
@@ -98,5 +99,28 @@ describe('demo examples', () => {
     await act(async () => { screen.getAllByRole('button', { name: 'Add line' })[0].click() })
     expect(screen.getByText('Grand total: $3960.00')).toBeTruthy()  // + 100 * 1.2
     expect(screen.getByText(/5 lines/)).toBeTruthy()
+  })
+
+  it('rooms example: one connection per room, closed with the room, messages kept for a reopen', async () => {
+    vi.useFakeTimers()
+    try {
+      render(<><AutoRootCtx /><RoomsApp /></>)
+      await act(async () => { await vi.advanceTimersByTimeAsync(400) })
+      const log = () => screen.getByText('Connections').parentElement!.textContent!
+      expect(log().match(/#general open/g)).toHaveLength(1) // three widgets, one connection
+      expect(screen.getByText('🟢 connected')).toBeTruthy()
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(2000) }) // one message from the server
+      expect(screen.getByRole('button', { name: /#general\s*\(1\)/ })).toBeTruthy() // the tab's unread badge
+
+      expect(log()).not.toMatch(/closed/)
+      await act(async () => { screen.getByRole('button', { name: 'Close' }).click() })
+      expect(log()).toMatch(/#general closed/)
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000) }) // closed: nothing arrives
+      await act(async () => { screen.getByRole('button', { name: '#general' }).click() })
+      expect(screen.getAllByRole('listitem')).toHaveLength(1) // kept by the history store, shown at once
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

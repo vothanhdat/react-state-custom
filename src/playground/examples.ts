@@ -9,6 +9,7 @@ import OutsideApp from '../examples/outside/app'
 import AsyncApp from '../examples/async/app'
 import ComposeApp from '../examples/compose/app'
 import ScopeApp from '../examples/scope/app'
+import RoomsApp from '../examples/rooms/app'
 
 // Example sources (shown in the code pane and sent to StackBlitz)
 import counterState from "../examples/counter/state.ts?raw"
@@ -35,6 +36,9 @@ import composeApp from "../examples/compose/app.tsx?raw"
 import scopeState from "../examples/scope/state.ts?raw"
 import scopeView from "../examples/scope/view.tsx?raw"
 import scopeApp from "../examples/scope/app.tsx?raw"
+import roomsState from "../examples/rooms/state.ts?raw"
+import roomsView from "../examples/rooms/view.tsx?raw"
+import roomsApp from "../examples/rooms/app.tsx?raw"
 
 const updateImport = (code: string) => {
     return code.replaceAll(
@@ -64,6 +68,15 @@ export const examples = {
         state: updateImport(counterState),
         view: updateImport(counterView),
         app: updateImport(counterApp),
+    },
+    rooms: {
+        App: RoomsApp,
+        label: '💬 Live Rooms',
+        title: 'Live Rooms',
+        description: 'One connection per room, shared by every widget that shows it: the tab badge, the status and the message list each call useRoom({ roomId }). Close a room and its connection closes at once, while its messages stay 30 s in a store of their own, so reopening it shows them right away. Watch the connection log and the dev tool.',
+        state: updateImport(roomsState),
+        view: updateImport(roomsView),
+        app: updateImport(roomsApp),
     },
     todo: {
         App: TodoApp,

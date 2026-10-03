@@ -53,4 +53,4 @@ An update takes two commits: the store renders and publishes, then its consumers
 - [Getting started](/guide/getting-started) walks through the four steps of a real app.
 - [How it works](/guide/how-it-works) explains the model in one page.
 - The [API reference](/api/create-store) documents every export.
-- The [live demo](https://vothanhdat.github.io/react-state-custom/) has editable examples: counter, todo list, selectors and Suspense, timer, outside React, async data, composed stores and scoped state.
+- The [live demo](https://vothanhdat.github.io/react-state-custom/) has editable examples: counter, live chat rooms, todo list, selectors and Suspense, timer, outside React, async data, composed stores and scoped state. Live Rooms shows the model best: one connection per room shared by several widgets, closed with the room, and messages kept in a store of their own.
