@@ -17,7 +17,8 @@ Each instance runs its own copy of the hook with its own state and effects, and 
 - **Params must be primitives**: `string`, `number`, `bigint`, `boolean`, `null` or `undefined`. Passing an object, array or function as a param throws, because they cannot be serialized into a stable identity.
 - **Key order does not matter.** `{ a: 1, b: 2 }` and `{ b: 2, a: 1 }` are the same instance.
 - **Values are URI-encoded.** `=`, `&` and `?` inside a value cannot collide with another params object. The identity of `{ listId: 'work' }` under the name `todos` is `todos?listId=work`.
-- **`undefined` is a value, not an absence.** `{ listId: 'work', filter: undefined }` serializes `filter=undefined` and is a different instance from `{ listId: 'work' }`. Omit a key instead of passing `undefined` when you mean the same instance.
+- **`undefined` means absent.** `{ listId: 'work', filter: undefined }` and `{ listId: 'work' }` are the same instance, so optional params can be passed straight through.
+- **Types stay apart.** `{ id: 1 }` and `{ id: '1' }` are different instances: a string that reads like a number, bigint, boolean or `null` is quoted in the identity (`id='1'`), and a bigint ends in `n`.
 
 ## Stores without params
 

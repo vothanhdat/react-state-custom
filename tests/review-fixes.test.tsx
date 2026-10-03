@@ -135,6 +135,42 @@ describe('paramsToId escaping', () => {
   })
 })
 
+describe('paramsToId identity', () => {
+  it('skips undefined values, so an omitted optional param is the same instance', () => {
+    expect(paramsToId({ id: 'a', page: undefined })).toBe(paramsToId({ id: 'a' }))
+    expect(paramsToId({ page: undefined })).toBe('')
+  })
+
+  it('keeps strings apart from numbers, bigints, booleans and null', () => {
+    const ids = [
+      { id: 1 }, { id: '1' }, { id: 1n }, { id: '1n' },
+      { id: true }, { id: 'true' }, { id: null }, { id: 'null' },
+      { id: NaN }, { id: 'NaN' }, { id: "'1" },
+    ].map(p => paramsToId(p))
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('leaves ordinary ids readable', () => {
+    expect(paramsToId({ id: 42, user: 'john' })).toBe('id=42&user=john')
+    expect(paramsToId({ id: '42' })).toBe("id='42'")
+    expect(paramsToId({ big: 10n })).toBe('big=10n')
+  })
+
+  it('shares one instance between a caller passing an undefined param and one omitting it', async () => {
+    let mounts = 0
+    const { useStore } = createStore('params-undefined', ({ id }: { id: string, page?: number }) => {
+      useState(() => { mounts++ })
+      return { id }
+    })
+    const A = () => <i>{useStore({ id: 'a' }).id}</i>
+    const B = () => <b>{useStore({ id: 'a', page: undefined }).id}</b>
+    render(<><AutoRootCtx /><A /><B /></>)
+    await tick()
+    // StrictMode runs the useState initializer twice per mount
+    expect(mounts).toBe(2)
+  })
+})
+
 describe('missing AutoRootCtx', () => {
   it('logs a console.error after a grace period instead of failing silently', async () => {
     const err = vi.spyOn(console, 'error').mockImplementation(() => {})

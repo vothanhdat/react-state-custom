@@ -115,10 +115,11 @@ The proxy is a new object on every render, over one subscription tracker per com
 
 ## `paramsToId`
 
-Serializes a params object into the deterministic id used in store names: sorted keys, URI-encoded keys and values, joined with `&`. Throws for object or function values.
+Serializes a params object into the deterministic id used in store names: sorted keys, URI-encoded keys and values, joined with `&`. Keys whose value is `undefined` are left out. A string that reads like a number, bigint, boolean or `null` is quoted and a bigint ends in `n`, so values of different types never share an id. Throws for object or function values.
 
 ```ts
-paramsToId({ b: 2, a: 'x y' }) // "a=x%20y&b=2"
+paramsToId({ b: 2, a: 'x y' })          // "a=x%20y&b=2"
+paramsToId({ id: '2', page: undefined }) // "id='2'"
 ```
 
 ## `formatState`
