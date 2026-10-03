@@ -40,7 +40,7 @@ const report = () => {
   })
   const shop = shopAdapters.map(a => {
     const cells = (['qty', 'vat', 'theme', 'discount'] as const).map(kind => cell(countUpdate(a.create, SHOP_CONSUMERS, SHOP_CONSUMERS, w => w.update(kind, 2))))
-    return [a.name, ...cells, String(codeTokens('shop.tsx', exportName(a.name)))]
+    return [a.name, ...cells, String(codeTokens('shop.tsx', a.exportName))]
   })
   const collection = collectionAdapters.map(a => {
     const { renders } = countUpdate(a.create, CONSUMERS, ITEMS, w => w.update(1))

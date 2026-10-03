@@ -20,7 +20,7 @@ export const GROUPS = 10
 export const CONSUMERS = 1000
 export type ShopUpdate = 'qty' | 'vat' | 'theme' | 'discount'
 export type ShopWorld = World & { update(kind: ShopUpdate, tick: number): void }
-export type ShopAdapter = { name: string, create(): ShopWorld }
+export type ShopAdapter = { name: string, exportName: string, create(): ShopWorld }
 
 type Config = { vat: number, discount: number, theme: string }
 type Item = { price: number, qty: number }
@@ -28,6 +28,7 @@ type Items = Record<string, Item>
 type Role = { kind: 'line', id: string } | { kind: 'checkout', g: number } | { kind: 'summary' }
 
 const itemId = (i: number) => `item${i}`
+const itemIds = Array.from({ length: ITEMS }, (_, i) => itemId(i))
 const groups = Array.from({ length: GROUPS }, (_, g) => g)
 const groupIds = (g: number) => Array.from({ length: ITEMS / GROUPS }, (_, j) => itemId(g * (ITEMS / GROUPS) + j))
 const initialConfig = (): Config => ({ vat: 0.1, discount: 0, theme: 'light' })
@@ -54,37 +55,55 @@ type Derived = ReturnType<typeof deriveAll>
 
 let worldId = 0
 
+/**
+ * Each layer is one store returning a flat object (lines keyed by item id, checkouts by group): a layer
+ * calls the hook of the layer below once and reads the keys it needs, consumers read one key. A layer
+ * re-runs only when a key it read changes and publishes only the keys whose value changed.
+ */
 export const reactStateCustom: ShopAdapter = {
   name: 'react-state-custom',
+  exportName: 'reactStateCustom',
   create() {
     const counters = { renders: 0, derives: 0 }
     const calc = calcFor(counters)
-    const config = createStore(`shop-config-${worldId++}`, () => {
+    const { useStore: useConfig, getStore: getConfig } = createStore(`shop-config-${worldId++}`, () => {
       const [state, setState] = useState(initialConfig)
       return { ...state, patch: (p: Partial<Config>) => setState(c => ({ ...c, ...p })) }
     }, { initialState: initialConfig() })
-    const items = createStore(`shop-items-${worldId++}`, () => {
+    const { useStore: useItems, getStore: getItems } = createStore(`shop-items-${worldId++}`, () => {
       const [state, setState] = useState(initialItems)
       const setQty = (id: string, qty: number) => setState(it => ({ ...it, [id]: { ...it[id], qty } }))
       return { ...state, setQty } as Items & { setQty: typeof setQty }
     }, { initialState: initialItems() })
-    const line = createStore(`shop-line-${worldId++}`, ({ id }: { id: string }) => ({ total: calc.line(items.useStore()[id], config.useStore().discount) }), { initialState: { total: 0 } })
-    const checkout = createStore(`shop-checkout-${worldId++}`, ({ g }: { g: number }) => ({ total: calc.checkout(groupIds(g).map(id => line.useStore({ id }).total), config.useStore().vat) }), { initialState: { total: 0 } })
-    const summary = createStore(`shop-summary-${worldId++}`, () => ({ grandTotal: calc.summary(groups.map(g => checkout.useStore({ g }).total)) }), { initialState: { grandTotal: 0 } })
-    const read = (role: Role) => role.kind === 'line' ? line.useStore({ id: role.id }).total : role.kind === 'checkout' ? checkout.useStore({ g: role.g }).total : summary.useStore().grandTotal
+    const { useStore: useLines } = createStore(`shop-lines-${worldId++}`, () => {
+      const items = useItems()
+      const { discount } = useConfig()
+      return Object.fromEntries(itemIds.map(id => [id, calc.line(items[id], discount)])) as Record<string, number>
+    }, { initialState: Object.fromEntries(itemIds.map(id => [id, 0])) })
+    const { useStore: useCheckouts } = createStore(`shop-checkouts-${worldId++}`, () => {
+      const lines = useLines()
+      const { vat } = useConfig()
+      return Object.fromEntries(groups.map(g => [g, calc.checkout(groupIds(g).map(id => lines[id]), vat)])) as Record<number, number>
+    }, { initialState: Object.fromEntries(groups.map(g => [g, 0])) })
+    const { useStore: useSummary } = createStore(`shop-summary-${worldId++}`, () => {
+      const checkouts = useCheckouts()
+      return { grandTotal: calc.summary(groups.map(g => checkouts[g])) }
+    }, { initialState: { grandTotal: 0 } })
+    const read = (role: Role) => role.kind === 'line' ? useLines()[role.id] : role.kind === 'checkout' ? useCheckouts()[role.g] : useSummary().grandTotal
     return {
       counters,
       Providers: ({ children }) => <><AutoRootCtx />{children}</>,
       Consumer: ({ k }) => { counters.renders++; return <i>{read(roleOf(k))}</i> },
       update: (kind, tick) => kind === 'qty'
-        ? items.getStore().get().setQty!(itemId(tick % ITEMS), tick)
-        : config.getStore().get().patch!(configPatch(kind, tick)),
+        ? getItems().get().setQty!(itemId(tick % ITEMS), tick)
+        : getConfig().get().patch!(configPatch(kind, tick)),
     }
   },
 }
 
 /** Derived values are kept in the store and recomputed by every write, the usual Zustand pattern. */
 export const zustand: ShopAdapter = {
+  exportName: 'zustand',
   name: 'zustand',
   create() {
     const counters = { renders: 0, derives: 0 }
@@ -108,6 +127,7 @@ export const zustand: ShopAdapter = {
 
 /** One atom per config key and per item, derived atoms per line, checkout and the summary. */
 export const jotai: ShopAdapter = {
+  exportName: 'jotai',
   name: 'jotai',
   create() {
     const counters = { renders: 0, derives: 0 }
@@ -136,6 +156,7 @@ export const jotai: ShopAdapter = {
 
 /** Baseline: config, items and everything derived from them in one context value. */
 export const reactContext: ShopAdapter = {
+  exportName: 'reactContext',
   name: 'React context',
   create() {
     const counters = { renders: 0, derives: 0 }

@@ -135,7 +135,7 @@ Measured with `yarn bench` (vitest + jsdom, React 19.2, no StrictMode; 1000 cons
 | derived sum changes, 1000 consumers (derive calls) | 4.49 (1) | 4.28 (4000) | 2.04 (1) | 3.14 (1000) |
 | derived sum unchanged, none affected | 0.044 | 0.56 | 0.002 | 2.73 |
 | root key changed that no derived store reads (derive calls) | 0.018 (0) | 0.019 (1000) | 0.014 (10) | 1.55 (0) |
-| shop graph, one item qty changed, 235 of 1000 affected (derive calls) | 1.73 (3) | 0.71 (111) | 0.63 (3) | 1.59 (111) |
+| shop graph, one item qty changed, 235 of 1000 affected (derive calls) | 1.61 (111) | 0.60 (111) | 0.62 (3) | 1.69 (111) |
 | mount + unmount 1000 consumers | 18.5 | 8.7 | 9.2 | 8.7 |
 
 Re-render selectivity matches Zustand and Jotai. A plain update costs about twice as much because a store is a hook in a headless component: the store renders and publishes first, then its consumers render. Derived values are computed once per update, where Zustand recomputes a selector in every consumer, and a store re-runs only when a key it actually read changes. Each derived layer costs one more commit, so deep graphs widen the gap. All of it stays well under a frame at these sizes.

@@ -31,9 +31,11 @@ Five scenarios:
   100 consumers per derived store. Change one threshold, change every threshold, or change a root
   key no derived store reads.
 - **shop**: a four-layer graph. `config { vat, discount, theme }` and `items { [id]: { price, qty } }`
-  (100 items) feed 100 `line` stores (`price × qty × (1 − discount)`), 10 `checkout` stores (10 lines
-  each, `× (1 + vat)`) and one `summary`. 500 consumers read a line, 300 a checkout, 200 the summary.
-  Change one item's qty, `vat`, `theme` (nothing derived reads it) or `discount`.
+  (100 items) feed 100 lines (`price × qty × (1 − discount)`), 10 checkouts (10 lines each, `× (1 + vat)`)
+  and one summary. 500 consumers read a line, 300 a checkout, 200 the summary. Change one item's qty,
+  `vat`, `theme` (nothing derived reads it) or `discount`.
+  `react-state-custom` has one store per layer returning a flat object (`lines` keyed by item id,
+  `checkouts` by group); each store calls the hook of the layer below once and reads the keys it needs.
   Zustand keeps the derived values in the store and recomputes them on every write (the usual pattern;
   computing them in selectors instead would run the whole chain in every consumer). Jotai gets one atom
   per config key and per item plus derived atoms per line, checkout and the summary.
@@ -68,10 +70,10 @@ computed: the summary or mid store hook, the derived atom, the selector, or the 
 
 | shop (renders / derive calls) | qty of one item | vat | theme | discount | tokens |
 |---|---|---|---|---|---|
-| react-state-custom | 235 / 3 | 500 / 11 | 0 / 0 | 1000 / 111 | 549 |
-| zustand | 235 / 111 | 500 / 111 | 0 / 111 | 1000 / 111 | 303 |
-| jotai | 235 / 3 | 500 / 11 | 0 / 0 | 1000 / 111 | 466 |
-| React context | 1000 / 111 | 1000 / 111 | 1000 / 111 | 1000 / 111 | 357 |
+| react-state-custom | 235 / 111 | 500 / 11 | 0 / 0 | 1000 / 111 | 616 |
+| zustand | 235 / 111 | 500 / 111 | 0 / 111 | 1000 / 111 | 307 |
+| jotai | 235 / 3 | 500 / 11 | 0 / 0 | 1000 / 111 | 470 |
+| React context | 1000 / 111 | 1000 / 111 | 1000 / 111 | 1000 / 111 | 361 |
 
 | collection | consumer renders per update | tokens |
 |---|---|---|
@@ -98,11 +100,13 @@ The "unrelated root key" column shows what the proxy buys inside stores: a deriv
 the 10 derived atoms (they depend on the whole root atom; splitting the root into one atom per key would
 avoid it) and Zustand runs 1000 selectors; both then stop because the values are unchanged.
 
-The shop graph shows the same thing at depth. A store re-runs only when a key it read changes, so one
-qty change recomputes one line, one checkout and the summary (3 derive calls), `vat` skips the 100 lines,
-and `theme` does nothing. Jotai matches this exactly once the state is split into one atom per
-independently changing value (config keys, items); Zustand's precomputed derivations recompute all 111
-values on every write, `theme` included.
+The shop graph shows the same thing at depth, with one difference. A store re-runs only when a key it
+read changes: `vat` skips the 100 lines (11 derive calls), `theme` does nothing. But the `lines` store
+reads every item and recomputes all 100 lines when one qty changes, publishing only the one that changed
+(111 derive calls, 235 renders). Granularity stops at the store: a layer is one hook call, and reading 10
+instances of a parameterised store from another store would mean calling its hook in a loop, which the
+rules of hooks forbid. Jotai gets to 3 derive calls because each line is its own atom and `get` is not a
+hook; Zustand's precomputed derivations recompute all 111 values on every write, `theme` included.
 
 The collection table is the limitation and its remedy side by side: the proxy tracks top-level keys, so
 an array under one key re-renders every reader on any change, while the same items spread as keys
@@ -120,10 +124,10 @@ re-render only the five readers of the changed item, like a Zustand selector or 
 | topology: one threshold (100 affected) | 0.81 | 0.47 | 0.40 | 1.60 |
 | topology: all thresholds (1000 affected) | 4.80 | 1.95 | 2.14 | 2.00 |
 | topology: unrelated root key (none affected) | 0.018 | 0.019 | 0.014 | 1.55 |
-| shop: qty of one item (235 affected) | 1.73 | 0.71 | 0.63 | 1.59 |
-| shop: vat (500 affected) | 2.96 | 1.08 | 1.33 | 1.60 |
-| shop: theme (none affected) | 0.051 | 0.036 | 0.0006 | 1.46 |
-| shop: discount (1000 affected) | 6.42 | 2.31 | 2.51 | 1.74 |
+| shop: qty of one item (235 affected) | 1.61 | 0.60 | 0.62 | 1.69 |
+| shop: vat (500 affected) | 2.25 | 1.10 | 1.34 | 1.61 |
+| shop: theme (none affected) | 0.016 | 0.052 | 0.0006 | 1.50 |
+| shop: discount (1000 affected) | 5.10 | 2.18 | 2.54 | 2.01 |
 | collection: one of 200 items, 5 of 1000 consumers affected | 0.30 | 0.25 | 0.19 | 1.67 |
 | collection: same, array under one key (1000 affected) | 4.16 | | | |
 
@@ -139,10 +143,10 @@ re-render only the five readers of the changed item, like a Zustand selector or 
   recompute in every consumer, and when the derived value does not change we are 12x faster than Zustand
   (0.04 vs 0.56 ms): one store re-render instead of 1000 selector runs. Jotai, whose atom graph is built
   for exactly this, stays fastest in every scenario.
-- **Every derived layer is one more React commit.** In the shop graph a qty change travels items → line →
-  checkout → summary → consumers, and each store on the way renders and publishes in its own commit, so
-  the gap to Zustand and Jotai grows to about 2.5x (1.73 vs 0.71 and 0.63 ms) even though the work done
-  is the same 3 derivations. Zustand and Jotai propagate through plain objects and commit once.
+- **Every derived layer is one more React commit.** In the shop graph a qty change travels items → lines →
+  checkouts → summary → consumers, and each store on the way renders and publishes in its own commit, so
+  the gap to Zustand and Jotai grows to about 2.6x (1.61 vs 0.60 and 0.62 ms). Zustand and Jotai propagate
+  through plain objects and commit once.
 - **Updates nothing reads are free** in all three subscription libraries (under 0.02 ms); only the
   context baseline re-renders its thousand consumers.
 - **The context baseline wins when every consumer is affected anyway**: one provider `setState` re-renders
