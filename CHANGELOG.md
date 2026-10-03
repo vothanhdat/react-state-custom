@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Changed
+- npm keywords describe the library (global state, store, derived state, Suspense) instead of generic terms.
 
 ## [1.2.4] - 2026-10-03
 ### Fixed

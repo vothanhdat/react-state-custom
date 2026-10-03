@@ -70,12 +70,15 @@
     "docs:preview": "vitepress preview docs"
   },
   "keywords": [
-    "frontend",
-    "hooks",
-    "library",
-    "state",
     "react",
-    "react-hook"
+    "react-hooks",
+    "hooks",
+    "state-management",
+    "global-state",
+    "store",
+    "derived-state",
+    "suspense",
+    "typescript"
   ],
   "author": "Dat Vo",
   "license": "MIT",
