@@ -17,14 +17,18 @@ Pass your own `Wrapper` to `AutoRootCtx` (or `StateScopeProvider`) to report err
 ```tsx
 import { ErrorBoundary } from 'react-error-boundary'
 
-<AutoRootCtx
-  Wrapper={({ children }) => (
-    <ErrorBoundary fallback={null} onError={reportError}>
-      {children}
-    </ErrorBoundary>
-  )}
-/>
+// Defined once at module scope: an inline component would be a new type on every render
+// and remount every store, losing their state.
+const ReportStoreErrors = ({ children }: { children?: React.ReactNode }) => (
+  <ErrorBoundary fallback={null} onError={reportError}>
+    {children}
+  </ErrorBoundary>
+)
+
+<AutoRootCtx Wrapper={ReportStoreErrors} />
 ```
+
+Never write the `Wrapper` inline (`Wrapper={({ children }) => ...}`): whenever the component that renders `AutoRootCtx` re-renders, the inline function is a new component type and React remounts every store under it. A development error is logged when that happens.
 
 A wrapper that renders a visible fallback will render it where `AutoRootCtx` sits in the tree. Keep store fallbacks invisible and show error state through the store's own values instead:
 

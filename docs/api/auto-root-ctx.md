@@ -15,11 +15,11 @@ type StateDebugRenderer = React.ComponentType<{ name: string; value: Record<stri
 
 ### `Wrapper`
 
-A component rendered around each store instance. Defaults to [`StoreErrorBoundary`](/api/store-error-boundary). Pass your own error boundary to report errors or render a fallback. See [Error handling](/guide/error-handling).
+A component rendered around each store instance. Defaults to [`StoreErrorBoundary`](/api/store-error-boundary). Pass your own error boundary to report errors or render a fallback. See [Error handling](/guide/error-handling). Define it at module scope: a new component type (an inline arrow function) remounts every store and loses their state, and logs a development error.
 
 ### `debugging`
 
-Default `false`. With `true`, every store instance renders its state next to where its hook runs, as `<pre data-store="<store>?<params>">` containing the JSON produced by [`formatState`](/api/primitives#formatstate) (functions included, as `ƒ name()`). Handy in tests, where the DOM can be queried by store key, and when the dev-tool bundle is not wanted. Pass a component instead to render `{ name, value }` yourself. See [Developer tools](/guide/devtools#debugging-without-the-ui).
+Default `false`. With `true`, every store instance renders its state next to where its hook runs, as `<pre data-store="<store>?<params>">` containing the JSON produced by [`formatState`](/api/primitives#formatstate) (functions included, as `ƒ name()`). Handy in tests, where the DOM can be queried by store key, and when the dev-tool bundle is not wanted. Pass a component instead to render `{ name, value }` yourself, defined at module scope: a new one re-runs every store hook. See [Developer tools](/guide/devtools#debugging-without-the-ui).
 
 ## Behaviour
 

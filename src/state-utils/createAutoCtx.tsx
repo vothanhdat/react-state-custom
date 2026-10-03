@@ -114,6 +114,23 @@ const setRecord = (state: Record<string, StoreRecord>, key: string, next: StoreR
   return out
 }
 
+const warnedProps = new Set<"Wrapper" | "debugging">()
+
+/**
+ * A `Wrapper` defined inline (`Wrapper={({ children }) => ...}`) is a new component type on every
+ * render of its parent, so React remounts every store under it and all store state is lost.
+ */
+const warnUnstableProp = (prop: "Wrapper" | "debugging") => {
+  if (warnedProps.has(prop)) return
+  warnedProps.add(prop)
+  console.error(prop === "Wrapper"
+    ? `[react-state-custom] The Wrapper passed to <AutoRootCtx /> (or <StateScopeProvider>) changed identity, so every ` +
+      `running store was remounted and lost its state. Define the Wrapper component once at module scope instead of ` +
+      `inline. (Right after a hot reload this is expected.)`
+    : `[react-state-custom] The debugging renderer passed to <AutoRootCtx /> (or <StateScopeProvider>) changed identity, ` +
+      `so every store hook ran again. Define it once at module scope instead of inline.`)
+}
+
 const warnedDuplicateNames = new Set<string>()
 
 /** Two createStore calls with one name share a context and a record, so only one of the hooks would run. */
@@ -240,6 +257,16 @@ export const AutoRootCtx: React.FC<{
 }> = ({ Wrapper = StoreErrorBoundary, debugging = false }) => {
 
   const ctx = useDataContext<any>("auto-ctx")
+
+  const firstProps = useRef<{ Wrapper: unknown, debugging: unknown } | null>(null)
+  useEffect(() => {
+    if (isProduction) return
+    const previous = firstProps.current
+    firstProps.current = { Wrapper, debugging }
+    if (!previous) return
+    if (previous.Wrapper !== Wrapper) warnUnstableProp("Wrapper")
+    if (typeof debugging === "function" && previous.debugging !== debugging) warnUnstableProp("debugging")
+  }, [Wrapper, debugging])
 
   // What to render, one record per running instance, spread over buckets. Changes only when an
   // instance starts or stops, and then re-renders only that instance's bucket.

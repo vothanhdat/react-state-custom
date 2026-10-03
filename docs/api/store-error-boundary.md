@@ -11,11 +11,12 @@ It renders `null` after an error and has no props besides `children`. To report 
 ```tsx
 import { ErrorBoundary } from 'react-error-boundary'
 
-<AutoRootCtx
-  Wrapper={({ children }) => (
-    <ErrorBoundary fallback={null} onError={reportError}>{children}</ErrorBoundary>
-  )}
-/>
+// at module scope: an inline Wrapper is a new component type on every render and remounts every store
+const ReportStoreErrors = ({ children }: { children?: React.ReactNode }) => (
+  <ErrorBoundary fallback={null} onError={reportError}>{children}</ErrorBoundary>
+)
+
+<AutoRootCtx Wrapper={ReportStoreErrors} />
 ```
 
 Errors thrown by subscribers during a publish are rethrown to the publishing store and land in this boundary too. See [Error handling](/guide/error-handling).

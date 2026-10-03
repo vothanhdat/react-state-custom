@@ -10,6 +10,7 @@ All notable changes to this project are documented here.
 - The published package is no longer compiled by the React Compiler. Since 1.0.27 the library build ran `babel-plugin-react-compiler`, which was meant for the examples only, so the package differed from the tested source. In 1.2.2 to 1.2.6 the compiler cached the `useStore()` proxy, undoing the 1.2.2 fix: in an app using the React Compiler, a helper called with the whole store object (`describe(store)`) kept its cached result and stopped updating. Tests and benchmarks always ran on the uncompiled source, which is now what ships.
 
 ### Added
+- A development error when the `Wrapper` passed to `AutoRootCtx` or `StateScopeProvider` changes identity, which happens when it is written inline: every store under it is remounted and loses its state. Likewise for a `debugging` renderer, which makes every store hook run again. The error handling guide and API pages showed the inline form; they now define the Wrapper at module scope.
 - `getStore(params).error`: what the store hook threw while the instance is disabled, `undefined` while it runs. `Context` gains `failed`, `error`, `fail()`, `recover()` and `onStatus()`.
 
 ### Changed
