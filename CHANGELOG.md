@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.3.0] - 2026-10-03
 ### Fixed
 - Functions returned by a store reach the consumers that call them while rendering. Every function was published as one stable wrapper, so a getter such as `useCallback(id => items[id], [items])`, a sort order kept in `useState`, or a component returned by the store never updated its consumers: they kept rendering the old result. A consumer that calls a store function during render (directly, through a selector, or in a memoized child it passes the function to) now re-renders when the store returns a new implementation, and a returned component remounts when it is replaced. Actions called from event handlers keep a stable identity and never re-render their readers.
 - A store hook that suspends (`use(promise)`, a suspense query hook) no longer hides the whole app. Store hooks ran without a Suspense boundary of their own, so one suspending store showed the fallback of the boundary above `AutoRootCtx`, often the app's root. Each store and each `AttachedComponent` now has its own `<Suspense fallback={null}>`: the store publishes once it resumes, keeps its last values while it suspends again, and `useStoreSuspense` consumers wait in their own boundaries.
@@ -166,7 +168,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.6...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.6...v1.3.0
 [1.2.6]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.3...v1.2.4
