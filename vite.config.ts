@@ -16,10 +16,12 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      // Two entries: the state library, and the dev tool (which carries the only CSS and UI dependency).
+      // Three entries: the state library, the dev tool (which carries the only CSS), and the
+      // react-obj-view renderer for the dev tool (so that optional peer stays out of the other two).
       entry: {
         'index': 'src/index.ts',
         'dev-tool': 'src/dev-tool/index.ts',
+        'dev-tool/obj-view': 'src/dev-tool/obj-view.tsx',
       },
       formats: ['es', 'cjs'],
       // package.json has "type": "module", so CommonJS output must use the .cjs extension
@@ -28,7 +30,7 @@ export default defineConfig({
     },
     rollupOptions: {
       // Ensure to externalize deps that shouldn't be bundled
-      external: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+      external: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime', 'react-obj-view'],
     },
     sourcemap: true
   },

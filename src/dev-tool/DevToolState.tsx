@@ -1,107 +1,152 @@
-import React, { Fragment, useEffect, useMemo, useState } from "react"
+import React, { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import { getContext } from "../state-utils/ctx"
 import { debounce } from "../state-utils/utils"
 import { HighlightString, HightlightWrapper } from "./useHighlight"
 import { DataViewComponent, DataViewDefault } from "./DataViewComponent"
 import { StateLabelRender } from "./StateLabelRender"
-import Split from "@uiw/react-split"
+import { useCacheVersion } from "./useCacheVersion"
+import { useDragSize } from "./useDragSize"
+import { readSetting, writeSetting } from "./settings"
 import "./DevTool.css"
 
-const cache = getContext.cache
+/** Up to this many stores can be compared side by side. */
+const MAX_SELECTED = 5
 
-export const DevToolState: React.FC<{ Component: DataViewComponent }> = ({ Component }) => {
-    const [allKeys, setKeys] = useState(() => [...cache.keys()])
-    const [filterString, setFilterString] = useState("")
-    const [selectedKeys, setSelectedKeys] = useState<string[]>([])
+/** Store name without params: `"scope/counter?initial=1"` → `"scope/counter"`. */
+const groupOf = (name: string) => name.split("?")[0] ?? name
 
-    useEffect(() => {
-        let t = setInterval(() => {
-            setKeys(k => k.length != cache.size
-                ? [...cache.keys()]
-                : k
-            )
-        }, 50)
-        return () => clearInterval(t)
-    }, [cache])
-
-    const filterFn = useMemo(
-        () => {
-            const preFilter = filterString
-                .toLowerCase()
-                .split(" ")
-            return (e: string) => {
-                const sLow = e.toLowerCase()
-                return preFilter.every(token => sLow.includes(token))
-            }
-        },
-        [filterString]
-    )
-
-    const preParseKeys = useMemo(
-        () => allKeys.map((e): string => JSON.parse(e)?.[0]),
-        [allKeys]
-    )
-
-    const groupedKeys = useMemo(
-        () => preParseKeys
-            // hide the internal auto-ctx of every scope (scoped names are "<scopeId>/auto-ctx")
-            .filter(e => e && !/(^|\/)auto-ctx$/.test(e))
-            .filter(filterFn)
-            .reduce<Record<string, string[]>>((groups, key) => {
-                const group = key.split("?")[0] ?? key
-                    ; (groups[group] ??= []).push(key)
-                return groups
-            }, {}),
-        [preParseKeys, filterFn]
-    )
-
-    return <Split mode="horizontal" className="main-panel" visible>
-        <div className="state-list">
-            <input
-                placeholder="Type to Filter ..."
-                className="state-filter"
-                value={filterString}
-                onChange={(ev) => setFilterString(ev.target.value)}
-            />
-            <HightlightWrapper highlight={filterString}>
-                {Object.entries(groupedKeys)
-                    .map(([name, values]) => <Fragment key={name}>
-                        <div className="state-group-header">
-                            {/* scoped stores are named "<scopeId>/<name>": show the name, then the scope */}
-                            <HighlightString text={name.slice(name.lastIndexOf('/') + 1)} />
-                            {name.includes('/') && <small> {name.slice(0, name.lastIndexOf('/'))}</small>}
-                        </div>
-                        {values.map(currentKey => <StateLabelRender
-                            key={currentKey}
-                            {...{ selectedKeys, setSelectedKeys, currentKey, label: currentKey.split("?").at(-1) }}
-                        />)}
-                    </Fragment>)}
-            </HightlightWrapper>
-        </div>
-        {selectedKeys?.map(selectedKey => <div className="state-view" key={selectedKey}>
-            <StateView dataKey={selectedKey} key={selectedKey} Component={Component} />
-        </div>)}
-
-    </Split>
+/** `"a/b/counter"` → `["a/b", "counter"]`: scoped stores are named `<scopeId>/<name>`. */
+const splitScope = (group: string) => {
+    const at = group.lastIndexOf('/')
+    return at === -1 ? [undefined, group] as const : [group.slice(0, at), group.slice(at + 1)] as const
 }
 
-export const StateView: React.FC<{ dataKey: string, Component: DataViewComponent }> = ({ dataKey, Component = DataViewDefault }) => {
-    // read-only: never create a context from the dev tool, that would resurrect evicted stores
+/** `"counter?initial=1&user=a%20b"` → `"initial=1, user=a b"`, or `"(no params)"`. */
+export const paramsLabel = (name: string) => {
+    const query = name.slice(name.indexOf("?") + 1)
+    if (!name.includes("?") || !query) return "(no params)"
+    return query.split("&").map(pair => {
+        const [key, value = ""] = pair.split("=")
+        return `${decodeURIComponent(key)}=${decodeURIComponent(value)}`
+    }).join(", ")
+}
+
+/**
+ * The inspector without the trigger button: a filterable list of the live store instances,
+ * grouped by store, and a view of each selected one. Embed it in your own debug UI, or use
+ * `DevToolContainer` for the floating version.
+ */
+export const DevToolState: React.FC<{ Component?: DataViewComponent }> = ({ Component = DataViewDefault }) => {
+    const version = useCacheVersion()
+    // every live context except the internal root of each scope (named "auto-ctx" or "<scopeId>/auto-ctx")
+    const names = useMemo(
+        () => [...getContext.cache.values()].map(ctx => ctx.name).filter(name => !/(^|\/)auto-ctx$/.test(name)),
+        [version]
+    )
+    const [filterString, setFilterString] = useState("")
+    const [selectedKeys, setSelectedKeys] = useState<string[]>([])
+    const { size: listWidth, onPointerDown } = useDragSize(
+        () => readSetting('list-width', 220),
+        'right',
+        { min: 100, onEnd: w => writeSetting('list-width', w) }
+    )
+
+    const groups = useMemo(() => {
+        const tokens = filterString.toLowerCase().split(" ").filter(Boolean)
+        const matches = (name: string) => tokens.every(token => name.toLowerCase().includes(token))
+        const groups: Record<string, string[]> = {}
+        for (const name of names) {
+            if (matches(name)) (groups[groupOf(name)] ??= []).push(name)
+        }
+        return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b))
+    }, [names, filterString])
+
+    const toggleSelected = (name: string) => setSelectedKeys(keys => keys.includes(name)
+        ? keys.filter(key => key !== name)
+        : [...keys, name].slice(-MAX_SELECTED)
+    )
+
+    return <div className="main-panel">
+        <div className="state-list" style={{ width: listWidth }}>
+            <input
+                type="search"
+                placeholder="Filter stores…"
+                aria-label="Filter stores"
+                className="state-filter"
+                value={filterString}
+                onChange={ev => setFilterString(ev.target.value)}
+            />
+            <HightlightWrapper highlight={filterString}>
+                {groups.length === 0 && <div className="state-empty">{names.length === 0 ? "No store mounted" : "No match"}</div>}
+                {groups.map(([group, instances]) => {
+                    const [scope, storeName] = splitScope(group)
+                    return <Fragment key={group}>
+                        <div className="state-group-header">
+                            <HighlightString text={storeName} />
+                            {scope && <small> {scope}</small>}
+                        </div>
+                        {instances.map(name => <StateLabelRender
+                            key={name}
+                            name={name}
+                            label={paramsLabel(name)}
+                            selected={selectedKeys.includes(name)}
+                            onToggle={() => toggleSelected(name)}
+                        />)}
+                    </Fragment>
+                })}
+            </HightlightWrapper>
+        </div>
+        <div className="state-list-resize" onPointerDown={onPointerDown} role="separator" aria-orientation="vertical" />
+        <div className="state-views">
+            {selectedKeys.length === 0 && <div className="state-empty">Select a store to inspect it. Up to {MAX_SELECTED} side by side.</div>}
+            {selectedKeys.map(name => <StateView
+                key={name}
+                dataKey={name}
+                Component={Component}
+                onClose={() => toggleSelected(name)}
+            />)}
+        </div>
+    </div>
+}
+
+/**
+ * Live view of one store instance by full context name. Read-only: it never creates a context
+ * (that would resurrect an evicted store), and shows the last data with an "unmounted" badge once
+ * the store is gone, then follows the new instance if the store is mounted again.
+ */
+export const StateView: React.FC<{ dataKey: string, Component?: DataViewComponent, onClose?: () => void }> = ({ dataKey, Component = DataViewDefault, onClose }) => {
+    useCacheVersion()
     const ctx = getContext.fromCache(dataKey)
-    const [currentData, setCurrentData] = useState({ ...ctx?.data })
+    const [data, setData] = useState(() => ({ ...ctx?.data }))
+    const seenCtx = useRef(ctx)
 
     useEffect(() => {
+        if (seenCtx.current !== ctx) {
+            // a new instance under the same name (or the store went away): show its data, not the old one's
+            seenCtx.current = ctx
+            if (ctx) setData({ ...ctx.data })
+        }
         if (!ctx) return
-        let updateDataDebounce = debounce(setCurrentData, 5)
-        const unsub = ctx.subscribeAll((_changeKey, newData) => updateDataDebounce({ ...newData }))
+        const update = debounce(() => setData({ ...ctx.data }), 5)
+        const unsubscribe = ctx.subscribeAll(update)
         return () => {
-            updateDataDebounce.cancel()
-            unsub()
+            update.cancel()
+            unsubscribe()
         }
     }, [ctx])
 
-    return <Component
-        value={currentData}
-        name={dataKey}
-    />
+    const [scope, storeName] = splitScope(groupOf(dataKey))
+    return <div className="state-view" data-store={dataKey}>
+        <div className="state-view-header" title={dataKey}>
+            <span className="state-view-name">{storeName}</span>
+            <span className="state-view-params">{paramsLabel(dataKey)}</span>
+            {scope && <span className="state-badge">{scope}</span>}
+            {!ctx && <span className="state-badge state-badge-gone">unmounted</span>}
+            {ctx && !ctx.ready && <span className="state-badge">initial</span>}
+            {onClose && <button type="button" className="state-view-close" onClick={onClose} aria-label={`Close ${dataKey}`}>×</button>}
+        </div>
+        <div className="state-view-body">
+            <Component value={data} name={dataKey} />
+        </div>
+    </div>
 }

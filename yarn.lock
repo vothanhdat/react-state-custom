@@ -480,13 +480,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/runtime@npm:^7.0.0":
-  version: 7.28.6
-  resolution: "@babel/runtime@npm:7.28.6"
-  checksum: 10c0/358cf2429992ac1c466df1a21c1601d595c46930a13c1d4662fde908d44ee78ec3c183aaff513ecb01ef8c55c3624afe0309eeeb34715672dbfadb7feedb2c0d
-  languageName: node
-  linkType: hard
-
 "@babel/runtime@npm:^7.12.5":
   version: 7.28.4
   resolution: "@babel/runtime@npm:7.28.4"
@@ -1949,18 +1942,6 @@ __metadata:
   version: 0.0.21
   resolution: "@types/web-bluetooth@npm:0.0.21"
   checksum: 10c0/5f47c5ec452ca31e6a9b44c8aaa54b66c4f57d4aca00166c45902a3883139580e14b254b774172ff982ba4458cc444b5aa59bb4573c2fd34562cfa599721f8e4
-  languageName: node
-  linkType: hard
-
-"@uiw/react-split@npm:^5.9.4":
-  version: 5.9.4
-  resolution: "@uiw/react-split@npm:5.9.4"
-  dependencies:
-    "@babel/runtime": "npm:^7.0.0"
-  peerDependencies:
-    react: ">=16.8.0"
-    react-dom: ">=16.8.0"
-  checksum: 10c0/2db0d932f7cf4718c91adae5cfabd582f59c12a1c6e797c92c72d7cf306e4316d5b44b7521c1b53fb7582ca41a4561a41ee08e1743fbafceb612165f68a176f8
   languageName: node
   linkType: hard
 
@@ -4388,7 +4369,6 @@ __metadata:
     "@types/jsdom": "npm:^27"
     "@types/react": "npm:^19.2.2"
     "@types/react-dom": "npm:19"
-    "@uiw/react-split": "npm:^5.9.4"
     "@vitejs/plugin-react": "npm:^5.0.0"
     "@vitest/coverage-v8": "npm:^4.0.3"
     "@vitest/ui": "npm:^4.0.3"
@@ -4409,6 +4389,10 @@ __metadata:
   peerDependencies:
     react: ">=18.0.0"
     react-dom: ">=18.0.0"
+    react-obj-view: ">=1.1.0"
+  peerDependenciesMeta:
+    react-obj-view:
+      optional: true
   languageName: unknown
   linkType: soft
 

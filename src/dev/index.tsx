@@ -2,24 +2,12 @@ import { createRoot } from 'react-dom/client'
 import { Dev } from './Dev'
 import '../examples/examples.css'
 import { AutoRootCtx } from '../state-utils/createAutoCtx'
-import { DataViewComponent } from '../dev-tool/DataViewComponent'
 import { ObjectView } from 'react-obj-view'
 import 'react-obj-view/dist/react-obj-view.css'
 import { DevToolContainer } from '../dev-tool/DevTool'
+import { ObjectDataView } from '../dev-tool/obj-view'
 import { StrictMode } from 'react'
 import { ErrorBoundary } from "react-error-boundary";
-
-
-const DataView: DataViewComponent = ({ name, value }) => {
-    return <ObjectView
-        valueGetter={() => value}
-        expandLevel={5}
-        name={name}
-        showLineNumbers
-        // nonEnumerable
-        includeSymbols
-    />
-}
 
 const fallbackRender = ({ error, resetErrorBoundary }: any) => {
     return (
@@ -48,7 +36,8 @@ createRoot(document.getElementById('root')!)
                 <Dev />
             </ErrorWrapper>
             <DevToolContainer
-                Component={DataView}
+                Component={ObjectDataView}
+                defaultOpen
                 style={{ left: '20px', bottom: '20px', right: 'unset' }}
             />
         </StrictMode>

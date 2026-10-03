@@ -288,10 +288,6 @@ button.playground-link {
   border-radius: 6px;
 }
 
-.preview-devtool-button[data-active="true"] {
-  display: none;
-}
-
 .preview-devtool-button {
   position: fixed;
   right: 24px;

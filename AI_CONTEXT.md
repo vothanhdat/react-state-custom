@@ -82,7 +82,7 @@ export function Counter() {
 -   **First render**: store values are `undefined` until the store hook has run once. Pass `createStore(name, useFn, { initialState: {...} })` to avoid that and to get non-optional types for those keys.
 -   **No params**: a store whose hook takes no required params can be consumed as `useStore()`.
 -   **SSR / Next.js**: client-side library, SSR-safe. Server output shows `initialState`; stores run after hydration. In the App Router put `AutoRootCtx` and every `useStore` caller in a `'use client'` module.
--   **Dev tool** lives in a separate entry: `import { DevToolContainer } from 'react-state-custom/dev-tool'` plus `import 'react-state-custom/style.css'`.
+-   **Dev tool** lives in a separate entry: `import { DevToolContainer } from 'react-state-custom/dev-tool'` plus `import 'react-state-custom/style.css'`. For an expandable tree, `ObjectDataView` from `react-state-custom/dev-tool/obj-view` (needs the optional peer `react-obj-view`). In tests, `<AutoRootCtx debugging />` renders each store's state as `<pre data-store="name?params">`.
 -   **Isolated subtrees**: wrap a subtree in `<StateScopeProvider>` to give it its own store instances (same definitions, separate state). It is its own root; no extra `AutoRootCtx` inside.
 -   **Errors**: a store hook that throws is caught by `StoreErrorBoundary` (default `Wrapper` of `AutoRootCtx`); other stores keep running. Pass `Wrapper` to `AutoRootCtx` to report or render errors.
 -   **Reads outside render**: the `useStore` proxy only tracks reads during render. Destructure at the top of the component; do not keep the proxy for later.

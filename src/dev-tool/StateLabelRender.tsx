@@ -1,56 +1,47 @@
-import React, { useRef, useEffect } from "react";
-import { getContext } from "../state-utils/ctx";
-import { debounce } from "../state-utils/utils";
-import { HighlightString } from "./useHighlight";
+import React, { useRef, useEffect, useState } from "react"
+import { getContext } from "../state-utils/ctx"
+import { debounce } from "../state-utils/utils"
+import { HighlightString } from "./useHighlight"
 
+/** One store instance in the list: its params, how many keys it holds, and a flash on every change. */
 export const StateLabelRender: React.FC<{
-    selectedKeys: string[]
-    setSelectedKeys: React.Dispatch<React.SetStateAction<string[]>>
-    currentKey: string
-    label?: string
-    highlight?: string
-    [prop: string]: unknown
-}> = ({
-    selectedKeys, setSelectedKeys,
-    currentKey,
-    label = currentKey,
-    highlight,
-    ...props
-}) => {
-
-    const ctx = getContext.fromCache(currentKey)
-
-    const divRef = useRef<HTMLDivElement>(null);
+    name: string
+    label: string
+    selected: boolean
+    onToggle: () => void
+}> = ({ name, label, selected, onToggle }) => {
+    // the parent re-renders on every cache change, so this is the live instance
+    const ctx = getContext.fromCache(name)
+    const ref = useRef<HTMLButtonElement>(null)
+    const [keyCount, setKeyCount] = useState(() => Object.keys(ctx?.data ?? {}).length)
 
     useEffect(() => {
-        if (divRef.current && ctx) {
-            let flashKeyDebounce = debounce(() => {
-                if (divRef.current) {
-                    divRef.current?.classList.add("state-key-updated");
-                    requestAnimationFrame(() => divRef.current?.classList.remove("state-key-updated"));
-                }
-            }, 5);
-            return ctx.subscribeAll(flashKeyDebounce);
+        if (!ctx) return
+        setKeyCount(Object.keys(ctx.data).length)
+        const onChange = debounce(() => {
+            setKeyCount(Object.keys(ctx.data).length)
+            const el = ref.current
+            if (!el) return
+            el.classList.add("state-key-updated")
+            requestAnimationFrame(() => el.classList.remove("state-key-updated"))
+        }, 5)
+        const unsubscribe = ctx.subscribeAll(onChange)
+        return () => {
+            onChange.cancel()
+            unsubscribe()
         }
+    }, [ctx])
 
-    }, [ctx, divRef]);
-
-    return <div
-        ref={divRef}
+    return <button
+        type="button"
+        ref={ref}
         className="state-key"
-        title={currentKey}
-        data-active={selectedKeys.includes(currentKey)}
-        onClick={() => selectedKeys.includes(currentKey)
-            ? setSelectedKeys(keys => keys.filter(e => e != currentKey))
-            : setSelectedKeys(keys => [...keys, currentKey].slice(-5))
-        }
-        {...props}
+        title={name}
+        data-active={selected}
+        aria-pressed={selected}
+        onClick={onToggle}
     >
-        <div className="state-key-name">
-            <HighlightString text={label} />
-        </div>
-        <div className="state-key-meta">
-            {Object.keys(ctx?.data ?? {}).length} items
-        </div>
-    </div>;
-};
+        <span className="state-key-name"><HighlightString text={label} /></span>
+        <span className="state-key-meta">{keyCount} {keyCount === 1 ? "key" : "keys"}</span>
+    </button>
+}

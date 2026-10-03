@@ -5,7 +5,9 @@ up to date with every release. This file only adds repository-specific notes.
 
 ## Project snapshot
 - Hook-first state management library. Public entry `src/index.ts`; dev tool entry `src/dev-tool/index.ts`
-  (published as `react-state-custom/dev-tool` with `react-state-custom/style.css`).
+  (published as `react-state-custom/dev-tool` with `react-state-custom/style.css`), plus
+  `src/dev-tool/obj-view.tsx` (`react-state-custom/dev-tool/obj-view`, the only code that imports the
+  optional peer `react-obj-view`; keep it out of the other entries). The dev tool has no other dependency.
 - Core lives in `src/state-utils/`: `ctx.ts` (Context pub/sub, subscribe/publish hooks),
   `createRootCtx.tsx` (headless Root component that runs a hook), `createAutoCtx.tsx`
   (`AutoRootCtx`, `createStore`, `StateScopeProvider`, `StoreErrorBoundary`),

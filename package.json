@@ -17,6 +17,11 @@
       "import": "./dist/dev-tool.es.js",
       "require": "./dist/dev-tool.cjs"
     },
+    "./dev-tool/obj-view": {
+      "types": "./dist/dev-tool/obj-view.d.ts",
+      "import": "./dist/dev-tool/obj-view.es.js",
+      "require": "./dist/dev-tool/obj-view.cjs"
+    },
     "./style.css": "./dist/react-state-custom.css",
     "./dist/react-state-custom.css": "./dist/react-state-custom.css",
     "./package.json": "./package.json"
@@ -25,6 +30,9 @@
     "*": {
       "dev-tool": [
         "./dist/dev-tool/index.d.ts"
+      ],
+      "dev-tool/obj-view": [
+        "./dist/dev-tool/obj-view.d.ts"
       ]
     }
   },
@@ -73,7 +81,13 @@
   "license": "MIT",
   "peerDependencies": {
     "react": ">=18.0.0",
-    "react-dom": ">=18.0.0"
+    "react-dom": ">=18.0.0",
+    "react-obj-view": ">=1.1.0"
+  },
+  "peerDependenciesMeta": {
+    "react-obj-view": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@stackblitz/sdk": "^1.11.0",
@@ -83,7 +97,6 @@
     "@types/jsdom": "^27",
     "@types/react": "^19.2.2",
     "@types/react-dom": "19",
-    "@uiw/react-split": "^5.9.4",
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/coverage-v8": "^4.0.3",
     "@vitest/ui": "^4.0.3",

@@ -1,11 +1,10 @@
 import sdk from '@stackblitz/sdk'
 import { useEffect, useRef, useState } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
-import { ObjectView } from 'react-obj-view'
 import { AutoRootCtx, StateScopeProvider } from '../index'
 import '../examples/examples.css'
-import { DevToolContainer, type DataViewComponent } from '../dev-tool'
-import '../dev-tool/DevTool.css'
+import { DevToolContainer } from '../dev-tool'
+import { ObjectDataView } from '../dev-tool/obj-view'
 import { Example, ExampleKey } from './examples'
 
 // Shared StackBlitz project files
@@ -51,10 +50,6 @@ const openInStackBlitz = (example: Example) =>
         },
         { newWindow: true, openFile: 'src/state.ts,src/view.tsx' }
     )
-
-const DataView: DataViewComponent = ({ name, value }) => (
-    <ObjectView valueGetter={() => value} expandLevel={5} name={name} showLineNumbers includeSymbols />
-)
 
 const Scope = ({ global, children }: { global?: boolean; children: React.ReactNode }) =>
     global ? <><AutoRootCtx />{children}</> : <StateScopeProvider>{children}</StateScopeProvider>
@@ -126,7 +121,7 @@ export const ExamplePreview = ({ exampleKey, example, devTools }: ExamplePreview
                         </div>
                     </ErrorBoundary>
                     {devTools && (
-                        <DevToolContainer Component={DataView} className="preview-devtool-button">
+                        <DevToolContainer Component={ObjectDataView} className="preview-devtool-button">
                             Inspect stores
                         </DevToolContainer>
                     )}
