@@ -359,6 +359,21 @@ export const AutoRootCtx: React.FC<{
 
 }
 
+/**
+ * Development check for `useStore`: the proxy and the selector form run different hooks, so a call
+ * site that passes a selector on some renders only (`cond ? sel : undefined`, which TypeScript
+ * rejects) would break the hook order with an error that does not name the cause. Throw one that does.
+ */
+const useSelectorModeCheck = (name: string, withSelector: boolean) => {
+  const first = useRef(withSelector)
+  if (first.current === withSelector) return
+  throw new Error(
+    `[react-state-custom] useStore("${name}") was called with a selector ${first.current ? "before" : "on this render"} ` +
+    `and without one ${first.current ? "on this render" : "before"}. Each form runs different hooks, so a call site ` +
+    `must always pass a selector or never. Use two components, or a selector that handles both cases.`
+  )
+}
+
 /** Options accepted by createStore / createAutoCtx (a bare number is still accepted as `timeToClean`). */
 export type StoreOptions<U extends StoreParamsShape<U>, V extends object, I extends Partial<V> = {}> = {
   /** Milliseconds to keep the store alive after its last consumer unmounts. Default 0. */
@@ -568,8 +583,11 @@ export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, I
     const [params, selector, isEqual] = args as [U | undefined, ((state: StoreState<V, I>) => unknown)?, ((a: unknown, b: unknown) => boolean)?]
     const ctx = useCtxState(params as any)
     const server = serverValues((params ?? {}) as U)
-    // A given call site always passes a selector or never does, so the hook order is stable.
-    return typeof selector === "function"
+    const withSelector = typeof selector === "function"
+    // isProduction never changes at runtime, so this conditional hook keeps a stable order
+    if (!isProduction) useSelectorModeCheck(ctx.name, withSelector)
+    // The two modes run different hooks: a call site must always pass a selector or never.
+    return withSelector
       ? useDataSelector(ctx, selector as (data: Partial<V>) => unknown, isEqual, server)
       : useQuickSubscribe(ctx, server) as StoreState<V, I>
   }

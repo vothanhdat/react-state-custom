@@ -52,7 +52,7 @@ The consumer hook. Returns a proxy that records which keys the component reads d
 
 ### `useStore(params, selector, isEqual?)`
 
-Returns `selector(state)` and re-renders only when that value changes (`Object.is` unless `isEqual` is given). The selector receives the plain state object. A new selector function each render is fine. Pass `undefined` as `params` for stores without params. See [Selectors](/guide/selectors).
+Returns `selector(state)` and re-renders only when that value changes (`Object.is` unless `isEqual` is given). The selector receives the plain state object. A new selector function each render is fine, but a call site must pass one on every render or on none: the two forms run different hooks (a development error says so). Pass `undefined` as `params` for stores without params. See [Selectors](/guide/selectors).
 
 ### `useStoreSuspense(params?, isReady?)`
 
