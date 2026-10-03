@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, act, screen } from '@testing-library/react'
-import { Profiler, useState } from 'react'
+import { Profiler, useState, type ReactNode } from 'react'
 import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
@@ -100,5 +100,26 @@ describe('AutoRootCtx reference counting', () => {
     await tick()
     // the component's own subscription still holds the instance
     expect(screen.getByTestId('id').textContent).toBe(first)
+  })
+
+  it('starting an instance re-renders only a share of the running instances', async () => {
+    const { useStore } = createStore('refcount-buckets', ({ id }: { id: number }) => ({ id }))
+    let wrapperRenders = 0
+    const CountingWrapper = ({ children }: { children?: ReactNode }) => { wrapperRenders++; return <>{children}</> }
+    const Row = ({ id }: { id: number }) => <i>{useStore({ id }).id}</i>
+    let setExtra!: (show: boolean) => void
+    const Extra = () => { const [show, set] = useState(false); setExtra = set; return show ? <Row id={-1} /> : null }
+    render(<>
+      <AutoRootCtx Wrapper={CountingWrapper} />
+      {Array.from({ length: 640 }, (_, i) => <Row key={i} id={i} />)}
+      <Extra />
+    </>)
+    await tick()
+    wrapperRenders = 0
+    act(() => setExtra(true))
+    await tick()
+    // one bucket of ~10 instances re-renders (twice under StrictMode), not all 640
+    expect(wrapperRenders).toBeGreaterThan(0)
+    expect(wrapperRenders).toBeLessThan(100)
   })
 })

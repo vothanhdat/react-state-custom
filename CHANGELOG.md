@@ -8,7 +8,8 @@ All notable changes to this project are documented here.
 - Store identity: values of different types no longer collide. `{ id: 1 }` and `{ id: '1' }`, or `null` and `'null'`, were one instance whose hook saw whichever params mounted first. A string that reads like a number, bigint, boolean or `null` is now quoted in the id (`id='1'`) and a bigint ends in `n`. Ids of ordinary strings and numbers are unchanged; keys shown by the dev tool and `debugging` change only for those quoted strings.
 
 ### Performance
-- `AutoRootCtx` keeps reference counts and `timeToClean` timers out of React state. A consumer mounting or unmounting on an instance that is already running no longer re-renders `AutoRootCtx`, which cost O(number of instances): with 5000 instances, ~17.6 ms → ~0.1 ms per consumer in jsdom. Starting or stopping an instance costs the same as before.
+- `AutoRootCtx` keeps reference counts and `timeToClean` timers out of React state. A consumer mounting or unmounting on an instance that is already running no longer re-renders anything: with 5000 instances, ~17.6 ms → ~0.1 ms per consumer in jsdom.
+- Running instances are spread over 64 buckets, each rendering its own share. Starting or stopping an instance re-renders only its bucket instead of a list of every instance (React diffs a component's whole child list): with 5000 instances, ~18 ms → ~0.9 ms per instance, and mounting 5000 instances at once ~2.1 s → ~0.4 s in jsdom.
 
 ### Changed
 - SSR guide: says plainly that a store cannot be seeded from server data, and lists what works instead.

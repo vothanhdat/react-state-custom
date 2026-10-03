@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef, useId, useContext, memo } from "react"
+import React, { useEffect, useCallback, useRef, useId, useContext, memo, useSyncExternalStore } from "react"
 import { useDataContext, useDataSourceMultiple, useDataSelector, acquireContext, getContext, isServer, StateScopeContext, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
@@ -127,6 +127,63 @@ const warnDuplicateName = (name: string) => {
   )
 }
 
+/**
+ * Number of buckets the running instances are spread over. Starting or stopping an instance
+ * re-renders only its bucket, so the cost is O(instances / BUCKETS) instead of O(instances):
+ * React diffs a component's whole child list whenever it renders.
+ */
+const BUCKETS = 64
+
+/** Stable bucket for a record key (FNV-1a), so an instance's fiber never moves between buckets. */
+const bucketOf = (key: string) => {
+  let h = 0x811c9dc5
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 0x01000193)
+  return (h >>> 0) % BUCKETS
+}
+
+/** The records of one AutoRootCtx, split into buckets that are each an external store for one Bucket. */
+const createBuckets = () => {
+  const records: Record<string, StoreRecord>[] = Array.from({ length: BUCKETS }, () => ({}))
+  const listeners: Set<() => void>[] = Array.from({ length: BUCKETS }, () => new Set())
+  return {
+    update(key: string, next: (current: StoreRecord | undefined) => StoreRecord | undefined) {
+      const i = bucketOf(key)
+      const updated = setRecord(records[i], key, next(records[i][key]))
+      if (updated === records[i]) return
+      records[i] = updated
+      listeners[i].forEach(l => l())
+    },
+    subscribe(i: number, listener: () => void) {
+      listeners[i].add(listener)
+      return () => { listeners[i].delete(listener) }
+    },
+    get: (i: number) => records[i],
+  }
+}
+
+type Buckets = ReturnType<typeof createBuckets>
+
+const Bucket = memo(function Bucket({ index, buckets, Wrapper, debugging }: {
+  index: number,
+  buckets: Buckets,
+  Wrapper: React.ComponentType<{ children?: React.ReactNode }>,
+  debugging: boolean | StateDebugRenderer,
+}) {
+  const subscribe = useCallback((listener: () => void) => buckets.subscribe(index, listener), [buckets, index])
+  const getSnapshot = useCallback(() => buckets.get(index), [buckets, index])
+  const records = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  return <>
+    {Object
+      .entries(records)
+      // stable order so existing store fibers are never re-placed when records are added/removed
+      .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+      .map(([key, { useStateFn, params, AttatchedComponent }]) => <Wrapper key={key}>
+        <StateRunner key={key} name={key} params={params} useStateFn={useStateFn} debugging={debugging} />
+        {AttatchedComponent && <AttatchedComponent key={'attatch_' + key} {...params} />}
+      </Wrapper>)}
+  </>
+})
+
 export const AutoRootCtx: React.FC<{
   Wrapper?: React.ComponentType<{ children?: React.ReactNode }>
   /** Render each store's state into the DOM: `true` for JSON text, or a component receiving `{ name, value }`. */
@@ -135,12 +192,13 @@ export const AutoRootCtx: React.FC<{
 
   const ctx = useDataContext<any>("auto-ctx")
 
-  // What to render, one record per running instance. Changes only when an instance starts or stops.
-  const [state, setState] = useState<Record<string, StoreRecord>>({})
+  // What to render, one record per running instance, spread over buckets. Changes only when an
+  // instance starts or stops, and then re-renders only that instance's bucket.
+  const buckets = useRef<Buckets | null>(null)
+  buckets.current ??= createBuckets()
 
   // Reference counts and pending `timeToClean` timers, kept out of React state: a consumer mounting
-  // or unmounting on an instance that is already running must not re-render AutoRootCtx, which costs
-  // O(number of instances).
+  // or unmounting on an instance that is already running must not re-render anything.
   const books = useRef(new Map<string, StoreBook>()).current
 
   useEffect(() => () => books.forEach(book => clearTimeout(book.timer)), [books])
@@ -149,6 +207,7 @@ export const AutoRootCtx: React.FC<{
     (contextName: string, useStateFn: Function, params: ParamsToIdRecord, timeToCleanState = 0, AttatchedComponent = undefined) => {
 
       const recordKey = [contextName, paramsToId(params)].filter(Boolean).join("?")
+      const records = buckets.current!
       const book = books.get(recordKey)
 
       if (book) {
@@ -160,13 +219,11 @@ export const AutoRootCtx: React.FC<{
         if (book.useStateFn !== useStateFn) {
           // a new hook for the same name (hot reload): run it in place of the old one
           book.useStateFn = useStateFn
-          setState(state => state[recordKey]
-            ? setRecord(state, recordKey, { ...state[recordKey], useStateFn, AttatchedComponent })
-            : state)
+          records.update(recordKey, current => current && { ...current, useStateFn, AttatchedComponent })
         }
       } else {
         books.set(recordKey, { counter: 1, useStateFn })
-        setState(state => setRecord(state, recordKey, { useStateFn, params, AttatchedComponent }))
+        records.update(recordKey, () => ({ useStateFn, params, AttatchedComponent }))
       }
 
       const current = books.get(recordKey)!
@@ -179,7 +236,7 @@ export const AutoRootCtx: React.FC<{
         const remove = () => {
           if (books.get(recordKey) !== current || current.counter > 0) return
           books.delete(recordKey)
-          setState(state => setRecord(state, recordKey, undefined))
+          records.update(recordKey, () => undefined)
         }
         if (timeToCleanState > 0) current.timer = setTimeout(remove, timeToCleanState)
         else remove()
@@ -191,18 +248,11 @@ export const AutoRootCtx: React.FC<{
 
   useDataSourceMultiple(ctx,
     ["subscribe", subscribeRoot],
-    ["state", state],
   )
 
   return <>
-    {Object
-      .entries(state)
-      // stable order so existing store fibers are never re-placed when records are added/removed
-      .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
-      .map(([key, { useStateFn, params, AttatchedComponent }]) => <Wrapper key={key}>
-        <StateRunner key={key} name={key} params={params} useStateFn={useStateFn} debugging={debugging} />
-        {AttatchedComponent && <AttatchedComponent key={'attatch_' + key} {...params} />}
-      </Wrapper>)}
+    {Array.from({ length: BUCKETS }, (_, i) =>
+      <Bucket key={i} index={i} buckets={buckets.current!} Wrapper={Wrapper} debugging={debugging} />)}
   </>
 
 }
