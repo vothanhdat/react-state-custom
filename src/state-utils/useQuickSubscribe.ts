@@ -19,6 +19,22 @@ const outOfRenderWarning = (key: PropertyKey) =>
   `The value is current, but this read is not tracked, so later changes to it will not re-render the component. ` +
   `Read it during render and capture it, or use useDataSubscribe for ad-hoc reads.`
 
+const restWarning = (name: string) =>
+  `useQuickSubscribe: the state of "${name}" was spread or its keys listed during render. That reads every key, ` +
+  `so the component re-renders whenever any of them changes. Read only the keys you need, or use a selector.`
+
+const readOnlyError = (key: PropertyKey) =>
+  `useQuickSubscribe: "${String(key)}" is read-only. A write here would change the data under every reader ` +
+  `without notifying them. Change the state in the store hook (for example with a setter it returns).`
+
+/** Stores already warned about a spread, so a list of components spreading one store warns once. */
+const warnedRest = new Set<string>()
+
+/** Throws for writes through the proxy. Development only, like React freezing props. */
+const refuseWrite = (_target: unknown, key: PropertyKey): never => {
+  throw new TypeError(readOnlyError(key))
+}
+
 /**
  * Per-(component, context) tracker behind useQuickSubscribe.
  *
@@ -104,9 +120,13 @@ function createTracker<D>(ctx: Context<D> | undefined) {
       return out
     },
     ownKeys(target) {
-      console.warn("useQuickSubscribe: Rest object operations aren't recommended as they bypass selective subscription and may cause performance issues")
+      if (!isProduction && open && ctx && !warnedRest.has(ctx.name)) {
+        warnedRest.add(ctx.name)
+        console.warn(restWarning(ctx.name))
+      }
       return Reflect.ownKeys(target)
     },
+    ...(isProduction ? {} : { set: refuseWrite, deleteProperty: refuseWrite, defineProperty: refuseWrite }),
   }
 
   /**

@@ -48,7 +48,7 @@ See [Store options](/guide/store-options) for guidance.
 
 ### `useStore(params?)`
 
-The consumer hook. Returns a proxy that records which keys the component reads during render and subscribes to exactly those. The proxy is a new object on every render. Reads outside render return the current value, are not tracked, and log a development warning. See [Reads outside render](/guide/reads-outside-render).
+The consumer hook. Returns a proxy that records which keys the component reads during render and subscribes to exactly those. The proxy is a new object on every render. Reads outside render return the current value, are not tracked, and log a development warning. The proxy is read-only: writing to it throws in development. See [Reads outside render](/guide/reads-outside-render).
 
 ### `useStore(params, selector, isEqual?)`
 

@@ -5,6 +5,8 @@ All notable changes to this project are documented here.
 ## [Unreleased]
 ### Fixed
 - A store context created by a render that never commits is no longer cached forever. Components get their context during render, and only a committed component counts as a user, so a render that threw, suspended or was discarded left the context, and its dependency-graph entry in development, in the cache for good. A context created during render is now evicted after a second unless a user has committed; a render that commits later still finds or restores it.
+- The `useStore()` proxy warns about spreading only in development, and once per store. The warning was logged in production builds too, on every render of every component that spread the proxy.
+- Writing to the `useStore()` proxy throws a `TypeError` in development. `store.count = 1` wrote straight into the shared data without notifying anyone, so other readers kept the old value until the store published again. Production builds are unchanged, as React only freezes props in development.
 
 ## [1.3.0] - 2026-10-03
 ### Fixed

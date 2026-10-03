@@ -19,7 +19,11 @@ Destructure what you need at the top of the component. The value in `count` is t
 
 ## Spreading the proxy
 
-`{ ...useStore() }` and `Object.keys(useStore())` enumerate every key and therefore subscribe to all of them. The library logs a development warning when it sees this, because the component then re-renders on every change in the store. Pick the keys you need instead.
+`{ ...useStore() }` and `Object.keys(useStore())` enumerate every key and therefore subscribe to all of them. The library logs a development warning (once per store) when it sees this during render, because the component then re-renders on every change in the store. Pick the keys you need instead.
+
+## Writing to the proxy
+
+The proxy is read-only. `store.count = 1` or `delete store.count` would change the data under every reader without notifying any of them, so in development it throws a `TypeError`. Change state inside the store hook, for example with a setter it returns.
 
 ## Passing the proxy around
 

@@ -400,7 +400,7 @@ describe('useQuickSubscribe', () => {
     })
   })
 
-  it('should warn when spreading the quick subscribe result', () => {
+  it('warns once per store when the result is spread during render', () => {
     const ctx = getContext('quick-rest-warning-test') as Context<{ foo: number }>
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
@@ -408,17 +408,36 @@ describe('useQuickSubscribe', () => {
       ctx.publish('foo', 1)
     })
 
-    const { unmount } = renderHook(() => {
+    const first = renderHook(() => {
       const data = useQuickSubscribe(ctx)
       return { ...data }
     })
+    first.rerender()
+    const second = renderHook(() => ({ ...useQuickSubscribe(ctx) }))
 
-    expect(warnSpy).toHaveBeenCalledWith(
-      'useQuickSubscribe: Rest object operations aren\'t recommended as they bypass selective subscription and may cause performance issues'
-    )
+    expect(first.result.current).toEqual({ foo: 1 })
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    expect(warnSpy.mock.calls[0][0]).toContain('"quick-rest-warning-test"')
 
-    unmount()
+    first.unmount()
+    second.unmount()
     warnSpy.mockRestore()
+  })
+
+  it('throws on writes in development and leaves the context data untouched', () => {
+    const ctx = getContext('quick-read-only') as Context<{ x: number, y: number }>
+    act(() => {
+      ctx.publish('x', 1)
+    })
+    const { result, unmount } = renderHook(() => useQuickSubscribe(ctx))
+    const store = result.current as any
+
+    expect(() => { store.x = 2 }).toThrow(TypeError)
+    expect(() => { store.y = 2 }).toThrow(/"y" is read-only/)
+    expect(() => { delete store.x }).toThrow(TypeError)
+    expect(() => { Object.defineProperty(store, 'y', { value: 3 }) }).toThrow(TypeError)
+    expect(ctx.data).toEqual({ x: 1 })
+    unmount()
   })
 
   it('should re-subscribe when the provided context changes', async () => {
