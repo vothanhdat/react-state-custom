@@ -32,6 +32,9 @@ export const selectorScope = { depth: 0 }
 /** How long an unused Context stays in the cache before being evicted. */
 const CACHE_EVICT_DELAY = 100
 
+/** How long a Context created during a render stays cached if no user of it commits. */
+const UNCOMMITTED_EVICT_DELAY = 1000
+
 type KeyListener<D, K extends keyof D> = (value: D[K] | undefined) => void
 type AllListener<D> = (changeKey: keyof D, newData: Partial<D>) => void
 
@@ -251,7 +254,7 @@ export const getContext = memoize((name: string) => new Context<any>(name))
  * Evict `live` from the cache shortly after its last user leaves, unless it was picked up again
  * (or replaced by a fresh instance) in the meantime.
  */
-const scheduleEvict = (name: string, live: Context<any>) => {
+const scheduleEvict = (name: string, live: Context<any>, delay = CACHE_EVICT_DELAY) => {
   if (live.useCounter > 0) return
   const cacheKey = getContext.keyFor(name)
   setTimeout(() => {
@@ -259,7 +262,20 @@ const scheduleEvict = (name: string, live: Context<any>) => {
       getContext.cache.delete(cacheKey)
       DependencyTracker.remove(name)
     }
-  }, CACHE_EVICT_DELAY)
+  }, delay)
+}
+
+/**
+ * `getContext` for a render. A render may never commit (it suspended, threw or was discarded), and
+ * then no effect ever counts or releases the instance, so one created here is evicted unless a user
+ * has committed by then. A render that commits later restores it (see useDataContext).
+ */
+const getContextInRender = (name: string) => {
+  const cached = getContext.fromCache(name)
+  if (cached) return cached
+  const ctx = getContext(name)
+  scheduleEvict(name, ctx, UNCOMMITTED_EVICT_DELAY)
+  return ctx
 }
 
 /**
@@ -316,7 +332,7 @@ export const useDataContext = <D>(name: string = "noname") => {
     // On the server nothing publishes or subscribes (effects never run), so instances need not be
     // shared, and the module-level cache would only grow per request because eviction lives in an
     // effect cleanup. Use a throwaway instance there; the HTML comes out identical.
-    ref.current = { name: namespacedName, ctx: isServer() ? new Context<any>(namespacedName) : getContext(namespacedName) }
+    ref.current = { name: namespacedName, ctx: isServer() ? new Context<any>(namespacedName) : getContextInRender(namespacedName) }
   }
   const ctx = ref.current.ctx
 

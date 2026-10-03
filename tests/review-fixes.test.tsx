@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, renderHook, act } from '@testing-library/react'
-import { useState } from 'react'
+import { Component, useState, type ReactNode } from 'react'
 import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
 import { createRootCtx } from '../src/state-utils/createRootCtx'
 import { getContext, useDataContext, useDataSubscribe, useDataSubscribeMultiple, type Context } from '../src/state-utils/ctx'
@@ -124,7 +124,23 @@ describe('context cache lifecycle', () => {
     expect(second.result.current).toBe(fresh)
   })
 
+  it('evicts a context created by a render that never commits', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { useStore } = createStore('never-commits', () => ({ v: 1 }))
+    const Throws = () => { useStore(); throw new Error('boom') }
+    render(<><AutoRootCtx /><Boundary><Throws /></Boundary></>)
+    expect(getContext.fromCache('never-commits')).toBeDefined()
+    await tick(1100)
+    expect(getContext.fromCache('never-commits')).toBeUndefined()
+  })
+
 })
+
+class Boundary extends Component<{ children?: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  render() { return this.state.failed ? null : this.props.children }
+}
 
 describe('paramsToId escaping', () => {
   it('does not collide on separator characters', () => {
