@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.4.0] - 2026-10-03
 ### Added
 - A development warning when a `useStoreSuspense` render resolved by a predicate that held on `initialState` read a key the seed does not have. That render comes before the store runs, so the key was `undefined` although the result is typed as the full state; the warning names the key once the store has published a value for it. Rendering from the seed is kept: waiting for the store instead shows the fallback and delays the content by React's reveal throttle (about 300 ms).
 
@@ -199,7 +201,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.2...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.2.6...v1.3.0
