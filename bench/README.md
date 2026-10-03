@@ -17,7 +17,7 @@ yarn bench
 - No StrictMode, React 19.2, jsdom 27, Node 24, Apple M4 Pro. Numbers are means over 200 iterations
   (20 for mount); two runs agreed within a few percent.
 
-Adapters live in [`adapters.tsx`](./adapters.tsx); each library gets the idiomatic selective subscription
+Adapters live in [`bench/adapters.tsx`](https://github.com/vothanhdat/react-state-custom/blob/master/bench/adapters.tsx); each library gets the idiomatic selective subscription
 (`useStore()` proxy, `useStore(store, selector)`, `useAtomValue(atom)`).
 
 ## Consumer renders

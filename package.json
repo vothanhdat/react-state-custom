@@ -56,7 +56,10 @@
     "preview": "vite preview --config vite.config.dev.ts",
     "prepublishOnly": "yarn build",
     "bench": "vitest bench --run --config vitest.config.bench.ts",
-    "test:compiler": "vitest run --config vitest.config.compiler.ts"
+    "test:compiler": "vitest run --config vitest.config.compiler.ts",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "keywords": [
     "frontend",
@@ -95,6 +98,7 @@
     "vite": "7",
     "vite-bundle-analyzer": "^1.1.0",
     "vite-plugin-dts": "^4.5.4",
+    "vitepress": "^1.6.4",
     "vitest": "^4.0.3",
     "zustand": "^5.0.15"
   },
