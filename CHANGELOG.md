@@ -7,6 +7,9 @@ All notable changes to this project are documented here.
 - Store identity: a param passed as `undefined` no longer creates a separate instance. `useStore({ id, page: undefined })` and `useStore({ id })` now share one instance, so an optional param passed straight through no longer runs the hook twice.
 - Store identity: values of different types no longer collide. `{ id: 1 }` and `{ id: '1' }`, or `null` and `'null'`, were one instance whose hook saw whichever params mounted first. A string that reads like a number, bigint, boolean or `null` is now quoted in the id (`id='1'`) and a bigint ends in `n`. Ids of ordinary strings and numbers are unchanged; keys shown by the dev tool and `debugging` change only for those quoted strings.
 
+### Changed
+- SSR guide: says plainly that a store cannot be seeded from server data, and lists what works instead.
+
 ## [1.2.5] - 2026-10-03
 ### Changed
 - npm keywords describe the library (global state, store, derived state, Suspense) instead of generic terms.

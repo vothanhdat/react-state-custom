@@ -46,7 +46,12 @@ Server components cannot call `useStore`. Fetch on the server and pass data down
 
 ## Server-fetched data as initial state
 
-`initialState` can be a function of the params, but it cannot read request data. To seed a store from server-fetched data, pass that data into the store hook as a param-independent prop through a client component, or keep the server data in props and let the store own only client state. There is no per-request store hydration API.
+There is no way to seed a store from server-fetched data. A store hook receives only its params, which are primitives, and `initialState` can depend on the params but not on request data. There is no per-request hydration API either.
+
+What works today:
+
+- **Keep server data in props.** Fetch in a server component, pass the result down, and let stores own only client state such as selection, filters or live updates.
+- **Fetch again on the client.** The store fetches after hydration and server HTML shows the `initialState` loading state. With a data-fetching library inside the store, prime its cache from the server render through that library's own hydration API (for TanStack Query, `HydrationBoundary`), and the store's first `useQuery` starts from that data instead of an empty cache.
 
 ## `useStoreSuspense` on the server
 
