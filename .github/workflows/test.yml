@@ -59,9 +59,11 @@ jobs:
         uses: codecov/codecov-action@v7
         if: matrix.node-version == '20.x'
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/coverage-final.json
           flags: unittests
           name: codecov-umbrella
+        # an outage at Codecov must not fail the tests
         continue-on-error: true
 
   # react >= 18 is the peer range; the job above runs React 19
