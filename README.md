@@ -116,15 +116,53 @@ The full guide lives on the **[documentation site](https://vothanhdat.github.io/
 
 ## 🆚 Comparison
 
-| Feature | React State Custom | Redux | Context API | Zustand | Jotai |
-|:---|:---:|:---:|:---:|:---:|:---:|
-| **Paradigm** | Just Hooks 🪝 | Actions/Reducers | Providers | Store Object | Atoms |
-| **Boilerplate** | 🟢 None | 🔴 High | 🟡 Medium | 🟢 Low | 🟢 Low |
-| **Auto Lifecycle** | ✅ Yes | ❌ No | ❌ No | ❌ No | ⚠️ Per atom |
-| **Selective Renders** | ✅ Automatic | ⚠️ Selectors | ❌ Manual | ✅ Selectors | ✅ Per atom |
-| **Learning Curve** | 🟢 Low | 🔴 High | 🟡 Medium | 🟢 Low | 🟡 Medium |
+The closest relative is **Jotai**: both build a graph of small pieces of state that depend on each other, mount what is read and drop what is not. The difference is the unit. In Jotai it is an atom, a value or a derived read. Here it is a hook, so a piece of state can do anything a hook can do.
 
-Boilerplate means library ceremony: store objects, actions, reducers, selectors, atoms, providers. Here there is one `createStore`, and the hook it returns is used like any React hook.
+The same slice of an exchange UI, an order book per symbol fed by a socket, and a spread derived from it:
+
+```ts
+// Jotai
+const bookAtom = atomFamily((symbol: string) => {
+  const a = atom<Book | null>(null)
+  a.onMount = set => socket.subscribe(symbol, set)        // returns the unsubscribe
+  return a
+})
+const spreadAtom = atomFamily((symbol: string) => atom(get => spreadOf(get(bookAtom(symbol)))))
+
+const spread = useAtomValue(spreadAtom(symbol))
+```
+
+```ts
+// react-state-custom
+export const { useStore: useBook } = createStore('book', ({ symbol }: { symbol: string }) => {
+  const [book, setBook] = useState<Book | null>(null)
+  useEffect(() => socket.subscribe(symbol, setBook), [symbol])
+  return { book }
+})
+export const { useStore: useSpread } = createStore('spread', ({ symbol }: { symbol: string }) => {
+  const { book } = useBook({ symbol })
+  return { spread: book ? spreadOf(book) : undefined }
+})
+
+const { spread } = useSpread({ symbol })
+```
+
+Both subscribe to the socket when the first component reads that symbol and unsubscribe after the last one leaves. What differs is what you had to learn and what it costs:
+
+| | react-state-custom | Jotai |
+|:---|:---|:---|
+| **Unit** | a hook: `useState`, `useEffect`, `useQuery`, other stores | an atom: a value or a derived `get` |
+| **Depend on another piece** | call its hook | `get(otherAtom)` |
+| **One instance per symbol, id, …** | params on the hook; same params, same instance | `atomFamily` |
+| **Side effects with a lifecycle** | `useEffect` inside the store | `onMount` on the atom |
+| **Fine-grained reads** | top-level keys through the proxy, selectors for deep values | one atom per value; split atoms for granularity |
+| **Cost per update** | about 2x Jotai, plus one commit per derived layer | fastest in our [benchmarks](./bench/README.md) |
+| **Ecosystem** | every React hook works inside a store | a large set of atom utilities |
+| **To learn** | nothing beyond React hooks | the atom model |
+
+If you tune thousands of high-frequency updates per second, Jotai's update path is cheaper. If your state is a graph of things that fetch, subscribe and derive, such as `config → market data → order book → positions → summary`, write each node as a hook, keep the graph acyclic, and import the hook where it is needed.
+
+**Zustand** is the least code for a flat global bag of values, with no per-key instances or lifecycle: you write the ref-counting around sockets yourself. **Redux** is a different model (actions and reducers) aimed at a different scale of ceremony. A plain **React context** re-renders every consumer on every change.
 
 ## 📊 Benchmarks
 
