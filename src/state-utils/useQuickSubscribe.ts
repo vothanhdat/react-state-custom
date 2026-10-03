@@ -4,6 +4,16 @@ import { isProduction } from "./utils";
 
 type Probe = { wrapper: Function, latest: unknown, calledInRender: boolean, fn: Function }
 
+/** Server snapshot meaning "render what the server rendered": the live data has moved on since. */
+const FROM_SERVER = -1
+
+/** True when `live` holds a value the server could not have rendered from `seed`. */
+const differsFromSeed = (seed: Record<PropertyKey, unknown>, live: Record<PropertyKey, unknown>) => {
+  for (const key of Object.keys(seed)) if (!Object.is(seed[key], live[key])) return true
+  for (const key of Object.keys(live)) if (!Object.hasOwn(seed, key) && live[key] !== undefined) return true
+  return false
+}
+
 const outOfRenderWarning = (key: PropertyKey) =>
   `useQuickSubscribe: "${String(key)}" was read outside of render (e.g. in an event handler or effect). ` +
   `The value is current, but this read is not tracked, so later changes to it will not re-render the component. ` +
@@ -16,10 +26,16 @@ const outOfRenderWarning = (key: PropertyKey) =>
  * - After commit, key subscriptions are diffed against the keys read in the latest render.
  * - A change on any tracked key (by `Object.is`) bumps `version`, which is the
  *   `useSyncExternalStore` snapshot, so React re-renders synchronously and consistently.
+ * - While hydrating, reads come from `serverData` (what the server rendered) when the live data has
+ *   already moved on, e.g. a store that ran for an earlier island or Suspense boundary.
  */
 function createTracker<D>(ctx: Context<D> | undefined) {
   let open = true
   let version = 0
+  /** The data this render reads from instead of the live data (the server's, while hydrating). */
+  let rendering: Partial<D> | undefined
+  let serverData: (() => Partial<D>) | undefined
+  let serverSnapshot: number | undefined
 
   const listeners = new Set<() => void>()
   const readKeys = new Set<keyof D>()
@@ -30,6 +46,7 @@ function createTracker<D>(ctx: Context<D> | undefined) {
   const probes = new Map<keyof D, Probe>()
 
   const data = () => (ctx?.data ?? {}) as Partial<D>
+  const readable = () => (open && rendering) || data()
 
   const warned = new Set<PropertyKey>()
 
@@ -68,7 +85,7 @@ function createTracker<D>(ctx: Context<D> | undefined) {
 
   const handler: ProxyHandler<any> = {
     get(_target, p) {
-      const current = data() as any
+      const current = readable() as any
       // Symbols (Symbol.toPrimitive, Symbol.iterator, devtools probes, ...) and inherited Object.prototype
       // members (toString, valueOf, hasOwnProperty, ...) are not store keys: pass through untracked.
       if (typeof p === "symbol" || (!Object.hasOwn(current, p) && p in Object.prototype)) return current[p]
@@ -98,7 +115,7 @@ function createTracker<D>(ctx: Context<D> | undefined) {
    * the keys the helper reads would stop being tracked. A new object each render keeps every read
    * observable; the compiler still memoises on the primitive values read out of it.
    */
-  const view = () => new Proxy(data() as any, handler) as { [P in keyof D]?: D[P] | undefined }
+  const view = () => new Proxy(readable() as any, handler) as { [P in keyof D]?: D[P] | undefined }
 
   const hasChanged = () => {
     const current = data()
@@ -121,7 +138,8 @@ function createTracker<D>(ctx: Context<D> | undefined) {
   return {
     view,
     /** Called at the start of every render: reopen the getter and forget last render's reads. */
-    beginRender() {
+    beginRender(snapshot: number) {
+      rendering = snapshot === FROM_SERVER && serverData ? serverData() : undefined
       open = true
       readKeys.clear()
       called.clear()
@@ -129,6 +147,7 @@ function createTracker<D>(ctx: Context<D> | undefined) {
     /** Called after every commit: close the getter and sync key subscriptions to what was read. */
     commit() {
       open = false
+      rendering = undefined
       if (ctx) {
         for (const key of readKeys) {
           if (!subs.has(key)) subs.set(key, ctx.subscribe(key, check))
@@ -152,6 +171,21 @@ function createTracker<D>(ctx: Context<D> | undefined) {
       return () => { listeners.delete(listener) }
     },
     getSnapshot: () => version,
+    /** What the server rendered for this context; read lazily by getServerSnapshot and beginRender. */
+    setServerData(server: (() => Partial<D>) | undefined) {
+      serverData = server
+    },
+    /**
+     * Used by React on the server and while hydrating. Without `serverData` it is the live snapshot.
+     * With it, a component hydrating after the store has published (another island or Suspense
+     * boundary started it) renders the server's data first, then React re-renders it with live data.
+     */
+    getServerSnapshot: () => {
+      if (serverSnapshot === undefined) {
+        serverSnapshot = serverData && differsFromSeed(serverData() as any, data() as any) ? FROM_SERVER : version
+      }
+      return serverSnapshot
+    },
   }
 }
 
@@ -179,16 +213,18 @@ function createTracker<D>(ctx: Context<D> | undefined) {
  *   return <div>{name}</div>;
  */
 export const useQuickSubscribe = <D>(
-  ctx: Context<D> | undefined
+  ctx: Context<D> | undefined,
+  /** What the server rendered for this context (a store's `initialState`), read while hydrating. */
+  serverData?: () => Partial<D>
 ): {
     [P in keyof D]?: D[P] | undefined;
   } => {
 
   const tracker = useMemo(() => createTracker(ctx), [ctx])
 
-  useSyncExternalStore(tracker.subscribe, tracker.getSnapshot, tracker.getSnapshot)
-
-  tracker.beginRender()
+  tracker.setServerData(serverData)
+  const snapshot = useSyncExternalStore(tracker.subscribe, tracker.getSnapshot, tracker.getServerSnapshot)
+  tracker.beginRender(snapshot)
 
   // no deps: subscriptions must follow the keys read in *every* render
   useEffect(() => { tracker.commit() })

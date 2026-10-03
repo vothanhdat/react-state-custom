@@ -554,7 +554,8 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
     }
   }
 
-  const useStoreProxy = (ctx: Context<V>) => useQuickSubscribe(ctx) as StoreState<V, I>
+  /** What the server rendered for these params: consumers read it while hydrating (see useQuickSubscribe). */
+  const serverValues = (params: U) => () => (seedValues(params) ?? {}) as Partial<V>
 
   /**
    * `useStore(params?)` returns a tracking proxy: re-render only for the keys read during render.
@@ -566,10 +567,11 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
   function useStore(...args: any[]) {
     const [params, selector, isEqual] = args as [U | undefined, ((state: StoreState<V, I>) => unknown)?, ((a: unknown, b: unknown) => boolean)?]
     const ctx = useCtxState(params as any)
+    const server = serverValues((params ?? {}) as U)
     // A given call site always passes a selector or never does, so the hook order is stable.
     return typeof selector === "function"
-      ? useDataSelector(ctx, selector as (data: Partial<V>) => unknown, isEqual)
-      : useStoreProxy(ctx)
+      ? useDataSelector(ctx, selector as (data: Partial<V>) => unknown, isEqual, server)
+      : useQuickSubscribe(ctx, server) as StoreState<V, I>
   }
 
   /**
@@ -585,7 +587,8 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
     const ctx = useCtxState(params as any)
     // A store hook that threw is disabled: hand its error to this component's error boundary,
     // whether it failed before the first result or later.
-    const failed = useSyncExternalStore(ctx.onStatus, () => ctx.failed, () => ctx.failed)
+    // stores never run on the server, so the server (and hydration) snapshot is "not failed"
+    const failed = useSyncExternalStore(ctx.onStatus, () => ctx.failed, () => false)
     if (failed) throw ctx.error
     // With a predicate, readiness is the predicate alone (initialState may already satisfy it);
     // without one, readiness means the store hook has published once.
@@ -604,7 +607,7 @@ export const createAutoCtx = <U extends ParamsToIdRecord, V extends Record<strin
     // committed: useCtxState's effect, declared above, has subscribed by the time this one runs.
     extendHeldRetain(ctx)
     useEffect(() => releaseHeldRetain(ctx), [ctx])
-    return useQuickSubscribe(ctx) as V
+    return useQuickSubscribe(ctx, serverValues((params ?? {}) as U)) as V
   }
 
   return {

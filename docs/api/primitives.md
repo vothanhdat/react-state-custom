@@ -108,7 +108,10 @@ Subscribes to the whole context and re-renders only when `selector(ctx.data)` ch
 ```ts
 const name = useDataSelector(ctx, data => data.user?.name)
 const tags = useDataSelector(ctx, data => data.tags ?? [], shallowEqual)
+const name = useDataSelector(ctx, data => data.user?.name, Object.is, () => serverData) // see below
 ```
+
+The optional fourth argument returns what the server rendered for this context. While hydrating, the selector runs on it when the live data has moved on, so the hydrated output matches the server HTML; `useStore` passes the store's `initialState`.
 
 ## `useQuickSubscribe`
 
@@ -116,7 +119,10 @@ The proxy behind `useStore`. Returns an object whose property reads during rende
 
 ```ts
 const { a, b } = useQuickSubscribe(ctx) // re-renders only when a or b changes
+const { a, b } = useQuickSubscribe(ctx, () => serverData)
 ```
+
+The optional second argument returns what the server rendered for this context. While hydrating, reads come from it when the live data has already moved on, and React re-renders with the live data afterwards; `useStore` passes the store's `initialState`.
 
 The proxy is a new object on every render, over one subscription tracker per component, so that the React Compiler re-reads it instead of caching work keyed on its identity. Use the values read from it as dependencies, never the proxy itself.
 

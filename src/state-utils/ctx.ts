@@ -425,30 +425,39 @@ export const useDataSubscribeWithTransform = <D, K extends keyof D, E>(ctx: Cont
 export const useDataSelector = <D, R>(
   ctx: Context<D> | undefined,
   selector: (data: Partial<D>) => R,
-  isEqual: (a: R, b: R) => boolean = Object.is
+  isEqual: (a: R, b: R) => boolean = Object.is,
+  /** What the server rendered for this context (a store's `initialState`), selected from while hydrating. */
+  serverData?: () => Partial<D>
 ): R => {
   const selectorRef = useRef(selector)
   selectorRef.current = selector
   const isEqualRef = useRef(isEqual)
   isEqualRef.current = isEqual
+  const serverDataRef = useRef(serverData)
+  serverDataRef.current = serverData
 
   const store = useMemo(() => {
     let version = 0
     let computedVersion = -1
     let computedWith: typeof selector | undefined
     let result: R
+    let serverWith: typeof selector | undefined
+    let serverResult: R
+
+    const select = (fn: typeof selector, data: Partial<D>) => {
+      // a store function the selector calls is a render-time dependency (see functionSources)
+      selectorScope.depth++
+      try {
+        return fn(data)
+      } finally {
+        selectorScope.depth--
+      }
+    }
 
     const getSnapshot = () => {
       const fn = selectorRef.current
       if (computedVersion === version && computedWith === fn) return result
-      let next: R
-      // a store function the selector calls is a render-time dependency (see functionSources)
-      selectorScope.depth++
-      try {
-        next = fn((ctx?.data ?? {}) as Partial<D>)
-      } finally {
-        selectorScope.depth--
-      }
+      const next = select(fn, (ctx?.data ?? {}) as Partial<D>)
       // keep the previous reference when the selection is equal, so React sees no change
       if (computedVersion === -1 || !isEqualRef.current(result, next)) result = next
       computedVersion = version
@@ -456,14 +465,27 @@ export const useDataSelector = <D, R>(
       return result
     }
 
+    // On the server and while hydrating: what the server rendered, unless it equals the live selection.
+    // React re-renders with the live selection once hydrated.
+    const getServerSnapshot = () => {
+      const fn = selectorRef.current
+      if (serverWith === fn) return serverResult
+      const live = getSnapshot()
+      const server = serverDataRef.current
+      const fromServer = server ? select(fn, server()) : live
+      serverResult = server && !isEqualRef.current(fromServer, live) ? fromServer : live
+      serverWith = fn
+      return serverResult
+    }
+
     const subscribe = (onStoreChange: () => void) => ctx
       ? ctx.subscribeAll(() => { version++; onStoreChange() })
       : () => { }
 
-    return { subscribe, getSnapshot }
+    return { subscribe, getSnapshot, getServerSnapshot }
   }, [ctx])
 
-  return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
+  return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot)
 }
 
 /**

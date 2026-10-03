@@ -3,8 +3,8 @@
 `react-state-custom` is a **client-side** state manager that is **SSR-safe**. Stores are hooks that run inside `AutoRootCtx` after mount, and effects never run on the server, so:
 
 - On the server, consumers render with `initialState` (or `undefined`). No store hook runs, nothing is fetched, nothing leaks between requests: server renders use throwaway contexts, never the shared cache.
-- Hydration matches, because the client's first render reads the very same snapshot. Stores mount after hydration and consumers update from there.
-- With streaming (`renderToPipeableStream`) the same rule holds: every boundary renders the same `initialState`.
+- Hydration matches: while hydrating, a consumer renders what the server rendered (`initialState`), even when the store has already published on the client, for example because an earlier island or an earlier Suspense boundary of a streamed page started it. React then re-renders it with the live values. Stores mount after hydration and consumers update from there.
+- With streaming (`renderToPipeableStream`) the same rule holds for every boundary, whenever it hydrates.
 
 Give stores an `initialState` so server HTML shows a meaningful loading state instead of empty values.
 
