@@ -751,7 +751,9 @@ export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, I
     readyFor.current = ctx
     extendHeldRetain(ctx)
     useEffect(() => releaseHeldRetain(ctx), [ctx])
-    return useQuickSubscribe(ctx, serverValues((params ?? {}) as U)) as V
+    const state = useQuickSubscribe(ctx, serverValues((params ?? {}) as U)) as V
+    // Ready before the store ran: the predicate held on initialState, and this render reads only that
+    return !isProduction && !ctx.ready && !isServer() ? watchSeedReads(ctx, state) : state
   }
 
   return {
@@ -761,6 +763,45 @@ export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, I
     getStore,
   }
 }
+
+/** Keys that renders from initialState read although initialState lacks them, per instance (development only). */
+const seedReads = new WeakMap<Context<any>, Set<string>>()
+
+const warnedSeedReads = new Set<string>()
+
+const seedReadWarning = (name: string, key: string) =>
+  `[react-state-custom] useStoreSuspense("${name}") rendered from initialState, which satisfied isReady before ` +
+  `the store ran, and read "${key}", which initialState does not have: that render got undefined although the ` +
+  `type says "${key}" is present. Add "${key}" to initialState (a no-op function for an action), or check it in isReady.`
+
+/**
+ * Development check for a `useStoreSuspense` render resolved by a predicate that held on
+ * initialState alone. The result is typed as the full state, but only the seeded keys exist yet.
+ * Records the missing keys the render reads, and once the store has published, warns about those
+ * the hook does return a value for: those are the reads the type got wrong.
+ */
+const watchSeedReads = <V extends object>(ctx: Context<V>, state: V): V => new Proxy(state, {
+  get(target, p, receiver) {
+    if (typeof p === "string" && !Object.hasOwn(ctx.data, p) && !(p in Object.prototype)) {
+      let keys = seedReads.get(ctx)
+      if (!keys) {
+        const missing = keys = new Set()
+        seedReads.set(ctx, missing)
+        ctx.onReady(() => {
+          seedReads.delete(ctx)
+          const name = ctx.name.split("?")[0]
+          for (const key of missing) {
+            if ((ctx.data as Record<string, unknown>)[key] === undefined || warnedSeedReads.has(`${name}:${key}`)) continue
+            warnedSeedReads.add(`${name}:${key}`)
+            console.warn(seedReadWarning(name, key))
+          }
+        })
+      }
+      keys.add(p)
+    }
+    return Reflect.get(target, p, receiver)
+  },
+})
 
 type IsReady<V, I> = ((state: StoreState<V, I>) => boolean) | undefined
 

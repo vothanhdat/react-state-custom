@@ -238,3 +238,49 @@ describe('useStoreSuspense: several consumers and consumers that go away', () =>
     })
   })
 })
+
+describe('useStoreSuspense: a predicate that holds on initialState', () => {
+  // The component renders from the seed before the store has run: only the seeded keys exist.
+  const makeCart = (name: string) => createStore(name, () => {
+    const [count, setCount] = useState(0)
+    const [items] = useState<string[]>(['apple'])
+    const [note] = useState<string>()
+    return { count, items, note, increment: () => setCount(c => c + 1) }
+  }, { initialState: { count: 0 } })
+
+  it('renders at once from the seed, then with the full state', async () => {
+    const { useStoreSuspense } = makeCart('seed-render')
+    const seen: string[] = []
+    const Cart = () => { const s = useStoreSuspense({}, s => s.count >= 0); seen.push(typeof s.increment); return null }
+    const { counter, Fallback } = makeFallback()
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    render(<><AutoRootCtx /><Suspense fallback={<Fallback />}><Cart /></Suspense></>)
+    await tick()
+    expect(counter.renders).toBe(0)
+    expect(seen[0]).toBe('undefined')
+    expect(seen[seen.length - 1]).toBe('function')
+  })
+
+  it('warns in development about a key that render read and the seed lacks', async () => {
+    const { useStoreSuspense } = makeCart('seed-warning')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    // count is seeded; note's first value is undefined, as its type allows: neither is reported
+    const Cart = () => { const { count, items, note } = useStoreSuspense({}, s => s.count >= 0); return <b>{count}{items?.length}{note}</b> }
+    render(<><AutoRootCtx /><Suspense fallback={null}><Cart /></Suspense></>)
+    await tick()
+    const messages = warn.mock.calls.map(c => String(c[0]))
+    expect(messages).toHaveLength(1)
+    expect(messages[0]).toContain('useStoreSuspense("seed-warning")')
+    expect(messages[0]).toContain('read "items"')
+  })
+
+  it('does not warn when the component waited for the store', async () => {
+    const { useStoreSuspense } = makeCart('seed-no-warning')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    // the seed has no items: the predicate does not hold on it, so the component waits for the store
+    const Cart = () => { const { items } = useStoreSuspense({}, s => !!s.items); return <b>{items.length}</b> }
+    render(<><AutoRootCtx /><Suspense fallback={null}><Cart /></Suspense></>)
+    await tick()
+    expect(warn).not.toHaveBeenCalled()
+  })
+})
