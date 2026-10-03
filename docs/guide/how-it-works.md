@@ -36,6 +36,8 @@ The identity of an instance is `name` plus the serialized params, for example `t
 
 Functions returned by the store hook are wrapped once per key, so their identity is stable across store renders while always calling the latest closure. A consumer that only reads `increment` does not re-render when `count` changes, and actions are safe in dependency arrays.
 
+A function that a consumer **calls while rendering** is a value, not an action: a getter such as `getItem(id)`, a selector that calls one, a sort order held in state, a component. When the store returns a new implementation of it (a `useCallback` whose dependencies changed, a new value in `useState`), the consumers that called it re-render, and a component returned this way remounts. Calls from event handlers and effects never subscribe. An inline function called during render is new on every store render, so its callers re-render with every store render; memoize it with `useCallback` when that matters.
+
 ## Scopes
 
 `AutoRootCtx` is the global scope. A `StateScopeProvider` is a separate scope with its own instances of every store, even for the same name and params. See [Scopes](/guide/scopes).

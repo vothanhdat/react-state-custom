@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import type { Context } from "./ctx";
+import { functionSources, latestOf, type Context } from "./ctx";
 import { isProduction } from "./utils";
+
+type Probe = { wrapper: Function, latest: unknown, calledInRender: boolean, fn: Function }
 
 const outOfRenderWarning = (key: PropertyKey) =>
   `useQuickSubscribe: "${String(key)}" was read outside of render (e.g. in an event handler or effect). ` +
@@ -23,10 +25,46 @@ function createTracker<D>(ctx: Context<D> | undefined) {
   const readKeys = new Set<keyof D>()
   const seen = new Map<keyof D, unknown>()
   const subs = new Map<keyof D, () => void>()
+  /** Store functions called during the latest render, with the implementation they ran. */
+  const called = new Map<keyof D, unknown>()
+  const probes = new Map<keyof D, Probe>()
 
   const data = () => (ctx?.data ?? {}) as Partial<D>
 
   const warned = new Set<PropertyKey>()
+
+  /**
+   * What a read of a store function returns: a function bound to this component that records a call
+   * made while rendering, so a new implementation (a `useCallback` whose deps changed) re-renders it.
+   * Its identity is stable, like the action's, except once called during render: then it changes with
+   * the implementation, so memoized children that call it re-render too.
+   */
+  const probeFor = (key: keyof D, wrapper: Function) => {
+    const latest = latestOf(wrapper)
+    let probe = probes.get(key)
+    if (probe && probe.wrapper === wrapper && !(probe.calledInRender && probe.latest !== latest)) {
+      probe.latest = latest
+      return probe.fn
+    }
+    const created: Probe = {
+      wrapper,
+      latest,
+      calledInRender: false,
+      fn: function (this: unknown, ...args: unknown[]) {
+        if (open) {
+          created.calledInRender = true
+          called.set(key, latestOf(wrapper))
+          functionSources.get(wrapper)!.calledInRender = true
+        }
+        return wrapper.apply(this, args)
+      },
+    }
+    try {
+      Object.defineProperty(created.fn, "name", { value: wrapper.name })
+    } catch { /* non-configurable in exotic environments; ignore */ }
+    probes.set(key, created)
+    return created.fn
+  }
 
   const handler: ProxyHandler<any> = {
     get(_target, p) {
@@ -36,16 +74,17 @@ function createTracker<D>(ctx: Context<D> | undefined) {
       if (typeof p === "symbol" || (!Object.hasOwn(current, p) && p in Object.prototype)) return current[p]
       const key = p as keyof D
       const value = current[key]
+      const out = typeof value === "function" && functionSources.has(value) ? probeFor(key, value) : value
       if (!open) {
         if (!isProduction && !warned.has(key)) {
           warned.add(key)
           console.warn(outOfRenderWarning(key))
         }
-        return value
+        return out
       }
       readKeys.add(key)
       seen.set(key, value)
-      return value
+      return out
     },
     ownKeys(target) {
       console.warn("useQuickSubscribe: Rest object operations aren't recommended as they bypass selective subscription and may cause performance issues")
@@ -66,6 +105,9 @@ function createTracker<D>(ctx: Context<D> | undefined) {
     for (const key of readKeys) {
       if (!Object.is(seen.get(key), current[key])) return true
     }
+    for (const [key, latest] of called) {
+      if (latestOf(current[key]) !== latest) return true
+    }
     return false
   }
 
@@ -82,6 +124,7 @@ function createTracker<D>(ctx: Context<D> | undefined) {
     beginRender() {
       open = true
       readKeys.clear()
+      called.clear()
     },
     /** Called after every commit: close the getter and sync key subscriptions to what was read. */
     commit() {

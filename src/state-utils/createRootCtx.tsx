@@ -1,9 +1,9 @@
 import { useContext, useEffect, useMemo, useRef } from "react"
-import { useDataContext, useDataSourceMultiple, StateScopeContext, type Context, useIsomorphicLayoutEffect } from "./ctx"
+import { useDataContext, useDataSourceMultiple, StateScopeContext, type Context, useIsomorphicLayoutEffect, functionSources, selectorScope, type FunctionSource } from "./ctx"
 import { paramsToId, type ParamsToIdRecord } from "./paramsToId"
 import { DependencyTracker } from "./utils"
 
-type StableFn = { latest: Function, stable: Function }
+type StableFn = FunctionSource & { stable: Function, committed: Function }
 
 const isClass = (fn: Function) => /^class[\s{]/.test(Function.prototype.toString.call(fn))
 
@@ -14,8 +14,12 @@ const isClass = (fn: Function) => /^class[\s{]/.test(Function.prototype.toString
  * Publishing those directly would notify every consumer that destructures an action on
  * every store render, defeating selective re-rendering. Instead each function key gets a
  * single wrapper that always forwards to the latest implementation. Classes are left as-is.
+ *
+ * A function a consumer calls while rendering (a getter such as `getItem(id)`, a component) is a
+ * value, not an action: the returned `announce` effect tells the context when its implementation
+ * changed, so those consumers re-render. Calls from event handlers never mark a function.
  */
-const useStableActions = <V extends Record<string, unknown>>(state: V): V => {
+const useStableActions = <V extends Record<string, unknown>>(state: V): { state: V, wrappers: Map<string, StableFn> } => {
   const wrappers = useRef(new Map<string, StableFn>())
   const map = wrappers.current
   const out: Record<string, unknown> = {}
@@ -27,13 +31,17 @@ const useStableActions = <V extends Record<string, unknown>>(state: V): V => {
       if (!entry) {
         const created: StableFn = {
           latest: value,
+          committed: value,
+          calledInRender: false,
           stable: function (this: unknown, ...args: unknown[]) {
+            if (selectorScope.depth > 0) created.calledInRender = true
             return created.latest.apply(this, args)
           },
         }
         try {
           Object.defineProperty(created.stable, "name", { value: value.name || key })
         } catch { /* non-configurable in exotic environments; ignore */ }
+        functionSources.set(created.stable, created)
         entry = created
         map.set(key, entry)
       } else {
@@ -46,7 +54,24 @@ const useStableActions = <V extends Record<string, unknown>>(state: V): V => {
     }
   }
 
-  return out as V
+  return { state: out as V, wrappers: map }
+}
+
+/**
+ * After each commit, announce (`Context.touch`) the function keys whose implementation changed and
+ * that some consumer calls while rendering. Declared after the publish so both reach consumers in
+ * the same synchronous re-render.
+ */
+const useAnnounceFunctions = (ctx: Context<any>, wrappers: Map<string, StableFn>) => {
+  useIsomorphicLayoutEffect(() => {
+    let changed: string[] | undefined
+    for (const [key, entry] of wrappers) {
+      if (entry.committed === entry.latest) continue
+      entry.committed = entry.latest
+      if (entry.calledInRender) (changed ??= []).push(key)
+    }
+    if (changed) ctx.touch(changed)
+  })
 }
 
 
@@ -104,7 +129,7 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
     } finally {
       DependencyTracker.leave();
     }
-    const state = useStableActions(rawState)
+    const { state, wrappers } = useStableActions(rawState)
 
     const stack = useMemo(() => new Error().stack, [])
 
@@ -112,6 +137,7 @@ export const createRootCtx = <U extends ParamsToIdRecord, V extends Record<strin
       ctx,
       ...Object.entries(state) as any
     )
+    useAnnounceFunctions(ctx, wrappers)
 
     // Declared after useDataSourceMultiple so it runs after the first publish: the context is
     // "ready" once consumers can see real values instead of initialState (see useStoreSuspense).

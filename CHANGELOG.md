@@ -4,6 +4,7 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 ### Fixed
+- Functions returned by a store reach the consumers that call them while rendering. Every function was published as one stable wrapper, so a getter such as `useCallback(id => items[id], [items])`, a sort order kept in `useState`, or a component returned by the store never updated its consumers: they kept rendering the old result. A consumer that calls a store function during render (directly, through a selector, or in a memoized child it passes the function to) now re-renders when the store returns a new implementation, and a returned component remounts when it is replaced. Actions called from event handlers keep a stable identity and never re-render their readers.
 - The published package is no longer compiled by the React Compiler. Since 1.0.27 the library build ran `babel-plugin-react-compiler`, which was meant for the examples only, so the package differed from the tested source. In 1.2.2 to 1.2.6 the compiler cached the `useStore()` proxy, undoing the 1.2.2 fix: in an app using the React Compiler, a helper called with the whole store object (`describe(store)`) kept its cached result and stopped updating. Tests and benchmarks always ran on the uncompiled source, which is now what ships.
 
 ### Changed

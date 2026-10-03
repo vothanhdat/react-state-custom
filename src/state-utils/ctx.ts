@@ -12,6 +12,23 @@ import { useArrayChangeId } from "./useArrayChangeId"
 
 export const StateScopeContext = createContext<string | null>(null)
 
+/**
+ * The stable wrapper a store publishes for a function-valued key, with the implementation it forwards to.
+ * `calledInRender` turns true once a consumer calls the function while rendering (a getter, a selector,
+ * a component), from then on a new implementation is announced with `Context.touch`.
+ */
+export type FunctionSource = { latest: Function, calledInRender: boolean }
+
+/** Stable wrapper -> its source. Filled by createRootCtx, read by the subscribe hooks. */
+export const functionSources = new WeakMap<Function, FunctionSource>()
+
+/** The implementation behind a store's function wrapper, or the value itself. */
+export const latestOf = (value: unknown) =>
+  typeof value === "function" ? functionSources.get(value)?.latest ?? value : value
+
+/** Depth of selector calls in progress: a store function called inside one is a render-time call. */
+export const selectorScope = { depth: 0 }
+
 /** How long an unused Context stays in the cache before being evicted. */
 const CACHE_EVICT_DELAY = 100
 
@@ -143,6 +160,24 @@ export class Context<D> extends EventTarget {
       set.delete(listener)
       if (set.size === 0 && this.keyListeners.get(key) === set) this.keyListeners.delete(key)
     }
+  }
+
+  /**
+   * Notify the subscribers of `keys` although their values are unchanged: a store function whose
+   * implementation changed behind its stable wrapper. Subscribers decide whether that matters to them.
+   */
+  public touch(keys: Iterable<keyof D>) {
+    let error: unknown
+    let failed = false
+    const run = (fn: () => void) => {
+      try { fn() } catch (e) { if (!failed) { failed = true; error = e } }
+    }
+    for (const key of keys) {
+      const forKey = this.keyListeners.get(key)
+      if (forKey) run(() => notify(forKey, listener => listener(this.data[key])))
+      run(() => notify(this.allListeners, listener => listener(key, this.data)))
+    }
+    if (failed) throw error
   }
 
   /** Subscribe to every change: the listener receives the changed key and the whole data object. */
@@ -375,7 +410,14 @@ export const useDataSelector = <D, R>(
     const getSnapshot = () => {
       const fn = selectorRef.current
       if (computedVersion === version && computedWith === fn) return result
-      const next = fn((ctx?.data ?? {}) as Partial<D>)
+      let next: R
+      // a store function the selector calls is a render-time dependency (see functionSources)
+      selectorScope.depth++
+      try {
+        next = fn((ctx?.data ?? {}) as Partial<D>)
+      } finally {
+        selectorScope.depth--
+      }
       // keep the previous reference when the selection is equal, so React sees no change
       if (computedVersion === -1 || !isEqualRef.current(result, next)) result = next
       computedVersion = version
