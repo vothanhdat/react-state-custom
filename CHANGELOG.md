@@ -4,6 +4,7 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 ### Changed
+- README, docs home and introduction lead with sharing: a hook written once runs once per params for every caller, composes with other stores and renders progressively. The 30-second example is now a ticker store and a position store reading it. The npm description follows.
 - README: the comparison section now sets the library next to Jotai with the same order-book example (hook versus atom), a table of what differs, and one paragraph on Zustand, Redux and React context.
 - Docs: new guide page Progressive data (one store per fetched source, a combining store the view renders from, switching params, `timeToClean` as a cache, use with TanStack Query). Limitations now state that layers are one commit apart and that store hooks see the providers above `AutoRootCtx`; Reads outside render notes that a passed proxy is tracked only during render.
 

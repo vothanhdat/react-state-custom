@@ -1,7 +1,7 @@
 {
   "name": "react-state-custom",
   "version": "1.2.3",
-  "description": "Turn any React hook into global state. No boilerplate, no complexity—just pure, performant state management.",
+  "description": "Write a React hook once, use it anywhere: one running instance per params, shared by every caller, composed with hooks.",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.es.js",
