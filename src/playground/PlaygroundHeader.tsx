@@ -30,7 +30,7 @@ export const PlaygroundHeader = () => {
                     NPM Package
                 </a>
                 <a
-                    href="https://github.com/vothanhdat/react-state-custom/blob/master/API_DOCUMENTATION.md"
+                    href="https://vothanhdat.github.io/react-state-custom/docs/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="playground-link"

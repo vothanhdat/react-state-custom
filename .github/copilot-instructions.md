@@ -11,8 +11,11 @@ up to date with every release. This file only adds repository-specific notes.
   (`AutoRootCtx`, `createStore`, `StateScopeProvider`, `StoreErrorBoundary`),
   `useQuickSubscribe.ts` (render-time tracking proxy), `paramsToId.tsx`, `utils.ts`.
 - Peer dependency React >= 18. Builds ESM + CJS with Vite, types via vite-plugin-dts.
-- Demo site: `src/playground` (GitHub Pages, StackBlitz embeds of `src/examples/*`);
-  `src/dev` renders the same examples natively for local development (`yarn dev`).
+- Demo site: `src/playground` renders `src/examples/*` natively (GitHub Pages root) with an "Edit on StackBlitz"
+  button; `src/dev` renders the same examples for local development (`yarn dev`).
+- Docs site: VitePress in `docs/` (`yarn docs:dev`, `yarn docs:build`), deployed under `/react-state-custom/docs/`
+  by the same Pages workflow. `docs/changelog.md` and `docs/benchmarks.md` include `CHANGELOG.md` and
+  `bench/README.md`; `API_DOCUMENTATION.md` is a redirect, the reference lives in `docs/api/`.
 
 ## Golden path (what generated code should use)
 - `createStore(name, useFn, options?)` where `options` is `{ timeToClean?, AttachedComponent?, initialState? }`.
@@ -34,4 +37,4 @@ up to date with every release. This file only adds repository-specific notes.
 - Yarn 4 (`corepack enable`), CI runs `yarn install --immutable`: run `yarn install` after changing dependencies.
 - Tests: `yarn test` (Vitest, jsdom, StrictMode on). Add tests under `tests/` for every behavior change.
 - Releases: bump `package.json` + `CHANGELOG.md`, tag `vX.Y.Z`, push the tag. `publish.yml` publishes to npm
-  via trusted publishing; `deploy.yml` deploys the demo on every push to `master`.
+  via trusted publishing; `deploy.yml` deploys the demo and the docs on every push to `master`.

@@ -2,6 +2,7 @@
 
 **Target Audience:** AI Assistants (Gemini, ChatGPT, Claude, Copilot)
 **Goal:** Generate idiomatic, high-performance code using `react-state-custom`.
+**Full documentation:** https://vothanhdat.github.io/react-state-custom/docs/ (guide, API reference, testing, limitations).
 
 ---
 
@@ -95,15 +96,21 @@ export function Counter() {
 ### Async Data (Data Fetching)
 
 ```typescript
-const useUserState = ({ userId }) => {
-  const [data, setData] = useState(null);
+const useUserState = ({ userId }: { userId: string }) => {
+  const [data, setData] = useState<User | null>(null);
 
   useEffect(() => {
-    fetchUser(userId).then(setData);
+    let cancelled = false;
+    fetchUser(userId).then(u => { if (!cancelled) setData(u); });
+    return () => { cancelled = true; };
   }, [userId]);
 
   return { data, isLoading: !data };
 };
+
+export const { useStore: useUserStore } = createStore('user', useUserState, {
+  initialState: { data: null, isLoading: true },
+});
 ```
 
 ### Derived State
@@ -112,7 +119,7 @@ Since stores are just hooks, you can use `useMemo` for derived data.
 
 ```typescript
 const useCartState = () => {
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState<Item[]>([]);
 
   const total = useMemo(() =>
     items.reduce((sum, item) => sum + item.price, 0)
@@ -120,4 +127,8 @@ const useCartState = () => {
 
   return { items, total };
 };
+
+export const { useStore: useCartStore } = createStore('cart', useCartState, {
+  initialState: { items: [], total: 0 },
+});
 ```

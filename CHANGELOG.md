@@ -3,6 +3,12 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Added
+- Documentation site at https://vothanhdat.github.io/react-state-custom/docs/ (VitePress, `yarn docs:dev` / `yarn docs:build`): a guide split into pages (store options, params, composing, scopes, errors, selectors, Suspense, outside React, dev tools, SSR, React Compiler), new Testing and Limitations/FAQ pages, the API reference split per export, benchmarks and this changelog, with local search. Deployed next to the demo by the Pages workflow.
+
+### Changed
+- README reduced to the pitch, quick start and links into the site. `API_DOCUMENTATION.md` is now a redirect; the reference sources are `docs/api/*.md`. AI_CONTEXT examples are typed and use `initialState`.
+- Docs fixes: `markReady` / `onReady` documented on `Context`, the unused `toggleButton` prop dropped from the dev-tool reference, snippets fixed to type-check (`user` narrowing, optional `items`), spreading the `useStore` proxy documented as subscribing to every key.
 
 ## [1.2.2] - 2026-10-02
 ### Fixed
