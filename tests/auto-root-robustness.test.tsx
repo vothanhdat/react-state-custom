@@ -110,3 +110,22 @@ describe('AutoRootCtx robustness', () => {
     expect(seenInEffect.every(v => v === 42)).toBe(true)
   })
 })
+
+describe('store names', () => {
+  // Instances are records keyed by name: a name inherited from Object.prototype must not count as
+  // present already, and `__proto__` must be a key, not the prototype.
+  it.each(['constructor', 'toString', 'hasOwnProperty', 'valueOf', '__proto__'])('a store named %s starts and stops', async (name) => {
+    const life = { mounts: 0, unmounts: 0 }
+    const { useStore } = createStore(name, () => {
+      useEffect(() => { life.mounts++; return () => { life.unmounts++ } }, [])
+      return { v: 'running' }
+    })
+    const View = () => <span data-testid="v">{useStore().v ?? 'not started'}</span>
+    const { getByTestId, rerender } = render(<><AutoRootCtx /><View /></>)
+    await tick()
+    expect(getByTestId('v').textContent).toBe('running')
+    rerender(<><AutoRootCtx /></>)
+    await tick()
+    expect(life.mounts - life.unmounts).toBe(0) // StrictMode runs effects twice
+  })
+})

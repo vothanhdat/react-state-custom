@@ -118,6 +118,10 @@ type StoreBook = {
   timer?: ReturnType<typeof setTimeout>
 }
 
+/** Records keyed by instance name, without a prototype: any store name is a key of its own. */
+type Records = Record<string, StoreRecord>
+const createRecords = (): Records => Object.create(null)
+
 /**
  * Replace (or remove, when `next` is undefined) one record while keeping the object's key order,
  * returning the same `state` object when nothing changed.
@@ -126,13 +130,19 @@ type StoreBook = {
  * `{ ...rest, [key]: value }` pattern) re-places the child's fiber, and React StrictMode re-runs
  * effects of re-placed fibers, which made every consumer unsubscribe/resubscribe and move the key
  * again, an infinite loop.
+ *
+ * Own keys only, into objects without a prototype: a store named `constructor` or `toString` is
+ * not already "in" an object, and one named `__proto__` is assigned as a key, not as the prototype.
  */
-const setRecord = (state: Record<string, StoreRecord>, key: string, next: StoreRecord | undefined) => {
-  if (!(key in state)) {
-    return next ? { ...state, [key]: next } : state
+const setRecord = (state: Records, key: string, next: StoreRecord | undefined) => {
+  if (!Object.hasOwn(state, key)) {
+    if (!next) return state
+    const out = Object.assign(createRecords(), state)
+    out[key] = next
+    return out
   }
   if (next === state[key]) return state
-  const out: Record<string, StoreRecord> = {}
+  const out = createRecords()
   for (const k of Object.keys(state)) {
     if (k !== key) out[k] = state[k]
     else if (next) out[k] = next
@@ -199,7 +209,7 @@ const bucketOf = (key: string) => {
   return (h >>> 0) % BUCKETS
 }
 
-const isEmpty = (records: Record<string, StoreRecord>) => {
+const isEmpty = (records: Records) => {
   for (const _ in records) return false
   return true
 }
@@ -210,7 +220,7 @@ const isEmpty = (records: Record<string, StoreRecord>) => {
  * fills or empties, so a small app renders a few Buckets instead of 64.
  */
 const createBuckets = () => {
-  const records: Record<string, StoreRecord>[] = Array.from({ length: BUCKETS }, () => ({}))
+  const records: Records[] = Array.from({ length: BUCKETS }, createRecords)
   const listeners: Set<() => void>[] = Array.from({ length: BUCKETS }, () => new Set())
   /** Indices of the buckets holding a record, ascending. */
   let used: number[] = []
