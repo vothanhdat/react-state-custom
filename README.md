@@ -7,6 +7,7 @@ One running instance per params, shared by every component and every store that 
 [![Docs](https://img.shields.io/badge/Docs-Website-2563eb?style=flat-square)](https://vothanhdat.github.io/react-state-custom/docs/)
 [![Demo](https://img.shields.io/badge/Demo-Live-blue?style=flat-square)](https://vothanhdat.github.io/react-state-custom/)
 [![npm version](https://img.shields.io/npm/v/react-state-custom?style=flat-square)](https://www.npmjs.com/package/react-state-custom)
+[![Coverage](https://img.shields.io/codecov/c/github/vothanhdat/react-state-custom?style=flat-square)](https://codecov.io/gh/vothanhdat/react-state-custom)
 [![React 18+](https://img.shields.io/badge/React-18%2B-61dafb?style=flat-square)](#-requirements)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
