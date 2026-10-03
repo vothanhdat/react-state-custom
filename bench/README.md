@@ -162,5 +162,6 @@ re-render only the five readers of the changed item, like a Zustand selector or 
   the hook it returns; the extra tokens are the `useState` and the `??` defaults inside the hook itself.
   What the hook form buys is not brevity but that each layer can hold effects, async work and other hooks,
   which these scenarios do not exercise.
-- At these sizes every operation is well under one frame. Choose on ergonomics unless you update
-  thousands of subscribed components per frame.
+- At these sizes every operation is well under one frame. In a real page, frame time is decided by the
+  DOM work an update causes (reconcile, style, layout, paint), not by the store; see
+  [Limitations](https://vothanhdat.github.io/react-state-custom/docs/guide/limitations). Choose on ergonomics.

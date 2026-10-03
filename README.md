@@ -175,7 +175,7 @@ Both subscribe to the socket when the first component reads that symbol and unsu
 | **One instance per symbol, id, …** | params on the hook; same params, same instance | `atomFamily` |
 | **Side effects with a lifecycle** | `useEffect` inside the store | `onMount` on the atom |
 | **Fine-grained reads** | top-level keys through the proxy, selectors for deep values | one atom per value; split atoms for granularity |
-| **Cost per update** | about 2x Jotai, plus one commit per derived layer | fastest in our [benchmarks](./bench/README.md) |
+| **Cost per update** | about 2x Jotai, plus one commit per derived layer | fastest in our [benchmarks](https://vothanhdat.github.io/react-state-custom/docs/benchmarks) |
 | **Ecosystem** | every React hook works inside a store | a large set of atom utilities |
 | **To learn** | nothing beyond React hooks | the atom model |
 
@@ -183,21 +183,19 @@ Jotai's update path costs about half as much per update. At a thousand subscribe
 
 **Zustand** is the least code for a flat global bag of values, with no per-key instances or lifecycle: you write the ref-counting around sockets yourself. **Redux** is a different model (actions and reducers) aimed at a different scale of ceremony. A plain **React context** re-renders every consumer on every change.
 
-## 📊 Benchmarks
+## 📊 Performance
 
-Measured with `yarn bench` (vitest + jsdom, React 19.2, no StrictMode; 1000 consumers, means in ms). Full method, render and derive counts, code size and caveats in [bench/README.md](./bench/README.md).
+What the store saves, with 1000 consumers (`yarn bench`: vitest + jsdom, React 19.2; [full benchmarks](https://vothanhdat.github.io/react-state-custom/docs/benchmarks)):
 
-| scenario | react-state-custom | zustand | jotai | React context |
+| | react-state-custom | zustand | jotai | React context |
 |---|---|---|---|---|
-| consumer renders per update (1 key of 10 changed) | 100 | 100 | 100 | 1000 |
-| update 1 key, 100 of 1000 consumers affected | 0.72 | 0.50 | 0.38 | 1.49 |
-| derived sum changes, 1000 consumers (derive calls) | 4.49 (1) | 4.28 (4000) | 2.04 (1) | 3.14 (1000) |
-| derived sum unchanged, none affected | 0.044 | 0.56 | 0.002 | 2.73 |
-| root key changed that no derived store reads (derive calls) | 0.018 (0) | 0.019 (1000) | 0.014 (10) | 1.55 (0) |
-| shop graph, one item qty changed, 235 of 1000 affected (derive calls) | 1.61 (111) | 0.60 (111) | 0.62 (3) | 1.69 (111) |
-| mount + unmount 1000 consumers | 18.5 | 8.7 | 9.2 | 8.7 |
+| consumers re-rendered when 1 key of 10 changes | 100 | 100 | 100 | 1000 |
+| derive calls when a derived sum changes | 1 | 4000 | 1 | 1000 |
+| derive calls when a root key no derived store reads changes | 0 | 1000 | 10 | 0 |
 
-Re-render selectivity matches Zustand and Jotai. A plain update costs about twice as much because a store is a hook in a headless component: the store renders and publishes first, then its consumers render. Derived values are computed once per update, where Zustand recomputes a selector in every consumer, and a store re-runs only when a key it actually read changes. Each derived layer costs one more commit, so deep graphs widen the gap. All of it stays well under a frame at these sizes.
+No selectors or memoization to write for it: a consumer subscribes to the keys it reads, a derived store runs once per update, and only when a key it read has changed.
+
+What it costs: each update commits twice, first the store, then the consumers that read a changed key. That is about twice the cost of Zustand or Jotai: 0.7 ms when 100 of 1000 consumers re-render. Frame time is decided by the DOM work an update causes.
 
 ---
 
