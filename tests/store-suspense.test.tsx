@@ -4,7 +4,12 @@ import { Suspense, useEffect, useState } from 'react'
 import { createStore, AutoRootCtx, StateScopeProvider } from '../src/state-utils/createAutoCtx'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
-afterEach(() => vi.restoreAllMocks())
+afterEach(async () => {
+  vi.restoreAllMocks()
+  // waitUntilReady drops its imperative retain 100 ms after resolving. Let that timer fire while the
+  // test environment is still up; under coverage it otherwise outlives the jsdom window and throws.
+  await act(() => new Promise(resolve => setTimeout(resolve, 150)))
+})
 
 // Counts how often the fallback rendered: > 0 means the child suspended at least once.
 const makeFallback = () => {
