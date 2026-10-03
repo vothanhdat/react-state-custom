@@ -48,7 +48,7 @@ export const { useStore: useCheckoutStore } = createStore('checkout', useCheckou
 
 `lines` re-runs when any item it read changes and recomputes every line, but publishes only the keys whose value changed, so a checkout re-renders only when one of its own lines did. Granularity is per key at the output and per store at the computation. (`itemIds` and `groupIds` come from wherever the list is defined: a catalog, a route, or another key of the store such as `ids`.)
 
-Every store in such a chain is one more React commit per update: `items` publishes, `lines` renders and publishes, `checkout` renders and publishes, then the components render. Deep graphs cost accordingly; the shop scenario in [Benchmarks](/benchmarks) measures a four-layer one.
+Every store in such a chain is one more React commit per update: `items` publishes, `lines` renders and publishes, `checkout` renders and publishes, then the components render. Deep graphs cost accordingly; the shop scenario in [Benchmarks](/benchmarks) measures a four-layer one. For the same reason, render from the last store of a chain rather than from several layers at once; [Progressive data](/guide/progressive-data) builds a screen that way from several fetched sources.
 
 ## Derived values in a plain hook
 

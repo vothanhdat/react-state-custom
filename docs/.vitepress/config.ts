@@ -34,6 +34,7 @@ export default defineConfig({
             { text: 'Store options', link: '/guide/store-options' },
             { text: 'Parameterized stores', link: '/guide/parameterized-stores' },
             { text: 'Composing stores', link: '/guide/composing-stores' },
+            { text: 'Progressive data', link: '/guide/progressive-data' },
             { text: 'Scopes', link: '/guide/scopes' },
             { text: 'Error handling', link: '/guide/error-handling' },
           ],
