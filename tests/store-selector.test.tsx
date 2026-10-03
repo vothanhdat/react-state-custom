@@ -142,3 +142,22 @@ describe('a change between rendering and subscribing', () => {
     expect(getByTestId('v').textContent).toBe('1')
   })
 })
+
+describe('a collection keyed by id (guide: Selectors, "Collections: keys, not arrays")', () => {
+  it('a list of the ids follows items being added, from a lazy store', async () => {
+    let add = (_: string) => { }
+    const { useStore: useItems } = createStore('collection-ids', () => {
+      const [items, setItems] = useState<Record<string, { price: number }>>({ a: { price: 1 } })
+      const setItem = (id: string, item: { price: number }) => setItems(s => ({ ...s, [id]: item }))
+      add = id => setItem(id, { price: 2 })
+      return { ...items, setItem } as Record<string, { price: number }> & { setItem: typeof setItem }
+    })
+    const Ids = () => <span data-testid="ids">{Object.keys(useItems()).filter(id => id !== 'setItem').join(',')}</span>
+    const { getByTestId } = render(<><AutoRootCtx /><Ids /></>)
+    await tick()
+    expect(getByTestId('ids').textContent).toBe('a')
+    act(() => add('b'))
+    await tick()
+    expect(getByTestId('ids').textContent).toBe('a,b')
+  })
+})

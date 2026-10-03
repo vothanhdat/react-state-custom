@@ -4,10 +4,21 @@ import { isProduction } from "./utils";
 
 type Probe = { wrapper: Function, latest: unknown, calledInRender: boolean, fn: Function }
 
-/** What one render read: each key with the value it saw, and the store functions it called with the implementation they ran. */
-type Reads<D> = { seen: Map<keyof D, unknown>, called: Map<keyof D, unknown> }
+/**
+ * What one render read: each key with the value it saw, the store functions it called with the
+ * implementation they ran, the keys it asked about with `in` and whether they were there, and the
+ * key list when it enumerated the state (`Object.keys`, a spread, `for...in`).
+ */
+type Reads<D> = {
+  seen: Map<keyof D, unknown>,
+  called: Map<keyof D, unknown>,
+  present: Map<keyof D, boolean>,
+  keys: PropertyKey[] | undefined,
+}
 
-const createReads = <D>(): Reads<D> => ({ seen: new Map(), called: new Map() })
+const createReads = <D>(): Reads<D> => ({ seen: new Map(), called: new Map(), present: new Map(), keys: undefined })
+
+const sameKeys = (a: PropertyKey[], b: PropertyKey[]) => a.length === b.length && a.every((key, i) => key === b[i])
 
 /** Server snapshot meaning "render what the server rendered": the live data has moved on since. */
 const FROM_SERVER = -1
@@ -25,7 +36,7 @@ const outOfRenderWarning = (key: PropertyKey) =>
   `Read it during render and capture it, or use useDataSubscribe for ad-hoc reads.`
 
 const restWarning = (name: string) =>
-  `useQuickSubscribe: the state of "${name}" was spread or its keys listed during render. That reads every key, ` +
+  `useQuickSubscribe: the state of "${name}" was spread during render. That reads every key, ` +
   `so the component re-renders whenever any of them changes. Read only the keys you need, or use a selector.`
 
 const readOnlyError = (key: PropertyKey) =>
@@ -69,6 +80,8 @@ function createTracker<D>(ctx: Context<D> | undefined) {
   /** A render has started since the last commit, so `reading` holds the reads of the render being committed. */
   let rendered = false
   const subs = new Map<keyof D, () => void>()
+  /** Subscription to every change, held while the render on screen enumerated the keys. */
+  let subAll: (() => void) | undefined
   const probes = new Map<keyof D, Probe>()
 
   const data = () => (ctx?.data ?? {}) as Partial<D>
@@ -128,12 +141,14 @@ function createTracker<D>(ctx: Context<D> | undefined) {
       reading.seen.set(key, value)
       return out
     },
+    has(target, p) {
+      if (open && typeof p !== "symbol") reading.present.set(p as keyof D, Object.hasOwn(target, p))
+      return Reflect.has(target, p)
+    },
     ownKeys(target) {
-      if (!isProduction && open && ctx && !warnedRest.has(ctx.name)) {
-        warnedRest.add(ctx.name)
-        console.warn(restWarning(ctx.name))
-      }
-      return Reflect.ownKeys(target)
+      const keys = Reflect.ownKeys(target)
+      if (open) reading.keys = keys
+      return keys
     },
     ...(isProduction ? {} : { set: refuseWrite, deleteProperty: refuseWrite, defineProperty: refuseWrite }),
   }
@@ -154,7 +169,22 @@ function createTracker<D>(ctx: Context<D> | undefined) {
     for (const [key, latest] of committed.called) {
       if (latestOf(current[key]) !== latest) return true
     }
-    return false
+    // usually empty: skip them without creating an iterator (this runs for every reader on every change)
+    if (committed.present.size > 0) {
+      for (const [key, present] of committed.present) {
+        if (Object.hasOwn(current, key) !== present) return true
+      }
+    }
+    return !!committed.keys && !sameKeys(committed.keys, Reflect.ownKeys(current))
+  }
+
+  /** A render that read every key it listed spread the state: it re-renders on every change. */
+  const warnIfSpread = () => {
+    const { keys, seen } = committed
+    if (isProduction || !ctx || !keys || keys.length === 0 || warnedRest.has(ctx.name)) return
+    if (!keys.every(key => seen.has(key as keyof D))) return
+    warnedRest.add(ctx.name)
+    console.warn(restWarning(ctx.name))
   }
 
   const check = () => {
@@ -173,6 +203,8 @@ function createTracker<D>(ctx: Context<D> | undefined) {
       rendered = true
       reading.seen.clear()
       reading.called.clear()
+      reading.present.clear()
+      reading.keys = undefined
     },
     /**
      * Called after every commit: close the getter, make the committed render's reads current and sync
@@ -192,19 +224,33 @@ function createTracker<D>(ctx: Context<D> | undefined) {
         for (const key of committed.seen.keys()) {
           if (!subs.has(key)) subs.set(key, ctx.subscribe(key, check))
         }
+        if (committed.present.size > 0) {
+          for (const key of committed.present.keys()) {
+            if (!subs.has(key)) subs.set(key, ctx.subscribe(key, check))
+          }
+        }
+        // a key added or removed changes the list: watch every change while a list is on screen
+        if (committed.keys && !subAll) subAll = ctx.subscribeAll(check)
       }
       for (const [key, unsub] of subs) {
-        if (!committed.seen.has(key)) {
+        if (!committed.seen.has(key) && !committed.present.has(key)) {
           unsub()
           subs.delete(key)
         }
       }
+      if (!committed.keys && subAll) {
+        subAll()
+        subAll = undefined
+      }
+      warnIfSpread()
       // catch anything published between render and commit
       check()
     },
     dispose() {
       subs.forEach(unsub => unsub())
       subs.clear()
+      subAll?.()
+      subAll = undefined
     },
     subscribe(listener: () => void) {
       listeners.add(listener)

@@ -472,3 +472,73 @@ describe('useQuickSubscribe', () => {
     unmount()
   })
 })
+
+describe('useQuickSubscribe: listing keys', () => {
+  type Items = Record<string, number>
+  /** Renders `read(proxy)` and counts the renders (StrictMode, from tests/setup.ts, doubles them). */
+  const track = (name: string, read: (store: Items) => unknown) => {
+    const ctx = getContext(name) as Context<Items>
+    act(() => { ctx.publish('a', 1) })
+    let renders = 0
+    const hook = renderHook(() => { renders++; return read(useQuickSubscribe(ctx) as Items) })
+    return { ctx, hook, renders: () => renders }
+  }
+
+  it('Object.keys follows keys being added and removed, and nothing else', () => {
+    const { ctx, hook, renders } = track('quick-keys', s => Object.keys(s))
+    expect(hook.result.current).toEqual(['a'])
+
+    act(() => { ctx.publish('b', 2) })
+    expect(hook.result.current).toEqual(['a', 'b'])
+
+    const before = renders()
+    act(() => { ctx.publish('a', 10) })
+    expect(renders()).toBe(before)
+
+    act(() => { ctx.publishMany([], ['a']) })
+    expect(hook.result.current).toEqual(['b'])
+    hook.unmount()
+  })
+
+  it('a spread follows added keys and changed values', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { ctx, hook } = track('quick-spread', s => ({ ...s }))
+    act(() => { ctx.publish('b', 2) })
+    expect(hook.result.current).toEqual({ a: 1, b: 2 })
+    act(() => { ctx.publish('a', 10) })
+    expect(hook.result.current).toEqual({ a: 10, b: 2 })
+    hook.unmount()
+    warn.mockRestore()
+  })
+
+  it('`in` follows the key being added and removed', () => {
+    const { ctx, hook } = track('quick-in', s => 'b' in s)
+    expect(hook.result.current).toBe(false)
+    act(() => { ctx.publish('b', 2) })
+    expect(hook.result.current).toBe(true)
+    act(() => { ctx.publishMany([], ['b']) })
+    expect(hook.result.current).toBe(false)
+    hook.unmount()
+  })
+
+  it('warns about a spread, not about listing the keys', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    track('quick-keys-no-warning', s => Object.keys(s)).hook.unmount()
+    expect(warn).not.toHaveBeenCalled()
+    track('quick-entries-warning', s => Object.entries(s)).hook.unmount()
+    expect(warn).toHaveBeenCalledTimes(1)
+    warn.mockRestore()
+  })
+
+  it('stops watching the list once the component no longer lists it', () => {
+    const ctx = getContext('quick-keys-then-key') as Context<Items>
+    act(() => { ctx.publish('a', 1) })
+    let renders = 0
+    const hook = renderHook(({ list }) => { renders++; const s = useQuickSubscribe(ctx) as Items; return list ? Object.keys(s) : s.a }, { initialProps: { list: true } })
+    hook.rerender({ list: false })
+    const before = renders
+    act(() => { ctx.publish('b', 2) })
+    expect(renders).toBe(before)
+    hook.unmount()
+  })
+})
