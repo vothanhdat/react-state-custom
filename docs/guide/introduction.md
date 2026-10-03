@@ -30,7 +30,7 @@ Every component that calls `useCartStore({ userId: '42' })` shares one running i
 
 ## When to use something else
 
-A store here is a hook running in a headless component, so every update is two React commits: the store renders and publishes, then its consumers render. That costs about twice what Zustand or Jotai spend per update (see [Benchmarks](/benchmarks)). It is well under a frame at a thousand subscribed components, but if you update thousands of subscribed components per frame, a plain external store is the better tool. The [Limitations and FAQ](/guide/limitations) page lists the other constraints.
+A store here is a hook running in a headless component, so an update takes two commits: the store renders and publishes, then its consumers render, each once. That costs about twice what Zustand or Jotai spend per update (see [Benchmarks](/benchmarks)). It is well under a frame at a thousand subscribed components; at high update rates the cost that matters is the HTML React has to update, not the store. The [Limitations and FAQ](/guide/limitations) page lists the other constraints.
 
 ## Where to go next
 

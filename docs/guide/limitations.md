@@ -4,7 +4,9 @@
 
 **Params must be primitives.** Store identity is a serialized string, so params are limited to `string`, `number`, `bigint`, `boolean`, `null` and `undefined`. Pass ids and look objects up inside the hook.
 
-**Two commits per update.** A store is a hook in a headless component: an update re-renders the store, which publishes from a layout effect, then the subscribed consumers render. That is about twice the cost of Zustand or Jotai per update, and still well under a frame at a thousand subscribed components. Each store in a chain of stores adds one more commit. See [Benchmarks](/benchmarks).
+**Stores commit before their consumers.** A store is a hook in a headless component, so its new value exists only after that component renders and commits. It publishes from a layout effect, and only the consumers that read a changed key render, in a second, synchronous commit. Every component renders once per change (StrictMode doubles render calls in development, not commits), and updates made in the same task are batched: a thousand `setState` calls in one handler give one store render and one consumer render. Updates spread over separate tasks give one pair of commits per task; buffer them in the store (for example flush once per animation frame) to get one pair per frame. Against Zustand or Jotai, which render consumers directly, that is about twice the cost per update, and still well under a frame at a thousand subscribed components. Each store in a chain of stores adds one more commit. See [Benchmarks](/benchmarks).
+
+What decides frame time is usually the DOM, not the store: reconciling rendered elements, style, layout and paint. A store feeding a canvas, a chart or WebGL from a hook, with little HTML to update, runs smoothly at 120 fps. To go faster, update less HTML: selectors, keyed collections, `ref` writes for values that tick, `transform` and `opacity` for motion. Then watch allocations per frame (a new array on every update means GC pauses) and batch several updates in one frame into one.
 
 **One extra render per consumer on mount** when `initialState` is absent or does not match the hook's first publish.
 
