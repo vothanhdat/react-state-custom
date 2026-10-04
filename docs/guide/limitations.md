@@ -26,7 +26,7 @@ What decides frame time is usually the DOM, not the store: reconciling rendered 
 
 **No in-place recovery after a store throws.** The error boundary disables the instance until it is torn down and mounted again. Catch inside the hook when you need recovery.
 
-**Top-level key tracking.** The proxy subscribes to top-level keys. Use a selector for deep or derived values, and keep a list of independently changing items as an object keyed by id rather than an array under one key. See [Collections](/guide/selectors#collections-keys-not-arrays).
+**Top-level key tracking.** The proxy subscribes to top-level keys. Use a selector for deep or derived values, and keep a list of independently changing items as an object keyed by id rather than an array under one key. See [Collections](/guide/selectors#collections-keys-not-arrays). A nested object from elsewhere can be [flattened in a shared store](/guide/composing-stores#flatten-a-nested-source).
 
 ## FAQ
 
@@ -40,7 +40,7 @@ The store hook has not run yet; stores are lazy. Read with `??` or `?.`, or pass
 
 ### A consumer re-renders more than I expect
 
-- It reads a key that changes, even if it only uses part of that key's value: use a [selector](/guide/selectors).
+- It reads a key that changes, even if it only uses part of that key's value: use a [selector](/guide/selectors), or publish the parts as their own keys ([Flatten a nested source](/guide/composing-stores#flatten-a-nested-source)).
 - It spreads the proxy (`{ ...store }`, `Object.entries(store)`), which subscribes to every key. A warning is logged for this.
 - Its store returns a fresh object or array on every render for some key, so `Object.is` sees a change. Memoize with `useMemo` inside the hook.
 - StrictMode doubles renders in development.

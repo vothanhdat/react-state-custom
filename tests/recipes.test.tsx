@@ -1,5 +1,6 @@
-// The lifecycle recipes of the guide, as written there: Store options ("Keeping the values, not the
-// resource") and Outside React ("Keep a task running after its screen closes").
+// The recipes of the guide, as written there: Store options ("Keeping the values, not the resource"),
+// Outside React ("Keep a task running after its screen closes") and Composing stores ("Flatten a
+// nested source").
 import { describe, it, expect } from 'vitest'
 import { render, act } from '@testing-library/react'
 import { useEffect, useState } from 'react'
@@ -79,5 +80,46 @@ describe('keep a task running after its screen closes', () => {
     act(() => complete())
     await tick(200)
     expect(alive).toBe(0)
+  })
+})
+
+describe('flatten a nested source', () => {
+  it('re-renders a reader of one field only when that field changes', async () => {
+    type Player = { name: string, score: number, address: { city: string } }
+    const emptyPlayer: Player = { name: '', score: 0, address: { city: '' } }
+    let send = (_: Player) => { }
+    const subscribePlayer = (_id: string, onMessage: (p: Player) => void) => { send = onMessage; return () => { send = () => { } } }
+
+    const { useStore: usePlayerStore } = createStore('recipe-player', ({ id }: { id: string }) => {
+      const [player, setPlayer] = useState(emptyPlayer)
+      useEffect(() => subscribePlayer(id, setPlayer), [id])
+      return { player }
+    }, { initialState: { player: emptyPlayer } })
+    const { useStore: usePlayerFields } = createStore('recipe-player-fields', ({ id }: { id: string }) => {
+      const { player } = usePlayerStore({ id })
+      return { ...player }
+    }, { initialState: emptyPlayer })
+
+    let renders = 0
+    const Score = ({ id }: { id: string }) => {
+      const { score } = usePlayerFields({ id })
+      renders++
+      return <b data-testid="s">{score}</b>
+    }
+    const { getByTestId } = render(<><AutoRootCtx /><Score id="p1" /></>)
+    await tick()
+    const address = { city: 'Hanoi' }
+    act(() => send({ name: 'An', score: 1, address }))
+    await tick()
+    expect(getByTestId('s').textContent).toBe('1')
+
+    const before = renders
+    act(() => send({ name: 'Binh', score: 1, address })) // a new object, same score
+    await tick()
+    expect(renders).toBe(before)
+
+    act(() => send({ name: 'Binh', score: 2, address }))
+    await tick()
+    expect(getByTestId('s').textContent).toBe('2')
   })
 })

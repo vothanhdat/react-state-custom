@@ -23,8 +23,12 @@ The proxy returned by `useStore(params)` tracks **top-level keys**. Reading `use
 | One deep value | `useStore(params, s => s.user?.name)` |
 | A derived value | `useStore(params, s => s.items.length)` |
 | Several deep values | `useStore(params, s => ({ ... }), shallowEqual)` or several selector calls |
+| Many components reading different fields of one nested object | Return the fields as top-level keys, or [flatten it in a shared store](/guide/composing-stores#flatten-a-nested-source) |
+| A derived value many components read | Compute it in a store and return it as a key: it runs once per change, a selector once per reader ([Composing stores](/guide/composing-stores)) |
+| A list of items that change independently | An object keyed by id ([Collections](#collections-keys-not-arrays)) |
+| A resource per id, with its own effects | A [parameterized store](/guide/parameterized-stores) |
 
-Both can be combined in one component. Each call is an independent subscription.
+Both can be combined in one component. Each call is an independent subscription. Flattening is one level deep: a key that holds an object re-renders all its readers when it changes.
 
 ## Keeping the store small
 
@@ -37,6 +41,8 @@ return { profile: { name, email, avatar, settings } }
 // several keys: consumers subscribe only to what they read
 return { name, email, avatar, settings }
 ```
+
+When the nested object comes from elsewhere, flatten it in a store above: see [Flatten a nested source](/guide/composing-stores#flatten-a-nested-source).
 
 ## Collections: keys, not arrays
 

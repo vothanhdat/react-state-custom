@@ -23,6 +23,37 @@ When `taxRate` changes, the `invoice` store re-renders, recomputes `total` and p
 
 The inner store is mounted by the same `AutoRootCtx` and is torn down when the outer store, its last consumer, is torn down.
 
+## Flatten a nested source
+
+The proxy tracks top-level keys, so a component that reads `player` to show `player.score` re-renders when any field of `player` changes. When you write the hook, return the fields as keys: `return { ...player, setPlayer }` (see [Keeping the store small](/guide/selectors#keeping-the-store-small)). When the nested object is given, such as a socket payload, a query result or a store other code reads as one object, keep it and flatten it once in a store above:
+
+```tsx
+// the source keeps the object as it arrives
+export const { useStore: usePlayerStore } = createStore('player', ({ id }: { id: string }) => {
+  const [player, setPlayer] = useState(emptyPlayer)
+  useEffect(() => subscribePlayer(id, setPlayer), [id]) // a new object on every message
+  return { player }
+}, { initialState: { player: emptyPlayer } })
+
+// one shared store publishes its fields as top-level keys
+export const { useStore: usePlayerFields } = createStore('player-fields', ({ id }: { id: string }) => {
+  const { player } = usePlayerStore({ id })
+  return { ...player }
+}, { initialState: emptyPlayer })
+
+function Score({ id }: { id: string }) {
+  const { score } = usePlayerFields({ id }) // re-renders when score changes, not on every message
+  return <b>{score}</b>
+}
+```
+
+Each message re-runs `player-fields` once, and it publishes only the fields whose value changed, so a component re-renders only for the fields it reads. Every component with the same params shares that one instance.
+
+- It is one level deep: `{ ...player }` publishes `address`, not `address.city`. Return `city: player.address.city` as its own key, or read it with a selector.
+- An object field keeps its reference while the source keeps it, so it compares equal. A source that rebuilds nested objects on every message re-renders their readers.
+- Read the fields from the flat store only. A component that reads both layers can see the new `player` next to the old fields for one render ([Layers are one commit apart](/guide/limitations#limitations)). Return what it needs from the flat store, actions included, under names no field uses: `return { ...player, follow }`.
+- It adds one store and one commit per update. For a few readers, a selector each (`usePlayerStore({ id }, s => s.player.score)`) does the same without it; a selector runs in every reader on every message, the flat store once.
+
 ## Many instances at once
 
 A store hook follows the rules of hooks, so it cannot call `useLineStore({ id })` once per item in a loop. To derive something from many items, let one store return an object keyed by id, and let the store above call that hook once and read the keys it needs.
