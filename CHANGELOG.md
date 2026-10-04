@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Fixed
+- `useStoreSuspense(params, keys)` types listed keys as present only when `keys` is a tuple: a list written in the call or kept `as const`. A widened array such as `readonly ('items' | 'add')[]` holding only `'items'` typed `add` as present too, although the component waited for `items` alone and `add` could be `undefined`. Such an array is now typed like `useStore`; what it waits for is unchanged.
 
 ## [1.5.0] - 2026-10-04
 ### Added

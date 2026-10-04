@@ -86,6 +86,14 @@ export const KeyedConsumer = () => {
   assert<Equals<typeof s.note, string | undefined>>()       // neither listed nor seeded
   // @ts-expect-error not a key of the store
   keyed.useStoreSuspense(undefined, ['nope'])
+  const listed = ['add'] as const
+  const fromTuple = keyed.useStoreSuspense(undefined, listed) // a tuple kept in a variable
+  assert<Equals<typeof fromTuple.add, (_: string) => void>>()
+  // a widened array does not say which keys it holds: nothing beyond the seed is typed as present
+  const wide: readonly ('items' | 'add')[] = ['items']
+  const w = keyed.useStoreSuspense(undefined, wide)
+  assert<Equals<typeof w.add, ((_: string) => void) | undefined>>()
+  assert<Equals<typeof w.owner, string | null>>()
   const full = keyed.useStoreSuspense()
   assert<Equals<typeof full.items, string[]>>()             // the forms without keys are unchanged
   return null

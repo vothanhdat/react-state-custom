@@ -736,8 +736,9 @@ export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, I
    * suspended component has not committed.
    */
   function useStoreSuspense(...args: [...StoreParams<U>, isReady?: (state: StoreState<V, I>) => boolean]): V
-  // params may be undefined only when every param is optional, as in the selector form of useStore
-  function useStoreSuspense<const K extends keyof V>(params: {} extends U ? U | undefined : U, keys: readonly K[]): StoreStateWith<V, I, K>
+  // params may be undefined only when every param is optional, as in the selector form of useStore.
+  // Only a tuple says which keys it holds: a widened array ((keyof V)[]) is typed like useStore.
+  function useStoreSuspense<const K extends readonly (keyof V)[]>(params: {} extends U ? U | undefined : U, keys: K): number extends K['length'] ? StoreState<V, I> : StoreStateWith<V, I, K[number]>
   function useStoreSuspense(...args: any[]) {
     const [params, readiness] = args as [U | undefined, ((state: StoreState<V, I>) => boolean) | readonly (keyof V)[] | undefined]
     // a list of keys is a predicate: it waits like one (per consumer, leased, first load only)
