@@ -153,7 +153,11 @@ try {
   console.log(summarize(data))
   socket.close()
 } finally {
-  chrome.kill()
   server.close()
+  if (chrome.exitCode === null) {
+    const exited = new Promise(resolve => chrome.once('exit', resolve))
+    chrome.kill()
+    await exited // Chrome writes to its profile until it exits
+  }
   await fs.rm(profile, { recursive: true, force: true }).catch(() => { })
 }
