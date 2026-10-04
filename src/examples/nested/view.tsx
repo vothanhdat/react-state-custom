@@ -6,7 +6,7 @@ const FIELDS: Field[] = ['name', 'score', 'tier', 'city']
 const valueOf = (player: Player, field: Field) => field === 'tier' ? tierOf(player.score) : player[field]
 
 // Which cells rendered in the last update: a button starts an update, a cell marks itself
-// when it renders, and the summary reads the marks once the update has settled.
+// when it renders, and the column headers read the marks once the update has settled.
 let update = 0
 let settled = 0
 const marks = new Map<string, number>()
@@ -43,9 +43,17 @@ const FlatCell = ({ field }: { field: Field }) => {
     return <Cell id={`flat:${field}`} field={field} value={fields[field]} />
 }
 
+// How many cells of a column rendered in the last update. Its own component, so that showing
+// the count re-renders no cell.
+const Rendered = ({ mode }: { mode: string }) => {
+    const last = useSyncExternalStore(subscribe, () => settled)
+    const count = FIELDS.filter(field => marks.get(`${mode}:${field}`) === last).length
+    return <small className="count" data-testid={`rendered-${mode}`}>{last ? `${count} of ${FIELDS.length} rendered` : '\u00a0'}</small>
+}
+
 const MODES = [
     { id: 'nested', title: 'player key', Cell: NestedCell },
-    { id: 'selector', title: 'a selector per cell', Cell: SelectorCell },
+    { id: 'selector', title: 'selectors', Cell: SelectorCell },
     { id: 'flat', title: 'flat store', Cell: FlatCell },
 ] as const
 
@@ -55,22 +63,11 @@ export const Columns = () => (
             <div key={id} className="card">
                 <h3>{title}</h3>
                 {FIELDS.map(field => <Cell key={field} field={field} />)}
+                <Rendered mode={id} />
             </div>
         ))}
     </div>
 )
-
-export const LastUpdate = () => {
-    const last = useSyncExternalStore(subscribe, () => settled)
-    if (!last) return <p>Press a button: cells flash when they render.</p>
-    const rendered = (mode: string) => FIELDS.filter(field => marks.get(`${mode}:${field}`) === last).length
-    return (
-        <p className="row">
-            Last update rendered:
-            {MODES.map(({ id, title }) => <span key={id} data-testid={`rendered-${id}`}>{title} {rendered(id)} of {FIELDS.length}</span>)}
-        </p>
-    )
-}
 
 export const Actions = () => {
     const { addPoint, rename, move, resend } = usePlayerStore()

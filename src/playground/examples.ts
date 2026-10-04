@@ -113,7 +113,7 @@ export const examples = {
         App: NestedApp,
         label: '🪆 Nested → Flat',
         title: 'Nested state, flat keys',
-        description: 'One player object, replaced on every message, read three ways. Reading the player key re-renders every cell on any change. A selector per cell re-renders only cells whose value changed, but every selector runs on every message. A shared store that spreads the player into top-level keys (and derives the tier) renders once per message, then only the cells whose key changed. Try "Same values, new object", and +1 score until the tier changes.',
+        description: 'One player object, replaced on every message, read three ways. Reading the player key re-renders every cell on any change. A selector per cell re-renders only cells whose value changed, but every selector runs on every message. A shared store that spreads the player into top-level keys (and derives the tier) renders once per message, then only the cells whose key changed. Cells flash when they render. Try "Same values, new object", and +1 score until the tier changes.',
         state: updateImport(nestedState),
         view: updateImport(nestedView),
         app: updateImport(nestedApp),

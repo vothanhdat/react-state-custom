@@ -133,11 +133,11 @@ describe('demo examples', () => {
     await settle()
 
     await press('Same values, new object')
-    expect(rendered()).toEqual(['player key 4 of 4', 'a selector per cell 0 of 4', 'flat store 0 of 4'])
+    expect(rendered()).toEqual(['4 of 4 rendered', '0 of 4 rendered', '0 of 4 rendered'])
     await press('+1 score') // 9: the tier stays silver
-    expect(rendered()).toEqual(['player key 4 of 4', 'a selector per cell 1 of 4', 'flat store 1 of 4'])
+    expect(rendered()).toEqual(['4 of 4 rendered', '1 of 4 rendered', '1 of 4 rendered'])
     await press('+1 score') // 10: the tier turns gold
-    expect(rendered()).toEqual(['player key 4 of 4', 'a selector per cell 2 of 4', 'flat store 2 of 4'])
+    expect(rendered()).toEqual(['4 of 4 rendered', '2 of 4 rendered', '2 of 4 rendered'])
     expect(screen.getAllByText('gold')).toHaveLength(3)
   })
 })
