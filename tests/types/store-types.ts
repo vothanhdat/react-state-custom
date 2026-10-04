@@ -1,6 +1,6 @@
 // Type-level tests, checked by `yarn typecheck` (tsc), never run.
 import { useState } from 'react'
-import { createStore, createRootCtx, createAutoCtx } from '../../src'
+import { createStore, createRootCtx, createAutoCtx, type StoreStatus } from '../../src'
 
 type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
 const expectType = <T>(_value: T) => { }
@@ -65,6 +65,10 @@ export const RequiredConsumer = () => {
   required.useStore(undefined, s => s.name)
   // @ts-expect-error params are required by useStoreSuspense
   required.useStoreSuspense()
+  // @ts-expect-error params are required by useStoreStatus
+  required.useStoreStatus()
+  const status = required.useStoreStatus({ id: 'a' })
+  assert<Equals<typeof status, StoreStatus>>()
   return null
 }
 

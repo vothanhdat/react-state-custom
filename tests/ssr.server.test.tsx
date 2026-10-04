@@ -43,4 +43,10 @@ describe('server rendering (node environment, no DOM)', () => {
     expect(html).toContain('aria-label="react-state-custom stores"')
     expect(html).toContain('height:300px')
   })
+
+  it('reports a store as not ready and not failed on the server', () => {
+    const { useStoreStatus } = createStore('ssr-status', (): { v: number } => { throw new Error('never runs on the server') })
+    const Status = () => { const { ready, failed } = useStoreStatus(); return <i>{`${ready}/${failed}`}</i> }
+    expect(renderToString(<><AutoRootCtx /><Status /></>)).toContain('false/false')
+  })
 })

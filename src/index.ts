@@ -13,7 +13,7 @@ export {
 } from "./state-utils/ctx"
 
 export { createRootCtx } from "./state-utils/createRootCtx"
-export { AutoRootCtx, createAutoCtx, createStore, StateScopeProvider, StoreErrorBoundary, type StoreOptions, type StoreParams, type StoreState, type StoreHandle, type StateDebugRenderer } from "./state-utils/createAutoCtx"
+export { AutoRootCtx, createAutoCtx, createStore, StateScopeProvider, StoreErrorBoundary, type StoreOptions, type StoreParams, type StoreState, type StoreHandle, type StoreStatus, type StateDebugRenderer } from "./state-utils/createAutoCtx"
 export { formatState } from "./state-utils/utils"
 export { useArrayChangeId } from "./state-utils/useArrayChangeId"
 export { paramsToId, type ParamsToIdRecord, type ParamsToIdInput, type ParamValue, type StoreParamsShape } from "./state-utils/paramsToId"

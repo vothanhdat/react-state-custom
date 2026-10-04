@@ -550,6 +550,16 @@ export type StoreHandle<V, I> = {
   readonly error: unknown
 }
 
+/** The state of a store instance itself, as `useStoreStatus` returns it. */
+export type StoreStatus = {
+  /** The store hook has published at least once: values are the hook's, not only `initialState`. */
+  readonly ready: boolean
+  /** The store hook threw and the instance is disabled until it is torn down. */
+  readonly failed: boolean
+  /** What the store hook threw, while `failed`. */
+  readonly error: unknown
+}
+
 /**
  * createAutoCtx
  *
@@ -756,12 +766,52 @@ export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, I
     return !isProduction && !ctx.ready && !isServer() ? watchSeedReads(ctx, state) : state
   }
 
+  /**
+   * The state of the instance rather than its values: whether the hook has published (`ready`) and
+   * whether it threw and is disabled (`failed`, `error`). Re-renders only when that changes. Like
+   * `useStore` it counts as a consumer, so it starts the instance and keeps it running.
+   */
+  const useStoreStatus = (...args: StoreParams<U>): StoreStatus => {
+    const source = statusOf(useCtxState(...args))
+    return useSyncExternalStore(source.subscribe, source.get, serverStatus)
+  }
+
   return {
     useCtxState,
     useStore,
     useStoreSuspense,
+    useStoreStatus,
     getStore,
   }
+}
+
+/** Stores never run on the server, nor before hydration completes. */
+const SERVER_STATUS: StoreStatus = Object.freeze({ ready: false, failed: false, error: undefined })
+const serverStatus = () => SERVER_STATUS
+
+/** One status source per context: a stable snapshot object that changes only with the status. */
+const statusSources = new WeakMap<Context<any>, { subscribe: (onChange: () => void) => () => void, get: () => StoreStatus }>()
+
+const statusOf = (ctx: Context<any>) => {
+  let source = statusSources.get(ctx)
+  if (!source) {
+    let last: StoreStatus | undefined
+    source = {
+      subscribe: onChange => {
+        const offStatus = ctx.onStatus(onChange)
+        const offReady = ctx.onReady(onChange)
+        return () => { offStatus(); offReady() }
+      },
+      get: () => {
+        if (!last || last.ready !== ctx.ready || last.failed !== ctx.failed || !Object.is(last.error, ctx.error)) {
+          last = { ready: ctx.ready, failed: ctx.failed, error: ctx.error }
+        }
+        return last
+      },
+    }
+    statusSources.set(ctx, source)
+  }
+  return source
 }
 
 /** Keys that renders from initialState read although initialState lacks them, per instance (development only). */
