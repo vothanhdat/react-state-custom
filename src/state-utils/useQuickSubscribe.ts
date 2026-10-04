@@ -194,6 +194,22 @@ function createTracker<D>(ctx: Context<D> | undefined) {
     }
   }
 
+  /** The context revision last checked from a notification, and whether commit() is subscribing. */
+  let checkedRevision = -1
+  let subscribing = false
+
+  /**
+   * The listener of every subscription. One update notifies once per changed key (a collection
+   * update changes them all), with the data already complete, so one check per revision is enough:
+   * each check compares every committed read, which made such an update O(keys x reads).
+   * While commit() subscribes, `subscribe` reports each key at once: commit() checks once after.
+   */
+  const onChange = () => {
+    if (subscribing || ctx!.revision === checkedRevision) return
+    checkedRevision = ctx!.revision
+    check()
+  }
+
   return {
     view,
     /** Called at the start of every render: reopen the getter and start recording this render's reads. */
@@ -221,16 +237,18 @@ function createTracker<D>(ctx: Context<D> | undefined) {
         committed = shown
       }
       if (ctx) {
+        subscribing = true
         for (const key of committed.seen.keys()) {
-          if (!subs.has(key)) subs.set(key, ctx.subscribe(key, check))
+          if (!subs.has(key)) subs.set(key, ctx.subscribe(key, onChange))
         }
         if (committed.present.size > 0) {
           for (const key of committed.present.keys()) {
-            if (!subs.has(key)) subs.set(key, ctx.subscribe(key, check))
+            if (!subs.has(key)) subs.set(key, ctx.subscribe(key, onChange))
           }
         }
         // a key added or removed changes the list: watch every change while a list is on screen
-        if (committed.keys && !subAll) subAll = ctx.subscribeAll(check)
+        if (committed.keys && !subAll) subAll = ctx.subscribeAll(onChange)
+        subscribing = false
       }
       for (const [key, unsub] of subs) {
         if (!committed.seen.has(key) && !committed.present.has(key)) {

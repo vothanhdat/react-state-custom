@@ -24,7 +24,7 @@ Returns a plain object: `initialState` merged with everything the hook has publi
 
 ## `subscribe(listener)`
 
-Delivers every change with the changed key, in the same synchronous pass as the store's publish. The listener must not throw; see [Error handling](/guide/error-handling). Subscribing keeps the context alive but does not run the store hook; pair it with a mounted consumer or `retain()`.
+Delivers every change with the changed key, in the same synchronous pass as the store's publish. An update that changes several keys calls the listener once per key, and every call of that update gets the same snapshot object: treat it as read-only. The listener must not throw; see [Error handling](/guide/error-handling). Subscribing keeps the context alive but does not run the store hook; pair it with a mounted consumer or `retain()`.
 
 ## `retain()`
 

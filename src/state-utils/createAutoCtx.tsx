@@ -695,7 +695,17 @@ export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, I
       subscribe: (listener) => {
         const { ctx, release } = acquireContext<V>(ctxName)
         seedContext(ctx, params)
-        const unsub = ctx.subscribeAll((changedKey) => listener(snapshot(ctx), changedKey))
+        // One update calls the listener once per changed key, with the same complete data: build the
+        // snapshot once per revision, not a copy of every key for each of them.
+        let revision = -1
+        let state: StoreState<V, I>
+        const unsub = ctx.subscribeAll((changedKey) => {
+          if (revision !== ctx.revision) {
+            revision = ctx.revision
+            state = snapshot(ctx)
+          }
+          listener(state, changedKey)
+        })
         return () => { unsub(); release() }
       },
       retain: () => retainStore(null, params),

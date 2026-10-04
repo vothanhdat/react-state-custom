@@ -3,6 +3,11 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Performance
+- An update that changes many keys of one store, such as a collection kept as an object keyed by id, costs time linear in the keys. A store update notifies its subscribers once per changed key, and the `useStore()` proxy, `useDataSubscribeMultiple` and `getStore().subscribe` redid their work on each notification: the proxy compared the keys it had read up to the first changed one (or listed every key, for `Object.keys(store)`), the multi-key hook re-read every key, and the handle copied the full state for each call. Mounting a component that reads many keys that already hold values was quadratic for the same reason, as subscribing reports each present key at once. Each now does its work once per update. With 4000 keys in jsdom, every key changing: a component listing them ~900 ms → ~2.5 ms, `useDataSubscribeMultiple` ~362 ms → ~2.6 ms, one `getStore().subscribe` listener ~2.6 s → ~3.0 ms. The last 2000 changing, a component reading all 4000: ~48 ms → ~1.9 ms (when every key changes, its check stops at the first one, so that case was already fast). Mounting and unmounting a component that reads all 4000: ~199 ms → ~1.5 ms.
+
+### Changed
+- `getStore().subscribe` passes the same snapshot object to every call of one update (one call per changed key, as before) instead of a fresh copy for each. Treat it as read-only.
 
 ## [1.5.1] - 2026-10-04
 ### Fixed

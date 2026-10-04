@@ -584,12 +584,20 @@ const useMultiKeySnapshot = <D, K extends readonly (keyof D)[]>(
 
     const subscribe = (onStoreChange: () => void) => {
       if (!ctx) return () => { }
+      // One update notifies once per changed key with the data already complete: read the keys once
+      // per revision. While subscribing, each key is reported at once: refresh once afterwards.
+      let refreshed = -1
+      let subscribing = true
       const notify = () => {
+        if (subscribing || ctx.revision === refreshed) return
+        refreshed = ctx.revision
         refresh()
         onStoreChange()
       }
       const listener = debounceTime > 0 ? debounce(notify, debounceTime) : notify
       const unsubs = keys.map(key => ctx.subscribe(key, listener))
+      subscribing = false
+      refreshed = ctx.revision
       refresh()
       return () => {
         (listener as any).cancel?.()
