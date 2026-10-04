@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.5.1] - 2026-10-04
 ### Fixed
 - `useStoreSuspense(params, keys)` types listed keys as present only when `keys` is a tuple: a list written in the call or kept `as const`. A widened array such as `readonly ('items' | 'add')[]` holding only `'items'` typed `add` as present too, although the component waited for `items` alone and `add` could be `undefined`. Such an array is now typed like `useStore`; what it waits for is unchanged.
 
@@ -208,7 +210,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/vothanhdat/react-state-custom/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.1...v1.3.2
