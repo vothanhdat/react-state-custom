@@ -10,6 +10,7 @@ import AsyncApp from '../examples/async/app'
 import ComposeApp from '../examples/compose/app'
 import ScopeApp from '../examples/scope/app'
 import RoomsApp from '../examples/rooms/app'
+import NestedApp from '../examples/nested/app'
 
 // Example sources (shown in the code pane and sent to StackBlitz)
 import counterState from "../examples/counter/state.ts?raw"
@@ -39,6 +40,9 @@ import scopeApp from "../examples/scope/app.tsx?raw"
 import roomsState from "../examples/rooms/state.ts?raw"
 import roomsView from "../examples/rooms/view.tsx?raw"
 import roomsApp from "../examples/rooms/app.tsx?raw"
+import nestedState from "../examples/nested/state.ts?raw"
+import nestedView from "../examples/nested/view.tsx?raw"
+import nestedApp from "../examples/nested/app.tsx?raw"
 
 const updateImport = (code: string) => {
     return code.replaceAll(
@@ -104,6 +108,15 @@ export const examples = {
         state: updateImport(selectorsState),
         view: updateImport(selectorsView),
         app: updateImport(selectorsApp),
+    },
+    nested: {
+        App: NestedApp,
+        label: '🪆 Nested → Flat',
+        title: 'Nested state, flat keys',
+        description: 'One player object, replaced on every message, read three ways. Reading the player key re-renders every cell on any change. A selector per cell re-renders only cells whose value changed, but every selector runs on every message. A shared store that spreads the player into top-level keys (and derives the tier) renders once per message, then only the cells whose key changed. Try "Same values, new object", and +1 score until the tier changes.',
+        state: updateImport(nestedState),
+        view: updateImport(nestedView),
+        app: updateImport(nestedApp),
     },
     async: {
         App: AsyncApp,

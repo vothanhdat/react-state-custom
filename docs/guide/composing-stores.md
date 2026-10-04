@@ -47,7 +47,7 @@ function Score({ id }: { id: string }) {
 }
 ```
 
-Each message re-runs `player-fields` once, and it publishes only the fields whose value changed, so a component re-renders only for the fields it reads. Every component with the same params shares that one instance.
+Each message re-runs `player-fields` once, and it publishes only the fields whose value changed, so a component re-renders only for the fields it reads. Every component with the same params shares that one instance. The Nested → Flat example of the [demo](https://vothanhdat.github.io/react-state-custom/) shows it next to the nested key and a selector per field.
 
 - It is one level deep: `{ ...player }` publishes `address`, not `address.city`. Return `city: player.address.city` as its own key, or read it with a selector.
 - An object field keeps its reference while the source keeps it, so it compares equal. A source that rebuilds nested objects on every message re-renders their readers.

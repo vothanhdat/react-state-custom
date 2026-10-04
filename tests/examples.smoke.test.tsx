@@ -11,8 +11,9 @@ import AsyncApp from '../src/examples/async/app'
 import ComposeApp from '../src/examples/compose/app'
 import ScopeApp from '../src/examples/scope/app'
 import RoomsApp from '../src/examples/rooms/app'
+import NestedApp from '../src/examples/nested/app'
 
-const apps = { CounterApp, TodoApp, SelectorsApp, TimerApp, OutsideApp, AsyncApp, ComposeApp, ScopeApp, RoomsApp }
+const apps = { CounterApp, TodoApp, SelectorsApp, TimerApp, OutsideApp, AsyncApp, ComposeApp, ScopeApp, RoomsApp, NestedApp }
 
 describe('demo examples', () => {
   afterEach(() => {
@@ -122,5 +123,21 @@ describe('demo examples', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('nested example: a selector or the flat store renders only the cells whose value changed', async () => {
+    render(<><AutoRootCtx /><NestedApp /></>)
+    const settle = () => act(async () => { await new Promise(r => setTimeout(r, 100)) })
+    const press = async (name: string) => { await act(async () => { screen.getByRole('button', { name }).click() }); await settle() }
+    const rendered = () => ['nested', 'selector', 'flat'].map(mode => screen.getByTestId(`rendered-${mode}`).textContent)
+    await settle()
+
+    await press('Same values, new object')
+    expect(rendered()).toEqual(['player key 4 of 4', 'a selector per cell 0 of 4', 'flat store 0 of 4'])
+    await press('+1 score') // 9: the tier stays silver
+    expect(rendered()).toEqual(['player key 4 of 4', 'a selector per cell 1 of 4', 'flat store 1 of 4'])
+    await press('+1 score') // 10: the tier turns gold
+    expect(rendered()).toEqual(['player key 4 of 4', 'a selector per cell 2 of 4', 'flat store 2 of 4'])
+    expect(screen.getAllByText('gold')).toHaveLength(3)
   })
 })

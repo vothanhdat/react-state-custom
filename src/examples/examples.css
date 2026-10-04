@@ -14,3 +14,8 @@ button[aria-pressed="true"] { font-weight: 600; border-color: #4f46e5; }
 .clock { font-size: 2rem; font-family: monospace; margin-bottom: 0.75rem; }
 .error { color: #b91c1c; }
 .log { font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; margin: 0; }
+.columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }
+.columns .card { margin-bottom: 0; }
+.cell { display: flex; justify-content: space-between; padding: 0.25rem 0.5rem; border-radius: 4px; }
+.flash { animation: flash 0.8s ease-out; }
+@keyframes flash { from { background: #fde68a; } to { background: transparent; } }
