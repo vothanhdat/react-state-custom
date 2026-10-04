@@ -514,6 +514,9 @@ export type StoreParams<U> = {} extends U ? [params?: U] : [params: U]
 /** What `useStore` returns: every key optional, except those guaranteed by `initialState`. */
 export type StoreState<V, I> = { [P in keyof V]?: V[P] | undefined } & { [P in keyof I & keyof V]: V[P] }
 
+/** What `useStoreSuspense(params, keys)` returns: the keys it waited for hold a value, the others are as in `StoreState`. */
+export type StoreStateWith<V, I, K extends keyof V> = StoreState<V, I> & { [P in K]-?: Exclude<V[P], undefined> }
+
 const normalizeOptions = <U extends StoreParamsShape<U>, V extends object, I extends Partial<V>>(
   timeToCleanOrOptions: number | StoreOptions<U, V, I> | undefined,
   AttatchedComponent: React.ComponentType<U> | undefined
@@ -727,11 +730,18 @@ export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, I
    * Like `useStore`, but suspends (throws a promise for the nearest `<Suspense>`) until the store
    * hook has published its first result, or until `isReady(state)` returns true when given.
    * The result is typed as the full state: nothing is `undefined` anymore.
+   * With a list of keys instead of a predicate, it waits until each of them holds a value (seeded or
+   * published) and types those keys as present, the others as in `useStore`.
    * While suspended the store is kept mounted imperatively, so it keeps running even though the
    * suspended component has not committed.
    */
-  const useStoreSuspense = (...args: [...StoreParams<U>, isReady?: (state: StoreState<V, I>) => boolean]): V => {
-    const [params, isReady] = args as unknown as [U | undefined, ((state: StoreState<V, I>) => boolean)?]
+  function useStoreSuspense(...args: [...StoreParams<U>, isReady?: (state: StoreState<V, I>) => boolean]): V
+  // params may be undefined only when every param is optional, as in the selector form of useStore
+  function useStoreSuspense<const K extends keyof V>(params: {} extends U ? U | undefined : U, keys: readonly K[]): StoreStateWith<V, I, K>
+  function useStoreSuspense(...args: any[]) {
+    const [params, readiness] = args as [U | undefined, ((state: StoreState<V, I>) => boolean) | readonly (keyof V)[] | undefined]
+    // a list of keys is a predicate: it waits like one (per consumer, leased, first load only)
+    const isReady = Array.isArray(readiness) ? hasKeys<StoreState<V, I>>(readiness) : readiness as ((state: StoreState<V, I>) => boolean) | undefined
     const scopeId = useContext(StateScopeContext)
     const ctx = useCtxState(params as any)
     // The instance this component has already rendered ready (it only suspends on first load)
@@ -759,6 +769,8 @@ export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, I
     // fallback). Keep the retain taken while suspended until then, and drop it once this component has
     // committed: useCtxState's effect, declared above, has subscribed by the time this one runs.
     readyFor.current = ctx
+    // only the first load suspends: a store that clears a key it was waited for breaks the type
+    if (!isProduction && Array.isArray(readiness)) warnClearedKeys(ctx, readiness)
     extendHeldRetain(ctx)
     useEffect(() => releaseHeldRetain(ctx), [ctx])
     const state = useQuickSubscribe(ctx, serverValues((params ?? {}) as U)) as V
@@ -812,6 +824,28 @@ const statusOf = (ctx: Context<any>) => {
     statusSources.set(ctx, source)
   }
   return source
+}
+
+/** Readiness for a list of keys: each holds a value (not `undefined`), seeded or published. `null` counts. */
+const hasKeys = <S,>(keys: readonly PropertyKey[]) => (state: S) =>
+  keys.every(key => (state as Record<PropertyKey, unknown>)[key] !== undefined)
+
+const warnedClearedKeys = new Set<string>()
+
+/**
+ * Development check for `useStoreSuspense(params, keys)`: a component renders on after its first
+ * load without suspending again, so a key the store sets back to `undefined` reaches it typed as present.
+ */
+const warnClearedKeys = (ctx: Context<any>, keys: readonly PropertyKey[]) => {
+  for (const key of keys) {
+    const id = `${ctx.name.split("?")[0]}:${String(key)}`
+    if ((ctx.data as Record<PropertyKey, unknown>)[key] !== undefined || warnedClearedKeys.has(id)) continue
+    warnedClearedKeys.add(id)
+    console.warn(
+      `[react-state-custom] useStoreSuspense("${ctx.name}") waited for "${String(key)}", which the store has set back ` +
+      `to undefined: the type says it is present. Keep the last value while reloading, with a loading flag.`
+    )
+  }
 }
 
 /** Keys that renders from initialState read although initialState lacks them, per instance (development only). */

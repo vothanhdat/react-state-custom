@@ -284,3 +284,53 @@ describe('useStoreSuspense: a predicate that holds on initialState', () => {
     expect(warn).not.toHaveBeenCalled()
   })
 })
+
+describe('useStoreSuspense(params, keys)', () => {
+  /** items and add come from the hook; loaded and owner are seeded. */
+  const makeCart = (name: string, seed: { loaded: boolean, owner: string | null, items?: string[] }) => {
+    let clear = () => { }
+    const store = createStore(name, () => {
+      const [items, setItems] = useState<string[] | undefined>(['apple'])
+      clear = () => setItems(undefined)
+      return { loaded: true, owner: null as string | null, items, add: (x: string) => setItems(l => [...(l ?? []), x]) }
+    }, { initialState: seed })
+    return { ...store, clear: () => clear() }
+  }
+
+  it('renders at once when the seed holds every key, null included', async () => {
+    const { useStoreSuspense } = makeCart('keys-seeded', { loaded: true, owner: null, items: [] })
+    const seen: string[] = []
+    const Cart = () => { const { items, owner } = useStoreSuspense({}, ['items', 'owner']); seen.push(`${items.length}/${owner}`); return null }
+    const { counter, Fallback } = makeFallback()
+    render(<><AutoRootCtx /><Suspense fallback={<Fallback />}><Cart /></Suspense></>)
+    await tick()
+    expect(counter.renders).toBe(0)
+    expect(seen[0]).toBe('0/null')               // from the seed
+    expect(seen[seen.length - 1]).toBe('1/null') // then the hook's values
+  })
+
+  it('waits for a key the seed lacks, so no render sees it undefined', async () => {
+    const { useStoreSuspense } = makeCart('keys-wait', { loaded: true, owner: null })
+    const seen: string[] = []
+    const Cart = () => { const { add, items } = useStoreSuspense({}, ['add', 'items']); seen.push(`${typeof add}/${items.length}`); return null }
+    const { counter, Fallback } = makeFallback()
+    render(<><AutoRootCtx /><Suspense fallback={<Fallback />}><Cart /></Suspense></>)
+    await tick()
+    expect(counter.renders).toBeGreaterThan(0)
+    expect(seen.length).toBeGreaterThan(0)
+    expect(seen.every(s => s === 'function/1')).toBe(true)
+  })
+
+  it('warns in development when the store sets a key it was waited for back to undefined', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { useStoreSuspense, clear } = makeCart('keys-cleared', { loaded: true, owner: null })
+    const Cart = () => { const { items } = useStoreSuspense({}, ['items']); return <b>{String(items)}</b> }
+    render(<><AutoRootCtx /><Suspense fallback={null}><Cart /></Suspense></>)
+    await tick()
+    expect(warn).not.toHaveBeenCalled()
+    act(() => clear())
+    await tick()
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(String(warn.mock.calls[0][0])).toContain('waited for "items", which the store has set back to undefined')
+  })
+})

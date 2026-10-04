@@ -69,6 +69,25 @@ export const RequiredConsumer = () => {
   required.useStoreStatus()
   const status = required.useStoreStatus({ id: 'a' })
   assert<Equals<typeof status, StoreStatus>>()
+  // @ts-expect-error params are required by the key form too
+  required.useStoreSuspense(undefined, ['name'])
+  return null
+}
+
+// useStoreSuspense(params, keys): the listed keys are present, the others as in useStore
+export const keyed = createStore('types-keyed', () => ({ items: ['a'], add: (_: string) => { }, note: undefined as string | undefined, owner: null as string | null }), {
+  initialState: { owner: null },
+})
+export const KeyedConsumer = () => {
+  const s = keyed.useStoreSuspense(undefined, ['items', 'add'])
+  assert<Equals<typeof s.items, string[]>>()
+  assert<Equals<typeof s.add, (_: string) => void>>()
+  assert<Equals<typeof s.owner, string | null>>()           // seeded
+  assert<Equals<typeof s.note, string | undefined>>()       // neither listed nor seeded
+  // @ts-expect-error not a key of the store
+  keyed.useStoreSuspense(undefined, ['nope'])
+  const full = keyed.useStoreSuspense()
+  assert<Equals<typeof full.items, string[]>>()             // the forms without keys are unchanged
   return null
 }
 
