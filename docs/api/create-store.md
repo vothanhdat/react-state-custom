@@ -15,7 +15,10 @@ function createStore<Params, State, Initial extends Partial<State> = {}>(
     isEqual?: (a: R, b: R) => boolean
   ): R
   useStoreSuspense(params?: Params, isReady?: (state: StoreState<State, Initial>) => boolean): State
-  useStoreSuspense<K extends keyof State>(params: Params | undefined, keys: K[]): StoreStateWith<State, Initial, K>
+  useStoreSuspense<const K extends readonly (keyof State)[]>(
+    params: Params | undefined,
+    keys: K
+  ): StoreStateWith<State, Initial, K[number]> // StoreState<State, Initial> for a widened array
   useStoreStatus(params?: Params): StoreStatus
   getStore(params?: Params): StoreHandle<State, Initial>
   useCtxState(params?: Params): Context<State>

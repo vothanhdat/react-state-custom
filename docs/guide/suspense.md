@@ -52,6 +52,7 @@ function Cart() {
 
 - A seed that holds every listed key renders at once, without the fallback. A key the seed lacks is waited for, so no render sees it `undefined`.
 - It fits stores whose values stay `undefined` until they arrive (see [Progressive data](/guide/progressive-data)): listing a key waits for that value. For a condition on values, such as `s => !s.isLoading`, use a predicate.
+- List the keys in the call, or keep them in a variable `as const`. A widened array, such as `const keys: (keyof Cart)[]`, does not say which keys it holds, so the result is typed as with `useStore`; it still waits for every key in it.
 - Like every form, it suspends on the first load only. A store that later sets a listed key back to `undefined` hands the component `undefined` typed as present; in development a warning names the key. Keep the last value while reloading, with a loading flag.
 
 ## Choosing between `isLoading` and Suspense
