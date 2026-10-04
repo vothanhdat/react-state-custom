@@ -169,6 +169,33 @@ re-render only the five readers of the changed item, like a Zustand selector or 
   the components an update re-renders comes on top, and is the same in every library for the same
   re-renders. Choose on ergonomics.
 
+## Scale
+
+`bench/scale.bench.tsx` runs `react-state-custom` alone, at sizes where the cost grows with the number of
+keys of one store or the number of instances: a keyed collection of 4000 items where one update changes
+every item, and 5000 parameterized instances starting at once. jsdom without StrictMode, as above, on the
+same laptop; mean ms over 50 updates (20 for the mount rows). 1.5.1 is the published version, measured
+from a worktree of its commit.
+
+| scenario | 1.5.1 | current |
+|---|---|---|
+| 4000 keys change: a component listing them (`Object.keys`) | 900 | 2.5 |
+| 4000 keys change: a component reading every key | 3.6 | 3.4 |
+| 4000 keys change: one `getStore().subscribe` listener | 2581 | 3.0 |
+| a component reading all 4000 keys of a running store: mount + unmount | 199 | 1.5 |
+| 5000 instances: mount + unmount | 626 | 439 |
+
+- A store update notifies each subscription once per changed key. Up to 1.5.1, the listing component
+  re-listed every key on each of the 4000 notifications, and the handle copied the whole state for each
+  call, so both were quadratic. Readers now do that work once per update. What remains is the store
+  rendering and publishing 4000 keys.
+- A component reading every key compares the keys it read up to the first changed one, so an update that
+  changes them all was already cheap. One that changes only the last 2000 was quadratic too: ~48 ms in
+  1.5.1, ~1.9 ms now (median of 5 runs, measured separately).
+- Mounting a component that reads many keys holding values subscribed to each key, and every subscription
+  reported its value at once, triggering a full check per key.
+- Each instance captured a JavaScript stack when it started, about a third of its start cost.
+
 ## In a browser
 
 `yarn bench:browser` runs the scenarios above in headless Chrome with the same adapters, and adds a
