@@ -3,7 +3,7 @@ import { useDataContext, useDataSelector, acquireContext, getContext, isServer, 
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord, type StoreParamsShape } from "./paramsToId"
 import { useQuickSubscribe } from "./useQuickSubscribe"
-import { isProduction, formatState } from "./utils"
+import { formatState } from "./utils"
 
 /**
  * Renders one store instance's state when `debugging` is on. `name` is the instance key,
@@ -393,7 +393,7 @@ export const AutoRootCtx: React.FC<{
 
   const firstProps = useRef<{ Wrapper: unknown, debugging: unknown } | null>(null)
   useEffect(() => {
-    if (isProduction) return
+    if (process.env.NODE_ENV === 'production') return
     const previous = firstProps.current
     firstProps.current = { Wrapper, debugging }
     if (!previous) return
@@ -421,7 +421,7 @@ export const AutoRootCtx: React.FC<{
       const book = books.get(recordKey)
 
       if (book) {
-        if (!isProduction && book.counter > 0 && book.useStateFn !== useStateFn) warnDuplicateName(contextName)
+        if (process.env.NODE_ENV !== 'production' && book.counter > 0 && book.useStateFn !== useStateFn) warnDuplicateName(contextName)
         // a consumer came back during timeToClean: keep the instance
         clearTimeout(book.timer)
         book.timer = undefined
@@ -462,7 +462,7 @@ export const AutoRootCtx: React.FC<{
   useIsomorphicLayoutEffect(() => {
     let stack = mountedRoots.get(ctx)
     if (!stack) mountedRoots.set(ctx, stack = [])
-    if (stack.length > 0 && !isProduction) warnSecondRoot(ctx)
+    if (stack.length > 0 && process.env.NODE_ENV !== 'production') warnSecondRoot(ctx)
     stack.push(subscribeRoot)
     ctx.publish("subscribe", subscribeRoot)
     return () => {
@@ -629,7 +629,7 @@ export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, I
     })
     // No AutoRootCtx has published its subscribe fn yet. Give it a moment, then tell the developer
     // instead of failing silently.
-    const warning = isProduction || isServer() || release ? undefined : setTimeout(() => {
+    const warning = process.env.NODE_ENV === 'production' || isServer() || release ? undefined : setTimeout(() => {
       if (active && !release) console.error(missingRootMessage(ctxName))
     }, 1000)
 
@@ -728,8 +728,8 @@ export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, I
     const ctx = useCtxState(params as any)
     const server = serverValues((params ?? {}) as U)
     const withSelector = typeof selector === "function"
-    // isProduction never changes at runtime, so this conditional hook keeps a stable order
-    if (!isProduction) useSelectorModeCheck(ctx.name, withSelector)
+    // NODE_ENV never changes at runtime, so this conditional hook keeps a stable order
+    if (process.env.NODE_ENV !== 'production') useSelectorModeCheck(ctx.name, withSelector)
     // The two modes run different hooks: a call site must always pass a selector or never.
     return withSelector
       ? useDataSelector(ctx, selector as (data: Partial<V>) => unknown, isEqual, server)
@@ -781,12 +781,12 @@ export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, I
     // committed: useCtxState's effect, declared above, has subscribed by the time this one runs.
     readyFor.current = ctx
     // only the first load suspends: a store that clears a key it was waited for breaks the type
-    if (!isProduction && Array.isArray(readiness)) warnClearedKeys(ctx, readiness)
+    if (process.env.NODE_ENV !== 'production' && Array.isArray(readiness)) warnClearedKeys(ctx, readiness)
     extendHeldRetain(ctx)
     useEffect(() => releaseHeldRetain(ctx), [ctx])
     const state = useQuickSubscribe(ctx, serverValues((params ?? {}) as U)) as V
     // Ready before the store ran: the predicate held on initialState, and this render reads only that
-    return !isProduction && !ctx.ready && !isServer() ? watchSeedReads(ctx, state) : state
+    return process.env.NODE_ENV !== 'production' && !ctx.ready && !isServer() ? watchSeedReads(ctx, state) : state
   }
 
   /**

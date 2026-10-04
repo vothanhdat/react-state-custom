@@ -120,38 +120,30 @@ export const formatState = (value: unknown, indent = 2): string => {
   }, indent)
 }
 
-declare var process: any;
-
-/**
- * True when running a production build.
- * Bundlers statically replace `process.env.NODE_ENV`; when nothing replaces it and no
- * `process` global exists (plain browser ESM), the access throws and we fall back to dev mode
- * instead of crashing the whole module.
+/*
+ * Development-only code checks `process.env.NODE_ENV` inline at every site, as React does. An app's
+ * bundler replaces that expression with a string, the condition becomes a constant and the minifier
+ * drops the branch with its warning text; a shared `isProduction` constant computed at runtime kept
+ * all of it in production bundles. Like React itself, this needs a bundler or a CDN that defines
+ * `process.env.NODE_ENV`.
  */
-export const isProduction: boolean = (() => {
-  try {
-    return process.env.NODE_ENV === 'production';
-  } catch {
-    return false;
-  }
-})();
 
 export const DependencyTracker = {
   stack: [] as string[],
   graph: new Map<string, Set<string>>(),
 
   enter(name: string) {
-    if (isProduction) return;
+    if (process.env.NODE_ENV === 'production') return;
     this.stack.push(name);
   },
 
   leave() {
-    if (isProduction) return;
+    if (process.env.NODE_ENV === 'production') return;
     this.stack.pop();
   },
 
   addDependency(target: string) {
-    if (isProduction) return;
+    if (process.env.NODE_ENV === 'production') return;
     const current = this.stack[this.stack.length - 1];
     if (current && current !== target) {
       if (!this.graph.has(current)) {
@@ -167,13 +159,13 @@ export const DependencyTracker = {
 
   /** Forget a store once its context is evicted so the dev-only graph does not grow forever. */
   remove(name: string) {
-    if (isProduction) return;
+    if (process.env.NODE_ENV === 'production') return;
     this.graph.delete(name);
     for (const deps of this.graph.values()) deps.delete(name);
   },
 
   checkCycle(start: string, target: string) {
-    if (isProduction) return;
+    if (process.env.NODE_ENV === 'production') return;
     const visited = new Set<string>();
     const queue = [target];
 
