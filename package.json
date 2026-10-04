@@ -1,6 +1,6 @@
 {
   "name": "react-state-custom",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Write a React hook once, use it anywhere: one running instance per params, shared by every caller, composed with hooks.",
   "type": "module",
   "main": "dist/index.cjs",
@@ -49,7 +49,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/vothanhdat/react-state-custom.git"
+    "url": "git+https://github.com/vothanhdat/react-state-custom.git"
   },
   "scripts": {
     "build": "vite build",

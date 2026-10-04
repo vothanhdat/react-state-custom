@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.5.0] - 2026-10-04
 ### Added
 - `useStoreSuspense(params, keys)`: a list of keys in place of the predicate waits until each holds a value (seeded or published, `null` included) and types those keys as present, the others as optional. A predicate can hold on `initialState` before the store runs, so that render reads only the seeded keys although the result is typed as the full state; the key list keeps the type to what the render gets, and still renders at once when the seed holds every key. A development warning names a listed key the store later sets back to `undefined`. Exports the `StoreStateWith` type.
 - `useStoreStatus(params?)`, returned by `createStore`: `{ ready, failed, error }` for the instance, re-rendering only when that changes. A store hook that crashed left `useStore` consumers on its last values, so one that failed before its first result kept showing `initialState` (a spinner that never stopped) with no way to tell. It works in a `StateScopeProvider`, unlike `getStore().error`, and inside another store, which can publish the failure of a store it reads.
@@ -204,7 +206,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/vothanhdat/react-state-custom/compare/v1.3.0...v1.3.1
