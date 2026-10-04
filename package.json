@@ -64,6 +64,7 @@
     "preview": "vite preview --config vite.config.dev.ts",
     "prepublishOnly": "yarn build",
     "bench": "vitest bench --run --config vitest.config.bench.ts",
+    "bench:browser": "node bench/browser/run.mjs",
     "test:compiler": "vitest run --config vitest.config.compiler.ts",
     "test:dist": "TEST_TARGET=dist vitest run --config vitest.config.compiler.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc -p tsconfig.types.json && tsc -p tsconfig.bench.json",

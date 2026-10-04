@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>react-state-custom browser bench</title>
+  <style>
+    body { margin: 8px; font: 12px system-ui, sans-serif; }
+    /* fixed cells: an update changes text, never the grid */
+    #bench { display: grid; grid-template-columns: repeat(50, 28px); gap: 1px; }
+    #bench i { font: 9px/12px monospace; font-style: normal; height: 12px; overflow: hidden; background: #eef; }
+  </style>
+</head>
+<body>
+  <div id="bench"></div>
+  <script type="module" src="./main.tsx"></script>
+</body>
+</html>
