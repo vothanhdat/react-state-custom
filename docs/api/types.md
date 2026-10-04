@@ -58,6 +58,15 @@ type StoreState<State, Initial> =
   { [K in keyof State]?: State[K] } & { [K in keyof Initial & keyof State]: State[K] }
 ```
 
+## `StoreStateWith`
+
+What `useStoreSuspense(params, keys)` returns: the listed keys hold a value, the others are as in `StoreState`.
+
+```ts
+type StoreStateWith<State, Initial, K extends keyof State> =
+  StoreState<State, Initial> & { [P in K]-?: Exclude<State[P], undefined> }
+```
+
 ## `StoreParamsShape` / `ParamValue`
 
 Constraint for store parameters: every value must be a primitive so the identity is deterministic. It is written over the keys of the params type, so an `interface` qualifies as well as a `type`.

@@ -15,6 +15,7 @@ function createStore<Params, State, Initial extends Partial<State> = {}>(
     isEqual?: (a: R, b: R) => boolean
   ): R
   useStoreSuspense(params?: Params, isReady?: (state: StoreState<State, Initial>) => boolean): State
+  useStoreSuspense<K extends keyof State>(params: Params | undefined, keys: K[]): StoreStateWith<State, Initial, K>
   useStoreStatus(params?: Params): StoreStatus
   getStore(params?: Params): StoreHandle<State, Initial>
   useCtxState(params?: Params): Context<State>
@@ -57,7 +58,7 @@ Returns `selector(state)` and re-renders only when that value changes (`Object.i
 
 ### `useStoreSuspense(params?, isReady?)`
 
-Suspends for the nearest `<Suspense>` until the hook has published once, or until `isReady(state)` returns true when given. Returns the full `State` type. The store is retained while the component is suspended. On the server it throws unless `initialState` already satisfies `isReady`. See [Suspense](/guide/suspense).
+Suspends for the nearest `<Suspense>` until the hook has published once, or until `isReady(state)` returns true when given. Returns the full `State` type. With a list of keys in place of `isReady`, it waits until each listed key holds a value and returns [`StoreStateWith`](/api/types#storestatewith): those keys present, the others optional. See [Waiting for keys](/guide/suspense#waiting-for-keys). The store is retained while the component is suspended. On the server it throws unless `initialState` already satisfies `isReady`. See [Suspense](/guide/suspense).
 
 ### `useStoreStatus(params?)`
 

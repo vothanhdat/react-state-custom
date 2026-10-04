@@ -4,6 +4,7 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 ### Added
+- `useStoreSuspense(params, keys)`: a list of keys in place of the predicate waits until each holds a value (seeded or published, `null` included) and types those keys as present, the others as optional. A predicate can hold on `initialState` before the store runs, so that render reads only the seeded keys although the result is typed as the full state; the key list keeps the type to what the render gets, and still renders at once when the seed holds every key. A development warning names a listed key the store later sets back to `undefined`. Exports the `StoreStateWith` type.
 - `useStoreStatus(params?)`, returned by `createStore`: `{ ready, failed, error }` for the instance, re-rendering only when that changes. A store hook that crashed left `useStore` consumers on its last values, so one that failed before its first result kept showing `initialState` (a spinner that never stopped) with no way to tell. It works in a `StateScopeProvider`, unlike `getStore().error`, and inside another store, which can publish the failure of a store it reads.
 
 ## [1.4.0] - 2026-10-03
