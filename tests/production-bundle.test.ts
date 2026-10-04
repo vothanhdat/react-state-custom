@@ -4,9 +4,10 @@ import { build, type Rollup } from 'vite'
 import { resolve } from 'path'
 
 /**
- * Development-only code must disappear from an app's production bundle. The checks are written as
- * `process.env.NODE_ENV !== 'production'` at each site, which the app's bundler replaces and its
- * minifier folds; a runtime constant would keep every branch and its warning text.
+ * Development-only code must disappear from an app's production bundle. The checks read `isProduction`,
+ * a constant set to `process.env.NODE_ENV === 'production'`: the app's bundler replaces the expression
+ * and its minifier folds the constant and drops the branches. A constant computed at runtime (it was
+ * wrapped in a try/catch) kept every branch and its warning text.
  * This bundles the library source as an app does (Vite, production and development modes).
  */
 

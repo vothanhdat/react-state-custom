@@ -204,7 +204,7 @@ What it costs: each update commits twice, first the store, then the consumers th
 
 - React 18 or newer (`react` and `react-dom` are peer dependencies).
 - Ships ESM and CommonJS builds with TypeScript declarations.
-- Development checks and warnings are removed from production bundles: like React, the library reads `process.env.NODE_ENV`, which your bundler replaces.
+- Development checks and warnings are removed from production bundles built with Vite, Rollup or webpack (terser): like React, the library reads `process.env.NODE_ENV`, which your bundler replaces.
 - SSR-safe: consumers render `initialState` on the server, stores run after hydration. In the Next.js App Router, `AutoRootCtx` and every `useStore` caller live in a `'use client'` module.
 - Works with the React Compiler; covered by `yarn test:compiler` in CI.
 

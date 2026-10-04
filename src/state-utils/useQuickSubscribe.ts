@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { functionSources, latestOf, type Context } from "./ctx";
+import { isProduction } from "./utils";
 
 type Probe = { wrapper: Function, latest: unknown, calledInRender: boolean, fn: Function }
 
@@ -131,7 +132,7 @@ function createTracker<D>(ctx: Context<D> | undefined) {
       const value = current[key]
       const out = typeof value === "function" && functionSources.has(value) ? probeFor(key, value) : value
       if (!open) {
-        if (process.env.NODE_ENV !== 'production' && !warned.has(key)) {
+        if (!isProduction && !warned.has(key)) {
           warned.add(key)
           console.warn(outOfRenderWarning(key))
         }
@@ -149,7 +150,7 @@ function createTracker<D>(ctx: Context<D> | undefined) {
       if (open) reading.keys = keys
       return keys
     },
-    ...(process.env.NODE_ENV === 'production' ? {} : { set: refuseWrite, deleteProperty: refuseWrite, defineProperty: refuseWrite }),
+    ...(isProduction ? {} : { set: refuseWrite, deleteProperty: refuseWrite, defineProperty: refuseWrite }),
   }
 
   /**
@@ -180,7 +181,7 @@ function createTracker<D>(ctx: Context<D> | undefined) {
   /** A render that read every key it listed spread the state: it re-renders on every change. */
   const warnIfSpread = () => {
     const { keys, seen } = committed
-    if (process.env.NODE_ENV === 'production' || !ctx || !keys || keys.length === 0 || warnedRest.has(ctx.name)) return
+    if (isProduction || !ctx || !keys || keys.length === 0 || warnedRest.has(ctx.name)) return
     if (!keys.every(key => seen.has(key as keyof D))) return
     warnedRest.add(ctx.name)
     console.warn(restWarning(ctx.name))

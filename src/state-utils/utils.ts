@@ -1,3 +1,16 @@
+/**
+ * True in a production build. Development-only code checks this, never `process.env.NODE_ENV` itself:
+ * - An app's bundler replaces `process.env.NODE_ENV` with a string, so this becomes a constant and the
+ *   minifier drops every development branch with its warning text.
+ * - Where nothing replaces it (Node: tests, server rendering of unbundled packages), `process.env` is a
+ *   native lookup costing ~150 ns per read, too much for checks that run on every render: read it once.
+ * Like React, this needs a bundler or a CDN that defines `process.env.NODE_ENV` in a browser.
+ *
+ * Keep it the first statement of this file, and this file first in the bundle: esbuild inlines a
+ * top-level constant only when no hoisted `function` declaration comes before it.
+ */
+export const isProduction = process.env.NODE_ENV === 'production'
+
 // Debounce function
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
@@ -120,30 +133,22 @@ export const formatState = (value: unknown, indent = 2): string => {
   }, indent)
 }
 
-/*
- * Development-only code checks `process.env.NODE_ENV` inline at every site, as React does. An app's
- * bundler replaces that expression with a string, the condition becomes a constant and the minifier
- * drops the branch with its warning text; a shared `isProduction` constant computed at runtime kept
- * all of it in production bundles. Like React itself, this needs a bundler or a CDN that defines
- * `process.env.NODE_ENV`.
- */
-
 export const DependencyTracker = {
   stack: [] as string[],
   graph: new Map<string, Set<string>>(),
 
   enter(name: string) {
-    if (process.env.NODE_ENV === 'production') return;
+    if (isProduction) return;
     this.stack.push(name);
   },
 
   leave() {
-    if (process.env.NODE_ENV === 'production') return;
+    if (isProduction) return;
     this.stack.pop();
   },
 
   addDependency(target: string) {
-    if (process.env.NODE_ENV === 'production') return;
+    if (isProduction) return;
     const current = this.stack[this.stack.length - 1];
     if (current && current !== target) {
       if (!this.graph.has(current)) {
@@ -159,13 +164,13 @@ export const DependencyTracker = {
 
   /** Forget a store once its context is evicted so the dev-only graph does not grow forever. */
   remove(name: string) {
-    if (process.env.NODE_ENV === 'production') return;
+    if (isProduction) return;
     this.graph.delete(name);
     for (const deps of this.graph.values()) deps.delete(name);
   },
 
   checkCycle(start: string, target: string) {
-    if (process.env.NODE_ENV === 'production') return;
+    if (isProduction) return;
     const visited = new Set<string>();
     const queue = [target];
 
