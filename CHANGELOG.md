@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Added
+- `useStoreStatus(params?)`, returned by `createStore`: `{ ready, failed, error }` for the instance, re-rendering only when that changes. A store hook that crashed left `useStore` consumers on its last values, so one that failed before its first result kept showing `initialState` (a spinner that never stopped) with no way to tell. It works in a `StateScopeProvider`, unlike `getStore().error`, and inside another store, which can publish the failure of a store it reads.
 
 ## [1.4.0] - 2026-10-03
 ### Added

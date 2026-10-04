@@ -15,6 +15,7 @@ function createStore<Params, State, Initial extends Partial<State> = {}>(
     isEqual?: (a: R, b: R) => boolean
   ): R
   useStoreSuspense(params?: Params, isReady?: (state: StoreState<State, Initial>) => boolean): State
+  useStoreStatus(params?: Params): StoreStatus
   getStore(params?: Params): StoreHandle<State, Initial>
   useCtxState(params?: Params): Context<State>
 }
@@ -57,6 +58,10 @@ Returns `selector(state)` and re-renders only when that value changes (`Object.i
 ### `useStoreSuspense(params?, isReady?)`
 
 Suspends for the nearest `<Suspense>` until the hook has published once, or until `isReady(state)` returns true when given. Returns the full `State` type. The store is retained while the component is suspended. On the server it throws unless `initialState` already satisfies `isReady`. See [Suspense](/guide/suspense).
+
+### `useStoreStatus(params?)`
+
+Returns [`StoreStatus`](/api/types#storestatus), the state of the instance rather than its values: `ready` once the hook has published, `failed` and `error` while the hook has thrown and the instance is disabled. Re-renders only when one of them changes. It counts as a consumer like `useStore`, so it starts the instance. On the server it returns `{ ready: false, failed: false }`. See [Error handling](/guide/error-handling#errors-in-consumers).
 
 ### `getStore(params?)`
 

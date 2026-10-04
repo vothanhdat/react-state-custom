@@ -21,6 +21,20 @@ type StoreHandle<State, Initial> = {
 - `subscribe()` keeps the context alive while subscribed and fires once per changed key with a fresh snapshot. Every snapshot of one store update is the complete new state: all keys of the update are applied before the first call. The listener must not throw: an error thrown by any subscriber is rethrown to the store that published the change, and its error boundary disables that store.
 - `retain()` mounts the store through the global `AutoRootCtx` and counts as a consumer. Call the returned function to release. Logs a development error if no `AutoRootCtx` is mounted within a second.
 
+## `StoreStatus`
+
+Returned by `useStoreStatus(params)`.
+
+```ts
+type StoreStatus = {
+  readonly ready: boolean   // the store hook has published at least once
+  readonly failed: boolean  // the store hook threw and the instance is disabled until it is torn down
+  readonly error: unknown   // what the hook threw, while failed
+}
+```
+
+`failed` is kept apart from `error` because a hook can throw `undefined`. The object is the same from one render to the next until the status changes.
+
 ## `StoreOptions`
 
 ```ts

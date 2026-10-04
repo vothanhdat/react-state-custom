@@ -5,8 +5,25 @@ Each store instance is wrapped in `StoreErrorBoundary` by default. If a store ho
 ## Errors in consumers
 
 - `useStoreSuspense` throws the store's error into the consumer's own error boundary, whether the hook failed before its first result or later. A component waiting in a `<Suspense>` boundary therefore never waits forever on a store that crashed.
-- `useStore` keeps returning the last published values, as above. Expose an error as state from the hook (see below) when consumers should render it.
+- `useStore` keeps returning the last published values, as above: a store that failed before its first result keeps showing `initialState`, a loading flag included. Read `useStoreStatus(params)` next to it to render the failure.
+- `useStoreStatus(params)` returns `{ ready, failed, error }` for the instance and re-renders only when that changes. It works in a `StateScopeProvider` and inside another store, which can then publish the failure of a store it reads.
 - `getStore(params).error` is what the hook threw while the instance is disabled, and `undefined` while it runs.
+
+```tsx
+const { useStore: useUser, useStoreStatus: useUserStatus } = createStore('user', useUserState, {
+  initialState: { user: null, isLoading: true },
+})
+
+function Profile({ userId }: { userId: string }) {
+  const { user, isLoading } = useUser({ userId })
+  const { failed, error } = useUserStatus({ userId })
+  if (failed) return <ErrorPanel error={error} />  // instead of a spinner that never stops
+  if (isLoading) return <Spinner />
+  return <h1>{user!.name}</h1>
+}
+```
+
+`useStoreStatus` reports a hook that crashed, a bug. Failures you expect, such as a request that fails, are better caught in the hook and published as state (see below): the store keeps running and can retry.
 
 The `Wrapper` passed to `AutoRootCtx` still receives every error, so reporting keeps working.
 
