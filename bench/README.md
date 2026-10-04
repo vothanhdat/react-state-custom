@@ -2,10 +2,12 @@
 
 Microbenchmarks comparing `react-state-custom` with Zustand, Jotai and a plain React context, run with
 `vitest bench` in jsdom. They measure the cost of the library's wiring, not of a real browser paint,
-so read the ratios, not the absolute milliseconds.
+so read the ratios, not the absolute milliseconds. The same scenarios also run in headless Chrome,
+with style and layout included, plus a nested-state scenario: see [In a browser](#in-a-browser).
 
 ```bash
-yarn bench
+yarn bench           # jsdom
+yarn bench:browser   # headless Chrome, about 10 minutes
 ```
 
 ## Setup
@@ -134,7 +136,8 @@ re-render only the five readers of the changed item, like a Zustand selector or 
 
 ## Reading the numbers
 
-- **Updates that re-render consumers cost 1.6–2.6x Jotai and up to 2.7x Zustand.** A store in `react-state-custom`
+- **Updates that re-render consumers cost 1.6–2.6x Jotai and up to 2.7x Zustand** (1.1–1.6x Jotai in Chrome, see
+  [In a browser](#in-a-browser)). A store in `react-state-custom`
   is a hook running in a headless component, so every update is two React commits: the store component
   re-renders and publishes from a layout effect, then the subscribed consumers re-render. Zustand and Jotai
   update a plain object and go straight to the consumers' `useSyncExternalStore`. That is the price of
@@ -165,3 +168,102 @@ re-render only the five readers of the changed item, like a Zustand selector or 
 - jsdom does no layout or paint, so these numbers are the libraries' own work. In a page, the DOM work of
   the components an update re-renders comes on top, and is the same in every library for the same
   re-renders. Choose on ergonomics.
+
+## In a browser
+
+`yarn bench:browser` runs the scenarios above in headless Chrome with the same adapters, and adds a
+nested-state scenario ([`bench/browser`](https://github.com/vothanhdat/react-state-custom/tree/master/bench/browser)).
+
+- A production build without StrictMode. A sample is one update inside `flushSync`, every render and
+  commit it causes included, followed by a forced layout read: style and layout count, paint does not.
+  The page gets a frame every 10 updates, outside the samples.
+- Three rounds in a shuffled order; per case and round, 20 warm-up and 100 timed updates (10 and 40 in
+  the nested scenario). The tables show the median of all samples of a case. Raw samples, versions and
+  machine: [`results.json`](https://github.com/vothanhdat/react-state-custom/blob/master/bench/browser/results.json).
+- After each run the page reads every consumer's value from the DOM. In the scenarios above every
+  library must show what the others show; in the nested scenario every view must show its reference
+  value. All runs passed.
+- Headless Chrome 154, Apple M4 Pro, macOS; React 19.2.0, Zustand 5.0.15, Jotai 3.0.1.
+
+### Scenarios (median ms per update)
+
+| scenario | react-state-custom | zustand | jotai | React context |
+|---|---|---|---|---|
+| flat: update 1 key, 100 of 1000 consumers affected | 0.86 | 0.72 | 0.68 | 0.81 |
+| flat: update 1 key, all 1000 consumers affected | 3.15 | 2.32 | 2.22 | 2.04 |
+| derived: change one key (sum changes) | 3.29 | 3.90 | 2.19 | 3.21 |
+| derived: move 1 between two keys (sum unchanged) | 0.055 | 0.59 | 0.010 | 1.41 |
+| topology: one threshold (100 affected) | 0.92 | 0.68 | 0.68 | 0.82 |
+| topology: all thresholds (1000 affected) | 3.34 | 2.22 | 2.34 | 2.10 |
+| topology: unrelated root key (none affected) | 0.025 | 0.040 | 0.015 | 0.31 |
+| shop: qty of one item (235 affected) | 1.51 | 0.94 | 0.94 | 1.16 |
+| shop: vat (500 affected) | 2.08 | 1.59 | 1.70 | 1.49 |
+| shop: theme (none affected) | 0.020 | 0.10 | 0.005 | 0.35 |
+| shop: discount (1000 affected) | 4.20 | 2.92 | 2.79 | 2.41 |
+| collection: one of 200 items, 5 of 1000 consumers affected | 0.52 | 0.54 | 0.47 | 0.71 |
+| collection: same, array under one key | 1.58 | | | |
+
+- **Updates that re-render consumers cost 1.1–1.6x Jotai, against 1.6–2.6x in jsdom.** Each sample now
+  includes the style and layout of the changed elements, which is the same work in every library when
+  the same consumers re-render, so the two commits of a store are a smaller share of it.
+- **A derived value that changes costs less than in Zustand** (3.29 vs 3.90 ms), as in jsdom: one store
+  run instead of a selector in each of the 1000 consumers.
+- The other rows read as in jsdom: updates nothing reads cost almost nothing in the three subscription
+  libraries, and the context baseline is fastest when all 1000 consumers re-render, except where each of
+  them computes the derived value (derived sum).
+
+### Nested state
+
+The case of [Flatten a nested source](https://vothanhdat.github.io/react-state-custom/docs/guide/composing-stores#flatten-a-nested-source)
+at stress size: 3 stores of 300 numeric fields, and 5000 views that each read 10 fields picked by a
+fixed generator across the stores and render one weighted sum in an `<i>`. Four updates: one field;
+ten fields spread over the three stores; one field while every view's output stays the same (views sum
+`floor(value / 10000)`); one field no view reads. Seven ways to hold and read the fields:
+
+- **flat root**: each store returns its fields as top-level keys; views read them through the proxy.
+- **nested root**: each store returns `{ fields }`; views read `fields` through the proxy.
+- **nested root, flattened by a store**: the nested stores, plus one store per root that returns
+  `{ ...fields }`; views read its keys.
+- **nested root, selectors** (react-state-custom and Zustand): one selector per view and store, summing
+  the view's fields in that store.
+- **jotai: nested root, derived field atoms**: a read-only atom per field derived from the root atom,
+  and an atom per view summing its fields.
+- **jotai: one atom per field**: a writable atom per field, no root object, and an atom per view.
+
+Median ms per update:
+
+| | one-field | ten-fields | output-unchanged | unread-field |
+|---|---:|---:|---:|---:|
+| react-state-custom: flat root | 2.79 | 8.73 | 0.71 | 0.065 |
+| react-state-custom: nested root | 44.9 | 51.9 | 41.6 | 41.7 |
+| react-state-custom: nested root, flattened by a store | 2.81 | 8.87 | 0.72 | 0.075 |
+| react-state-custom: nested root, selectors | 5.96 | 16.9 | 3.01 | 2.53 |
+| zustand: nested root, selectors | 5.43 | 14.5 | 2.29 | 2.31 |
+| jotai: nested root, derived field atoms | 6.71 | 13.7 | 3.19 | 3.13 |
+| jotai: one atom per field | 2.58 | 6.16 | 0.15 | 0.000 |
+
+View renders per update:
+
+| | one-field | ten-fields | output-unchanged | unread-field |
+|---|---:|---:|---:|---:|
+| react-state-custom: flat root | 48 | 531 | 48 | 0 |
+| react-state-custom: nested root | 4920 | 5000 | 4920 | 4920 |
+| react-state-custom: nested root, flattened by a store | 48 | 531 | 48 | 0 |
+| react-state-custom: nested root, selectors | 48 | 531 | 0 | 0 |
+| zustand: nested root, selectors | 48 | 531 | 0 | 0 |
+| jotai: nested root, derived field atoms | 48 | 531 | 0 | 0 |
+| jotai: one atom per field | 48 | 531 | 0 | 0 |
+
+- **Fields under one key re-render every view of the store**: 4920 renders and 42–52 ms per update,
+  whatever changed.
+- **Flattening the nested store matches the flat root**: the same renders and the same time (2.81 vs
+  2.79 ms for one field), for one extra store run per update.
+- **Selectors render the same views, but run on every update**: about 5000 selector calls, 5.4–6.0 ms for
+  one field. When the outputs stay the same they render nothing, where the flat stores re-render the 48
+  readers of the changed field; with views this light, those renders (0.7 ms) still cost less than the
+  selector calls (2.3–3.0 ms).
+- **Jotai with one atom per field is the fastest in every case**: a view depends on its own 10 atoms,
+  and a write touches only the atoms it changes.
+- It is a stress workload: many views, picks with no relation to each other, and a view of one element.
+  Heavier views are not measured here; they make each render cost more, which favours the approaches
+  that render fewer views.

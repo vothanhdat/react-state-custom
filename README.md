@@ -176,7 +176,7 @@ Both subscribe to the socket when the first component reads that symbol and unsu
 | **One instance per symbol, id, …** | params on the hook; same params, same instance | `atomFamily` |
 | **Side effects with a lifecycle** | `useEffect` inside the store | `onMount` on the atom |
 | **Fine-grained reads** | top-level keys through the proxy, selectors for deep values | one atom per value; split atoms for granularity |
-| **Cost per update** | 1.6–2.6x Jotai's when consumers re-render, plus one commit per derived layer | lower in every scenario of our jsdom [benchmarks](https://vothanhdat.github.io/react-state-custom/docs/benchmarks) |
+| **Cost per update** | when consumers re-render, 1.6–2.6x Jotai's in jsdom and 1.1–1.6x in Chrome; one more commit per derived layer | lower whenever consumers re-render, in our jsdom and Chrome [benchmarks](https://vothanhdat.github.io/react-state-custom/docs/benchmarks) |
 | **Ecosystem** | every React hook works inside a store | a large set of atom utilities |
 | **To learn** | nothing beyond React hooks | the atom model |
 
@@ -196,7 +196,7 @@ What the store saves, with 1000 consumers (`yarn bench`: vitest + jsdom, React 1
 
 No selectors or memoization to write for it: a consumer subscribes to the keys it reads, a derived store runs once per update, and only when a key it read has changed.
 
-What it costs: each update commits twice, first the store, then the consumers that read a changed key, and each derived layer adds a commit. In the same jsdom suite that is 1.6–2.6x Jotai's time when consumers re-render: 0.72 ms against 0.38 ms when 100 of 1000 consumers re-render. jsdom does no layout or paint, so these are the libraries' own costs, not frame times.
+What it costs: each update commits twice, first the store, then the consumers that read a changed key, and each derived layer adds a commit. In the same jsdom suite that is 1.6–2.6x Jotai's time when consumers re-render: 0.72 ms against 0.38 ms when 100 of 1000 consumers re-render. jsdom does no layout or paint, so these are the libraries' own costs. In headless Chrome, where each update also includes style and layout, the same scenarios cost 1.1–1.6x Jotai's: 0.86 ms against 0.68 ms.
 
 ---
 
