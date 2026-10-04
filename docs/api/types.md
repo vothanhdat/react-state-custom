@@ -60,7 +60,7 @@ type StoreState<State, Initial> =
 
 ## `StoreStateWith`
 
-What `useStoreSuspense(params, keys)` returns: the listed keys hold a value, the others are as in `StoreState`.
+What `useStoreSuspense(params, keys)` returns when `keys` is a tuple, written in the call or kept `as const`: the listed keys hold a value, the others are as in `StoreState`. A widened array, such as `(keyof State)[]`, does not say which keys it holds, so the result is `StoreState`.
 
 ```ts
 type StoreStateWith<State, Initial, K extends keyof State> =
