@@ -1,8 +1,9 @@
 // Runs on React's real scheduler, without act(): hydration errors are reported through
 // onRecoverableError, and each island hydrates in its own task like on a real page.
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { hydrateRoot, type Root } from 'react-dom/client'
-import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
+import { useState } from 'react'
+import { createStore, AutoRootCtx, StateScopeProvider } from '../src/state-utils/createAutoCtx'
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
@@ -75,5 +76,36 @@ describe('hydrating after a store has already published', () => {
     expect(errors).toEqual([])
     expect(renders).toBe(1)
     unmount()
+  })
+})
+
+describe('islands with their own scope', () => {
+  it('two hydrated islands, each in a StateScopeProvider, keep separate stores', async () => {
+    // Hydrated roots number useId by tree position, so both scopes got the same id and shared their
+    // stores: two AutoRootCtx in one scope, and the store mounted twice was disabled.
+    const { useStore } = createStore('islands-scoped', () => {
+      const [n, setN] = useState(0)
+      return { n, inc: () => setN(x => x + 1) }
+    }, { initialState: { n: 0 } })
+    const Counter = () => {
+      const { n, inc } = useStore()
+      return <button onClick={() => inc?.()}>{n}</button>
+    }
+    const app = <StateScopeProvider><Counter /></StateScopeProvider>
+    const a = island('<button>0</button>')
+    const b = island('<button>0</button>')
+    const consoleErrors = vi.spyOn(console, 'error').mockImplementation(() => { })
+    try {
+      const { errors, unmount } = await hydrateAll([[a, app], [b, app]])
+      a.querySelector('button')!.click()
+      await sleep(50)
+      expect(errors).toEqual([])
+      expect(consoleErrors).not.toHaveBeenCalled()
+      expect(a.textContent).toBe('1')
+      expect(b.textContent).toBe('0')
+      unmount()
+    } finally {
+      consoleErrors.mockRestore()
+    }
   })
 })

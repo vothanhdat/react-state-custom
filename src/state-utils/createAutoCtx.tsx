@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useCallback, useRef, useId, useContext, memo, useSyncExternalStore } from "react"
+import React, { Suspense, useEffect, useCallback, useRef, useState, useContext, memo, useSyncExternalStore } from "react"
 import { useDataContext, useDataSelector, acquireContext, getContext, isServer, StateScopeContext, useIsomorphicLayoutEffect, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord, type StoreParamsShape } from "./paramsToId"
@@ -1031,12 +1031,19 @@ export const createStore = <U extends StoreParamsShape<U>, V extends object, I e
   return createAutoCtx<U, V, I>(createRootCtx(name, useFn), timeToCleanOrOptions, AttatchedComponent)
 }
 
+/** Scopes created in this page so far, which numbers their ids. */
+let scopeCount = 0
+
 export const StateScopeProvider: React.FC<{
   children: React.ReactNode
   Wrapper?: React.ComponentType<{ children?: React.ReactNode }>
   debugging?: boolean | StateDebugRenderer
 }> = ({ children, Wrapper, debugging }) => {
-  const scopeId = useId()
+  // Not useId: a root hydrated from server HTML numbers its ids by tree position, so two islands
+  // (one hydrateRoot each) got the same id and shared one scope, two AutoRootCtx running every store
+  // twice. Store contexts are global to the page, so the id must be too. It never reaches the HTML,
+  // so server and client need not agree; the state keeps it for the provider's lifetime.
+  const [scopeId] = useState(() => `scope${++scopeCount}`)
   return <StateScopeContext.Provider value={scopeId}>
     <AutoRootCtx Wrapper={Wrapper} debugging={debugging} />
     {children}

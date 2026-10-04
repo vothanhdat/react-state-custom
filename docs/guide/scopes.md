@@ -21,6 +21,8 @@ function App() {
 
 A `StateScopeProvider` is its own root: it does not need an `AutoRootCtx` inside it. It accepts the same `Wrapper` and `debugging` props as `AutoRootCtx`.
 
+Every `StateScopeProvider` is a separate scope, also when the page has several React roots that each mount one, such as islands hydrated from server HTML.
+
 ## Use cases
 
 - Rendering several independent copies of a feature side by side: two editors, a comparison view, a multi-tab workspace. To share part of the state between copies, such as the document two editors show, use params instead; see [What an instance shares](/guide/parameterized-stores#what-an-instance-shares).

@@ -102,7 +102,7 @@ describe('DevToolContainer', () => {
     await screen.findByText('count:2')
     const panel = await openPanel()
     const header = within(panel).getByText('dt-counter').closest('.state-group-header')!
-    expect(header.querySelector('small')?.textContent?.trim()).toMatch(/\S+/)   // the useId scope
+    expect(header.querySelector('small')?.textContent?.trim()).toMatch(/\S+/)   // the scope id
     expect(within(panel).queryByText(/auto-ctx/)).toBeNull()
   })
 

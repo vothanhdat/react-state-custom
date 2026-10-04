@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 - Starting a store instance no longer captures a JavaScript stack, which it did in production too, for an error thrown only when one instance is mounted twice. That was about a third of the cost of starting an instance: mounting 5000 instances at once ~440 ms → ~260–320 ms (jsdom). The error is unchanged; the error boundary reports where it happened with React's component stack, and the captured stack only ever pointed into React and the library.
 - Development-only code is removed from production bundles. Every check read one `isProduction` constant computed at runtime, which bundlers cannot fold, so the development warnings, their text, the read-only proxy traps and the dependency graph all shipped to production. Each check now reads `process.env.NODE_ENV` in place, as React does, and the app's bundler drops the branch. The library in a Vite production app: ~22.1 kB → ~17.4 kB minified, ~8.8 kB → ~7.0 kB gzipped.
 
+### Fixed
+- Two React roots hydrated from server HTML (islands), each with a `StateScopeProvider`, get separate scopes. The scope id came from `useId`, which numbers a hydrated root by tree position, so both scopes had the same id and shared their stores: two `AutoRootCtx` ran in one scope, the store mounted twice was disabled, and the islands stopped responding. Scope ids are now unique in the page. Roots created with `createRoot` were not affected.
+
 ### Changed
 - Like React, the library needs `process.env.NODE_ENV` to be replaced by a bundler, or defined by the CDN serving it (esm.sh does). A runtime fallback let `dist/index.es.js` load in a browser with no bundler at all; there the first render now throws `process is not defined`.
 - `getStore().subscribe` passes the same snapshot object to every call of one update (one call per changed key, as before) instead of a fresh copy for each. Treat it as read-only.
