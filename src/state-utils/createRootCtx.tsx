@@ -143,7 +143,6 @@ export const createRootCtx = <U extends StoreParamsShape<U>, V extends object>(n
     } finally {
       DependencyTracker.leave();
     }
-    const stack = useMemo(() => new Error().stack, [])
 
     usePublish(ctx, rawState as Record<string, unknown>)
 
@@ -151,11 +150,11 @@ export const createRootCtx = <U extends StoreParamsShape<U>, V extends object>(n
     // "ready" once consumers can see real values instead of initialState (see useStoreSuspense).
     useIsomorphicLayoutEffect(() => { ctx.markReady() }, [ctx])
 
+    // The error boundary that catches this reports the component stack. No JS stack is captured at
+    // mount: that cost ~30% of mounting an instance, and it only ever pointed into React and this file.
     useEffect(() => {
       if (ctxMountedCheck.has(scopedCtxName)) {
-        const err = new Error("RootContext " + scopedCtxName + " are mounted more than once")
-        err.stack = stack;
-        throw err
+        throw new Error("RootContext " + scopedCtxName + " are mounted more than once")
       }
       ctxMountedCheck.add(scopedCtxName)
       return () => { ctxMountedCheck.delete(scopedCtxName) };
