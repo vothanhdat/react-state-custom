@@ -134,7 +134,7 @@ re-render only the five readers of the changed item, like a Zustand selector or 
 
 ## Reading the numbers
 
-- **Updates that re-render consumers cost about 2x Zustand or Jotai.** A store in `react-state-custom`
+- **Updates that re-render consumers cost 1.6–2.6x Jotai and up to 2.7x Zustand.** A store in `react-state-custom`
   is a hook running in a headless component, so every update is two React commits: the store component
   re-renders and publishes from a layout effect, then the subscribed consumers re-render. Zustand and Jotai
   update a plain object and go straight to the consumers' `useSyncExternalStore`. That is the price of
@@ -143,7 +143,7 @@ re-render only the five readers of the changed item, like a Zustand selector or 
 - **When a derivation is involved the gap to Zustand closes** (4.49 vs 4.28 ms) because its selectors
   recompute in every consumer, and when the derived value does not change we are 12x faster than Zustand
   (0.04 vs 0.56 ms): one store re-render instead of 1000 selector runs. Jotai, whose atom graph is built
-  for exactly this, stays fastest in every scenario.
+  for exactly this, is fastest in both.
 - **Every derived layer is one more React commit.** In the shop graph a qty change travels items → lines →
   checkouts → summary → consumers, and each store on the way renders and publishes in its own commit, so
   the gap to Zustand and Jotai grows to about 2.6x (1.61 vs 0.60 and 0.62 ms). Zustand and Jotai propagate
@@ -162,6 +162,6 @@ re-render only the five readers of the changed item, like a Zustand selector or 
   the hook it returns; the extra tokens are the `useState` and the `??` defaults inside the hook itself.
   What the hook form buys is not brevity but that each layer can hold effects, async work and other hooks,
   which these scenarios do not exercise.
-- At these sizes every operation is well under one frame. In a real page, frame time is decided by the
-  DOM work an update causes (reconcile, style, layout, paint), not by the store; see
-  [Limitations](https://vothanhdat.github.io/react-state-custom/docs/guide/limitations). Choose on ergonomics.
+- jsdom does no layout or paint, so these numbers are the libraries' own work. In a page, the DOM work of
+  the components an update re-renders comes on top, and is the same in every library for the same
+  re-renders. Choose on ergonomics.

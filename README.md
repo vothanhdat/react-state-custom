@@ -176,11 +176,11 @@ Both subscribe to the socket when the first component reads that symbol and unsu
 | **One instance per symbol, id, …** | params on the hook; same params, same instance | `atomFamily` |
 | **Side effects with a lifecycle** | `useEffect` inside the store | `onMount` on the atom |
 | **Fine-grained reads** | top-level keys through the proxy, selectors for deep values | one atom per value; split atoms for granularity |
-| **Cost per update** | about 2x Jotai, plus one commit per derived layer | fastest in our [benchmarks](https://vothanhdat.github.io/react-state-custom/docs/benchmarks) |
+| **Cost per update** | 1.6–2.6x Jotai's when consumers re-render, plus one commit per derived layer | lower in every scenario of our jsdom [benchmarks](https://vothanhdat.github.io/react-state-custom/docs/benchmarks) |
 | **Ecosystem** | every React hook works inside a store | a large set of atom utilities |
 | **To learn** | nothing beyond React hooks | the atom model |
 
-Jotai's update path costs about half as much per update. At a thousand subscribed components both stay well under a frame, and frame time is decided by the DOM work an update causes (see [Limitations](https://vothanhdat.github.io/react-state-custom/docs/guide/limitations)). If your state is a graph of things that fetch, subscribe and derive, such as `config → market data → order book → positions → summary`, write each node as a hook, keep the graph acyclic, and import the hook where it is needed.
+Jotai's update path costs less: it updates atoms outside React and renders the consumers in one commit. If your state is a graph of things that fetch, subscribe and derive, such as `config → market data → order book → positions → summary`, write each node as a hook, keep the graph acyclic, and import the hook where it is needed.
 
 **Zustand** is the least code for a flat global bag of values, with no per-key instances or lifecycle: you write the ref-counting around sockets yourself. **Redux** is a different model (actions and reducers) aimed at a different scale of ceremony. A plain **React context** re-renders every consumer on every change.
 
@@ -196,7 +196,7 @@ What the store saves, with 1000 consumers (`yarn bench`: vitest + jsdom, React 1
 
 No selectors or memoization to write for it: a consumer subscribes to the keys it reads, a derived store runs once per update, and only when a key it read has changed.
 
-What it costs: each update commits twice, first the store, then the consumers that read a changed key. That is about twice the cost of Zustand or Jotai: 0.7 ms when 100 of 1000 consumers re-render. Frame time is decided by the DOM work an update causes.
+What it costs: each update commits twice, first the store, then the consumers that read a changed key, and each derived layer adds a commit. In the same jsdom suite that is 1.6–2.6x Jotai's time when consumers re-render: 0.72 ms against 0.38 ms when 100 of 1000 consumers re-render. jsdom does no layout or paint, so these are the libraries' own costs, not frame times.
 
 ---
 

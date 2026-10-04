@@ -46,7 +46,7 @@ A store pays off when several components need the same running piece of state, e
 
 Sharing changes behaviour: callers with the same params share everything the hook holds. Decide what belongs to the shared instance and what stays with each view; see [What an instance shares](/guide/parameterized-stores#what-an-instance-shares).
 
-An update takes two commits: the store renders and publishes, then its consumers render, each once. That costs about twice what Zustand or Jotai spend per update (see [Benchmarks](/benchmarks)), and each store in a chain of stores adds one commit. It is well under a frame at a thousand subscribed components; at high update rates the cost that matters is the HTML React has to update, not the store. The [Limitations and FAQ](/guide/limitations) page lists the other constraints.
+An update takes two commits: the store renders and publishes, then its consumers render, each once, and each store in a chain of stores adds one commit. In the jsdom [benchmarks](/benchmarks), updates that re-render consumers cost 1.6 to 2.6 times what Jotai spends, and a derived store runs once per change where a selector runs in every consumer. The [Limitations and FAQ](/guide/limitations) page lists the other constraints.
 
 ## Where to go next
 
