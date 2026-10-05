@@ -37,7 +37,7 @@ A unique namespace for this store, for example `'user'` or `'cart'`. Two `create
 
 ### `useFn`
 
-Your hook. Receives `params` and `preState`, the values previously published by an instance with the same identity (useful to warm-start after a remount; an empty object otherwise). Its return value is the store state: every key is published separately, and functions get a stable identity across store renders.
+Your hook. Receives `params` and `preState`, the values previously published by an instance with the same identity while something still holds its context (useful to warm-start after a restart or an `<Activity>` shown again; an empty object otherwise). Its return value is the store state: every key is published separately, and functions get a stable identity across store renders.
 
 ### `options`
 

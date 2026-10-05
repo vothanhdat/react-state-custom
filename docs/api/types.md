@@ -9,7 +9,7 @@ Returned by `getStore(params)`.
 ```ts
 type StoreHandle<State, Initial> = {
   readonly name: string            // "name?params"
-  readonly ready: boolean          // the store hook has published at least once
+  readonly ready: boolean          // the running instance has published at least once; false once it is torn down
   readonly error: unknown          // what the hook threw while the instance is disabled, else undefined
   get(): StoreState<State, Initial>
   subscribe(listener: (state: StoreState<State, Initial>, changedKey: keyof State) => void): () => void
@@ -27,7 +27,7 @@ Returned by `useStoreStatus(params)`.
 
 ```ts
 type StoreStatus = {
-  readonly ready: boolean   // the store hook has published at least once
+  readonly ready: boolean   // the running instance has published at least once; false once it is torn down
   readonly failed: boolean  // the store hook threw and the instance is disabled until it is torn down
   readonly error: unknown   // what the hook threw, while failed
 }

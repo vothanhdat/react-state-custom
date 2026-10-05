@@ -26,7 +26,7 @@ Updates are published synchronously from a layout effect, so no `waitFor` is nee
 
 ## Isolate tests from each other
 
-Contexts are cached by name for a short time after their last user leaves, so a store used by two tests in a row can leak values between them, and a store with `timeToClean` can outlive the test that mounted it. Pick one of:
+A store with `timeToClean` can outlive the test that mounted it, so a store used by two tests in a row can leak values between them, and contexts used through the [primitives](/api/primitives) stay cached for a short time after their last user leaves. Pick one of:
 
 - **Render each test inside a `StateScopeProvider`.** Every scope has its own instances, and the scope unmounts with the test. This needs no access to internals.
 

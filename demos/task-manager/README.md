@@ -68,5 +68,6 @@ The library keeps its model: values from different stores can disagree for one r
 - **`initialState` types only the keys it holds**, and checks their values against the store's types: `{ status: 'loading' }` needs no `as const`, and `ids` stays optional (`initial-state-types.tsx`). The `as const` casts in `app.tsx` are gone.
 - **`shallowEqual` is exported**, for selectors that return a new array with the same items. The page's third re-render option uses it, in place of a store that kept the previous array in a ref.
 - **The demo type-checks with `noUncheckedIndexedAccess`**, so `tasks[id]` is `Task | undefined`. It flagged the row that crashed on delete, and a bug in `updateTask`: a task deleted while its save was in flight came back when the save or its rollback landed, half of it missing. `updateTask` now changes a task only while it exists. Action calls use `?.()`.
+- **A torn-down store leaves nothing behind.** Its context used to stay cached for 100 ms, so coming back to a project right away mixed the old `visible` ids with a fresh `tasks` store and rendered a row whose task was `undefined` (scenario G). The context is now dropped with the instance: `G zombies []`.
 - **The docs** teach this: Getting started "Before the data arrives", How it works "Stores as services" and "Data across stores", and the Collections section of Selectors.
 

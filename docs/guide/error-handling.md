@@ -5,7 +5,7 @@ Each store instance is wrapped in `StoreErrorBoundary` by default. If a store ho
 ## Errors in consumers
 
 - `useStoreSuspense` throws the store's error into the consumer's own error boundary, whether the hook failed before its first result or later. A component waiting in a `<Suspense>` boundary therefore never waits forever on a store that crashed.
-- `useStore` keeps returning the last published values, as above: a store that failed before its first result keeps showing `initialState`, a loading flag included. Read `useStoreStatus(params)` next to it to render the failure.
+- `useStore` keeps returning the last published values, as above: a store that failed before its first result keeps showing `initialState`, a loading flag included. Its actions do nothing: the hook that defined them no longer runs. Read `useStoreStatus(params)` next to it to render the failure.
 - `useStoreStatus(params)` returns `{ ready, failed, error }` for the instance and re-renders only when that changes. It works in a `StateScopeProvider` and inside another store, which can then publish the failure of a store it reads.
 - `getStore(params).error` is what the hook threw while the instance is disabled, and `undefined` while it runs.
 
