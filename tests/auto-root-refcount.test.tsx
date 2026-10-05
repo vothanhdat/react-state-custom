@@ -199,7 +199,7 @@ describe('AutoRootCtx component tree', () => {
     expect(count(names, 'Bucket')).toBeGreaterThanOrEqual(1)
     expect(count(names, 'Bucket')).toBeLessThanOrEqual(2)
     // one store under its bucket
-    expect(names.slice(0, 6)).toEqual(['AutoRootCtx', 'Bucket', 'StoreInstance', 'StoreErrorBoundary', 'StoreFailure', names[5]])
+    expect(names.slice(0, 5)).toEqual(['AutoRootCtx', 'Bucket', 'StoreInstance', 'StoreBoundary', names[4]])
     expect(names.filter(n => n.startsWith('Store(')).sort()).toEqual(['Store(tree-a)', 'Store(tree-b)'])
 
     rerender(<AutoRootCtx />)

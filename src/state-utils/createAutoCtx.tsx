@@ -1,21 +1,12 @@
 import * as React from "react"
-import { Suspense, useEffect, useCallback, useRef, useState, useContext, memo, useSyncExternalStore } from "react"
-import { useDataContext, useDataSelector, acquireContext, getContext, isServer, StateScopeContext, useIsomorphicLayoutEffect, type Context } from "./ctx"
+import { Suspense, useEffect, useCallback, useRef, memo, useSyncExternalStore } from "react"
+import { useDataContext, useDataSelector, acquireContext, getContext, isServer, useIsomorphicLayoutEffect, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord, type StoreParamsShape } from "./paramsToId"
 import { useQuickSubscribe } from "./useQuickSubscribe"
-import { isProduction, formatState, shallowEqual } from "./utils"
-import { storeEntries, storeMocks, storeRefs } from "./storeRegistry"
+import { isProduction, shallowEqual } from "./utils"
+import { storeEntries, storeRefs } from "./storeRegistry"
 import type { Scheduler } from "./schedule"
-
-/**
- * Renders one store instance's state when `debugging` is on. `name` is the instance key,
- * `"<store>?<params>"`, and `value` the object the store hook returned.
- */
-export type StateDebugRenderer = React.ComponentType<{ name: string, value: Record<string, unknown> }>
-
-/** Default `debugging` renderer: the state as JSON text, tagged with the store key for tests to find. */
-const DebugState: StateDebugRenderer = ({ name, value }) => <pre data-store={name}>{formatState(value)}</pre>
 
 /**
  * Name a component for React DevTools. The published package is minified, so function and class
@@ -24,7 +15,7 @@ const DebugState: StateDebugRenderer = ({ name, value }) => <pre data-store={nam
  */
 const named = <T extends Function>(displayName: string, component: T): T => Object.assign(component, { displayName })
 
-type RunnerProps = { name: string, useStateFn: Function, params: ParamsToIdRecord, debugging: boolean | StateDebugRenderer }
+type RunnerProps = { useStateFn: Function, params: ParamsToIdRecord }
 
 /** The runner component of each store name (see runnerFor). */
 const runners = new Map<string, React.ComponentType<RunnerProps>>()
@@ -41,11 +32,9 @@ const runners = new Map<string, React.ComponentType<RunnerProps>>()
 const runnerFor = (storeName: string) => {
   let runner = runners.get(storeName)
   if (!runner) {
-    const StoreRunner = ({ name, useStateFn, params, debugging }: RunnerProps) => {
-      const state = useStateFn(params)
-      if (!debugging) return null
-      const Debug = debugging === true ? DebugState : debugging
-      return <Debug name={name} value={state} />
+    const StoreRunner = ({ useStateFn, params }: RunnerProps) => {
+      useStateFn(params)
+      return null
     }
     runner = memo(named(`Store(${storeName})`, StoreRunner))
     runners.set(storeName, runner)
@@ -53,64 +42,10 @@ const runnerFor = (storeName: string) => {
   return runner
 }
 
-/**
- * Default Wrapper: an error boundary that isolates one crashing store from the others.
- * Without it a single throwing store hook would unmount the whole AutoRootCtx tree.
- * The crashed store renders nothing until it is unmounted (last consumer leaves) and
- * re-created. Pass your own `Wrapper` to AutoRootCtx to customise this.
- */
-export class StoreErrorBoundary extends React.Component<{ children?: React.ReactNode }, { error: unknown }> {
-  static displayName = "StoreErrorBoundary"
-  state = { error: undefined as unknown }
-
-  static getDerivedStateFromError(error: unknown) {
-    return { error }
-  }
-
-  componentDidCatch(error: unknown, info: React.ErrorInfo) {
-    console.error(
-      "[react-state-custom] A store hook threw and has been disabled; other stores keep running. " +
-      "Pass a custom Wrapper to <AutoRootCtx /> to handle this differently.",
-      error,
-      info.componentStack
-    )
-  }
-
-  render() {
-    return this.state.error !== undefined ? null : this.props.children
-  }
-}
-
-
-/**
- * Inline docs: createAutoCtx + AutoRootCtx
- *
- * Quick start
- * 1) Mount <AutoRootCtx /> ONCE near your app root. Each store is wrapped in an error boundary by default
- *    (StoreErrorBoundary); pass `Wrapper` to replace it. Example: <AutoRootCtx Wrapper={MyErrorBoundary} />
- *
- * 2) Create auto contexts from your root context factories:
- * ```
- *    const { useCtxState: useTestCtxState } = createAutoCtx(createRootCtx('test-state', stateFn))
- *    const { useCtxState: useOtherCtxState } = createAutoCtx(createRootCtx('other-state', otherFn))
- * ```
- * 3) Use them in components:
- * ```
- *    const ctx = useTestCtxState({ userId })
- *    const { property1, property2 } = useDataSubscribeMultiple(ctx,'property1','property2')
- *    // No need to mount the Root returned by createRootCtx directly — AutoRootCtx manages it for you.
- * ```
- * Notes
- * - AutoRootCtx must be mounted before any useCtxState hooks created by createAutoCtx run.
- * - Wrapper should be an ErrorBoundary-like component that simply renders {children}; no extra providers or layout required.
- * - For each unique params object (by stable stringified key), AutoRootCtx ensures a corresponding Root instance is rendered.
- */
-
 type StoreRecord = {
   /** The name given to createStore, which names the runner component (see runnerFor). */
   storeName: string,
   useStateFn: Function,
-  AttatchedComponent: React.FC<any> | undefined
   params: ParamsToIdRecord,
 }
 
@@ -160,24 +95,7 @@ const setRecord = (state: Records, key: string, next: StoreRecord | undefined) =
   return out
 }
 
-const warnedProps = new Set<"Wrapper" | "debugging">()
-
-/**
- * A `Wrapper` defined inline (`Wrapper={({ children }) => ...}`) is a new component type on every
- * render of its parent, so React remounts every store under it and all store state is lost.
- */
-const warnUnstableProp = (prop: "Wrapper" | "debugging") => {
-  if (warnedProps.has(prop)) return
-  warnedProps.add(prop)
-  console.error(prop === "Wrapper"
-    ? `[react-state-custom] The Wrapper passed to <AutoRootCtx /> (or <StateScopeProvider>) changed identity, so every ` +
-      `running store was remounted and lost its state. Define the Wrapper component once at module scope instead of ` +
-      `inline. (Right after a hot reload this is expected.)`
-    : `[react-state-custom] The debugging renderer passed to <AutoRootCtx /> (or <StateScopeProvider>) changed identity, ` +
-      `so every store hook ran again. Define it once at module scope instead of inline.`)
-}
-
-/** The AutoRootCtx components mounted per scope (keyed by the scope's "auto-ctx" context), oldest first. */
+/** The AutoRootCtx components mounted (keyed by the "auto-ctx" context, which resetStores replaces), oldest first. */
 const mountedRoots = new WeakMap<Context<any>, Function[]>()
 
 const warnedSecondRoot = new WeakSet<Context<any>>()
@@ -186,9 +104,8 @@ const warnSecondRoot = (autoCtx: Context<any>) => {
   if (warnedSecondRoot.has(autoCtx)) return
   warnedSecondRoot.add(autoCtx)
   console.error(
-    `[react-state-custom] More than one <AutoRootCtx /> is mounted in the same scope. Stores run in the newest ` +
-    `one and move whenever one mounts or unmounts, losing their state. Mount AutoRootCtx once near the root; ` +
-    `use <StateScopeProvider> for a subtree with its own stores.`
+    `[react-state-custom] More than one <AutoRootCtx /> is mounted. Stores run in the newest one and move ` +
+    `whenever one mounts or unmounts, losing their state. Mount AutoRootCtx once near the root.`
   )
 }
 
@@ -266,12 +183,7 @@ const createBuckets = () => {
 
 type Buckets = ReturnType<typeof createBuckets>
 
-const Bucket = memo(named("Bucket", function Bucket({ index, buckets, Wrapper, debugging }: {
-  index: number,
-  buckets: Buckets,
-  Wrapper: React.ComponentType<{ children?: React.ReactNode }>,
-  debugging: boolean | StateDebugRenderer,
-}) {
+const Bucket = memo(named("Bucket", function Bucket({ index, buckets }: { index: number, buckets: Buckets }) {
   const subscribe = useCallback((listener: () => void) => buckets.subscribe(index, listener), [buckets, index])
   const getSnapshot = useCallback(() => buckets.get(index), [buckets, index])
   const records = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
@@ -280,19 +192,18 @@ const Bucket = memo(named("Bucket", function Bucket({ index, buckets, Wrapper, d
       .entries(records)
       // stable order so existing store fibers are never re-placed when records are added/removed
       .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
-      .map(([key, record]) => <StoreInstance key={key} name={key} record={record} Wrapper={Wrapper} debugging={debugging} />)}
+      .map(([key, record]) => <StoreInstance key={key} name={key} record={record} />)}
   </>
 }))
 
-type StoreFailureProps = {
+type StoreBoundaryProps = {
   ctx: Context<any>
   useStateFn: Function
   /** The store's runner element, remounted after a hot update that changed its hooks. */
   runner: React.ReactNode
-  attached: React.ReactNode
 }
 
-type StoreFailureState = {
+type StoreBoundaryState = {
   error: { value: unknown } | undefined
   /** Key of the runner's Suspense boundary: a new one mounts the hook fresh. */
   generation: number
@@ -301,21 +212,21 @@ type StoreFailureState = {
 }
 
 /**
- * The error boundary of one store instance.
+ * The error boundary of one store instance: a store hook that throws stops only that instance, and
+ * every other store and the app keep running.
  *
  * A hot update can replace the hook of a running instance, and AutoRootCtx runs the new hook in
  * place so the store keeps its state across an edit. When the edit added, removed or reordered
  * hooks, the old hook state no longer fits and React throws on the first render ("Rendered more
- * hooks ..."). An error from a hook that has not committed yet therefore remounts the runner, once,
- * warm-started from `preState`.
+ * hooks ..."). An error from a hook that has not committed yet therefore remounts the runner, once:
+ * the store starts over from its own initial state, as a component does after Fast Refresh.
  *
- * Any other error, or a second one, disables the instance: it is recorded on the context, so
- * `useStoreSuspense` consumers throw it into their own error boundary, then rethrown for the
- * user's `Wrapper`.
+ * Any other error, or a second one, disables the instance until it is torn down: it is recorded on
+ * the context, where `storeRef(params).error` reads it.
  */
-class StoreFailure extends React.Component<StoreFailureProps, StoreFailureState> {
-  static displayName = "StoreFailure"
-  state: StoreFailureState = { error: undefined, generation: 0, retried: undefined }
+class StoreBoundary extends React.Component<StoreBoundaryProps, StoreBoundaryState> {
+  static displayName = "StoreBoundary"
+  state: StoreBoundaryState = { error: undefined, generation: 0, retried: undefined }
 
   /** The hook of the last successful commit. */
   private committed = this.props.useStateFn
@@ -330,13 +241,21 @@ class StoreFailure extends React.Component<StoreFailureProps, StoreFailureState>
     return useStateFn !== this.committed && this.state.retried !== useStateFn
   }
 
-  componentDidCatch() {
+  componentDidCatch(error: unknown, info: React.ErrorInfo) {
     // Restart in a new render: within one render a boundary catches only one error, so a restarted
     // hook that throws again would pass this boundary by and never be recorded as a failure.
     if (this.restartable()) {
       const retried = this.props.useStateFn
       this.setState(state => ({ error: undefined, generation: state.generation + 1, retried }))
+      return
     }
+    this.props.ctx.fail(error)
+    console.error(
+      `[react-state-custom] A store hook threw: "${this.props.ctx.name}" is disabled until its instance is ` +
+      `torn down. Other stores keep running.`,
+      error,
+      info.componentStack
+    )
   }
 
   componentDidMount() {
@@ -348,33 +267,23 @@ class StoreFailure extends React.Component<StoreFailureProps, StoreFailureState>
   }
 
   render() {
-    const { error } = this.state
-    if (error) {
-      if (this.restartable()) return null
-      this.props.ctx.fail(error.value)
-      throw error.value
-    }
-    return <>
-      {/* Each store suspends on its own: a store hook calling `use(promise)` or a suspense query would
-          otherwise suspend the boundary above AutoRootCtx and hide the whole app. A suspended store
-          has not published yet (or keeps its last values); consumers wait with useStoreSuspense. */}
-      <Suspense key={this.state.generation} fallback={null}>{this.props.runner}</Suspense>
-      {this.props.attached}
-    </>
+    if (this.state.error) return null
+    // Each store suspends on its own: a store hook calling `use(promise)` or a suspense query would
+    // otherwise suspend the boundary above AutoRootCtx and hide the whole app. A suspended store has
+    // not published yet (or keeps its last values).
+    return <Suspense key={this.state.generation} fallback={null}>{this.props.runner}</Suspense>
   }
 }
 
-/** One running store instance: its hook, its AttachedComponent, the error and Suspense boundaries around them. */
-const StoreInstance = memo(named("StoreInstance", function StoreInstance({ name, record: { storeName, useStateFn, params, AttatchedComponent }, Wrapper, debugging }: {
+/** One running store instance: its hook, inside its own error and Suspense boundaries. */
+const StoreInstance = memo(named("StoreInstance", function StoreInstance({ name, record: { storeName, useStateFn, params } }: {
   name: string,
   record: StoreRecord,
-  Wrapper: React.ComponentType<{ children?: React.ReactNode }>,
-  debugging: boolean | StateDebugRenderer,
 }) {
   const ctx = useDataContext<any>(name)
   // A failed instance stays failed until it is torn down; the next one starts clean, and nothing of the
-  // torn-down one runs anymore (see Context.retire). This component sits outside Wrapper, so it
-  // unmounts with the instance and not when Wrapper shows its fallback.
+  // torn-down one runs anymore (see Context.retire). This component sits outside the boundary, so it
+  // unmounts with the instance and not when the boundary catches.
   // StrictMode runs the cleanup and the effect again at once on mount: only a real unmount retires.
   const mounted = useRef(false)
   useEffect(() => {
@@ -391,41 +300,16 @@ const StoreInstance = memo(named("StoreInstance", function StoreInstance({ name,
     }
   }, [ctx])
   const Runner = runnerFor(storeName)
-  return <Wrapper>
-    <StoreFailure
-      ctx={ctx}
-      useStateFn={useStateFn}
-      runner={<Runner name={name} params={params} useStateFn={useStateFn} debugging={debugging} />}
-      attached={AttatchedComponent && <Suspense fallback={null}><AttatchedComponent {...params} /></Suspense>}
-    />
-  </Wrapper>
+  return <StoreBoundary ctx={ctx} useStateFn={useStateFn} runner={<Runner params={params} useStateFn={useStateFn} />} />
 }))
 
-export const AutoRootCtx: React.FC<{
-  /**
-   * Wraps each store instance; by default `StoreErrorBoundary`, which isolates a store that throws.
-   * @deprecated Removed in 2.0: each store keeps its own error boundary, and its error shows in the
-   * components reading it. Report errors with React's `onCaughtError` root option.
-   */
-  Wrapper?: React.ComponentType<{ children?: React.ReactNode }>
-  /**
-   * Render each store's state into the DOM: `true` for JSON text, or a component receiving `{ name, value }`.
-   * @deprecated Removed in 2.0: use the dev tool (`react-state-custom/dev-tool`).
-   */
-  debugging?: boolean | StateDebugRenderer
-}> = ({ Wrapper = StoreErrorBoundary, debugging = false }) => {
+/**
+ * Runs every store. Mount it once near the root of the app: a store starts here when its first
+ * reader asks for it, and stops `timeToClean` ms after its last reader leaves.
+ */
+export const AutoRootCtx: React.FC = () => {
 
   const ctx = useDataContext<any>("auto-ctx")
-
-  const firstProps = useRef<{ Wrapper: unknown, debugging: unknown } | null>(null)
-  useEffect(() => {
-    if (isProduction) return
-    const previous = firstProps.current
-    firstProps.current = { Wrapper, debugging }
-    if (!previous) return
-    if (previous.Wrapper !== Wrapper) warnUnstableProp("Wrapper")
-    if (typeof debugging === "function" && previous.debugging !== debugging) warnUnstableProp("debugging")
-  }, [Wrapper, debugging])
 
   // What to render, one record per running instance, spread over buckets. Changes only when an
   // instance starts or stops, and then re-renders only that instance's bucket.
@@ -440,7 +324,7 @@ export const AutoRootCtx: React.FC<{
   useEffect(() => () => books.forEach(book => clearTimeout(book.timer)), [books])
 
   const subscribeRoot = useCallback(
-    (contextName: string, useStateFn: Function, params: ParamsToIdRecord, timeToCleanState = 0, AttatchedComponent = undefined) => {
+    (contextName: string, useStateFn: Function, params: ParamsToIdRecord, timeToClean = 0) => {
 
       const recordKey = [contextName, paramsToId(params)].filter(Boolean).join("?")
       const records = buckets.current!
@@ -455,11 +339,11 @@ export const AutoRootCtx: React.FC<{
         if (book.useStateFn !== useStateFn) {
           // a new hook for the same name (hot reload): run it in place of the old one
           book.useStateFn = useStateFn
-          records.update(recordKey, current => current && { ...current, useStateFn, AttatchedComponent })
+          records.update(recordKey, current => current && { ...current, useStateFn })
         }
       } else {
         books.set(recordKey, { counter: 1, useStateFn })
-        records.update(recordKey, () => ({ storeName: contextName, useStateFn, params, AttatchedComponent }))
+        records.update(recordKey, () => ({ storeName: contextName, useStateFn, params }))
       }
 
       const current = books.get(recordKey)!
@@ -475,8 +359,8 @@ export const AutoRootCtx: React.FC<{
           records.update(recordKey, () => undefined)
         }
         // A timer cannot wait longer than MAX_TIMEOUT: a longer delay (Infinity included) fires at once
-        if (timeToCleanState >= MAX_TIMEOUT) return
-        if (timeToCleanState > 0) current.timer = setTimeout(remove, timeToCleanState)
+        if (timeToClean >= MAX_TIMEOUT) return
+        if (timeToClean > 0) current.timer = setTimeout(remove, timeToClean)
         else remove()
       }
 
@@ -484,9 +368,9 @@ export const AutoRootCtx: React.FC<{
     [books]
   )
 
-  // Offer this root to the scope's consumers. With several roots in one scope (a mistake, reported in
-  // development) the newest runs the stores, and when it unmounts the previous one takes over again
-  // instead of leaving consumers attached to an unmounted root.
+  // Offer this root to the readers. With several roots mounted (a mistake, reported in development)
+  // the newest runs the stores, and when it unmounts the previous one takes over again instead of
+  // leaving readers attached to an unmounted root.
   useIsomorphicLayoutEffect(() => {
     let stack = mountedRoots.get(ctx)
     if (!stack) mountedRoots.set(ctx, stack = [])
@@ -500,7 +384,7 @@ export const AutoRootCtx: React.FC<{
   }, [ctx, subscribeRoot])
 
   return <>
-    {used.map(i => <Bucket key={i} index={i} buckets={buckets.current!} Wrapper={Wrapper} debugging={debugging} />)}
+    {used.map(i => <Bucket key={i} index={i} buckets={buckets.current!} />)}
   </>
 
 }
@@ -508,10 +392,17 @@ export const AutoRootCtx: React.FC<{
 AutoRootCtx.displayName = "AutoRootCtx"
 
 /**
- * Development check for `useStore({ schedule: frame() })` or `useStore({ select })` on a store without
- * params: the object is the params there, and paramsToId would only say that a param is not a primitive.
+ * Development checks for the arguments of `useStore`: options passed as the params of a store without
+ * params (paramsToId would only say that a param is not a primitive), and the 1.x forms that took a
+ * selector function, which 2.0 would read as params or as options.
  */
-const checkParams = (name: string, params: unknown) => {
+const checkParams = (name: string, params: unknown, options: unknown) => {
+  if (typeof params === "function" || typeof options === "function") {
+    throw new TypeError(
+      `[react-state-custom] useStore("${name}") got a function. A selector goes in the options: ` +
+      `useStore(params, { select }), or useStore(undefined, { select }) for a store without params.`
+    )
+  }
   const { schedule, select } = (params ?? {}) as { schedule?: { task?: unknown }, select?: unknown }
   const option = typeof select === "function" ? "select"
     : typeof schedule === "object" && schedule !== null && typeof schedule.task === "function" ? "schedule"
@@ -520,6 +411,23 @@ const checkParams = (name: string, params: unknown) => {
   throw new TypeError(
     `[react-state-custom] useStore("${name}") got { ${option} } as its params. Options come after the params: ` +
     `useStore(undefined, { ${option} }) for a store without params, or useStore(params, { ${option} }).`
+  )
+}
+
+/** Development check for the options of `createStore`: what 1.x took there and 2.0 no longer does. */
+const checkOptions = (name: string, options: unknown, extra: number) => {
+  if (typeof options !== "object" || options === null || extra > 0) {
+    throw new TypeError(
+      `[react-state-custom] createStore("${name}") takes its options as an object: createStore(name, useFn, { timeToClean }). ` +
+      `The AttachedComponent argument was removed in 2.0: put the side effect in the store hook.`
+    )
+  }
+  const removed = (["initialState", "AttachedComponent"] as const).filter(key => key in options)
+  if (removed.length === 0) return
+  throw new TypeError(
+    `[react-state-custom] createStore("${name}"): ${removed.join(" and ")} ${removed.length > 1 ? "were" : "was"} removed in 2.0. ` +
+    `Readers get undefined until the store has run, so default at the read (const { count = 0 } = useStore()), ` +
+    `and put side effects in the store hook. See the migration guide.`
   )
 }
 
@@ -540,25 +448,12 @@ export const useSelectorModeCheck = (call: string, withSelector: boolean) => {
 }
 
 /** Options of `createStore(name, useFn, options)`. */
-export type StoreOptions<U extends StoreParamsShape<U>, V extends object, I = {}> = {
+export type StoreOptions = {
   /**
    * Milliseconds to keep the store alive after its last consumer unmounts. Default 0. `Infinity`
    * (or any value of 2^31 - 1 or more) keeps it until `AutoRootCtx` unmounts.
    */
   timeToClean?: number
-  /**
-   * Component rendered next to the store root, once per store instance (side effects, logging, ...).
-   * @deprecated Removed in 2.0: put the side effect in the store hook, as an effect.
-   */
-  AttachedComponent?: React.ComponentType<U>
-  /**
-   * Values consumers read before the store hook has published its first result.
-   * Keys listed here are typed as always present on the `useStore` result.
-   * May be a function of the params.
-   * @deprecated Removed in 2.0: readers get `undefined` until the store publishes, so default at the
-   * read (`count ?? 0`).
-   */
-  initialState?: I | ((params: U) => I)
   /**
    * When consumers re-render for a change of this store, unless they pass their own `schedule` to
    * `useStore`: `frame()`, `throttle(ms)`, `debounce(ms, { maxWait })` or `idle(ms)`, imported from
@@ -579,69 +474,41 @@ export type StoreReadOptions = {
   schedule?: Scheduler
 }
 
-/** Options of `useStore(params, selector, options)`. */
-export type StoreSelectOptions<R> = StoreReadOptions & {
-  /**
-   * Decides whether the selection changed. Default `shallowEqual` next to `select`, and `Object.is`
-   * for a selector passed on its own (the deprecated form).
-   */
-  isEqual?: (a: R, b: R) => boolean
-}
-
 /**
  * Options of `useStore(params, { select })` and `useMultipleStore(refs, { select })`: the hook
- * returns `select(state)` and re-renders only when that value changes according to `isEqual`,
- * by default `shallowEqual` (`Object.is` one level deep, so a fresh array of the same items is equal).
+ * returns `select(state)` and re-renders only when that value changes according to `isEqual`.
  */
-export type StoreSelect<S, R> = StoreSelectOptions<R> & {
+export type StoreSelect<S, R> = StoreReadOptions & {
   /** Derives the value from the plain state. A new function on every render is fine. */
   select: (state: S) => R
+  /**
+   * Decides whether the selection changed. Default `shallowEqual`: `Object.is` one level deep, so a
+   * fresh array or plain object holding the same items is no change.
+   */
+  isEqual?: (a: R, b: R) => boolean
 }
 
 /** `useStore(params)`: `params` can be omitted when the store has no required params. */
 export type StoreParams<U> = {} extends U ? [params?: U] : [params: U]
 
-/** What `useStore` returns: every key optional, except those guaranteed by `initialState`. */
-export type StoreState<V, I> = { [P in keyof V]?: V[P] | undefined } & { [P in keyof I & keyof V]: V[P] }
-
-/** What `useStoreSuspense(params, keys)` returns: the keys it waited for hold a value, the others are as in `StoreState`. */
-export type StoreStateWith<V, I, K extends keyof V> = StoreState<V, I> & { [P in K]-?: Exclude<V[P], undefined> }
-
-/**
- * An `initialState` holding the keys `K`, each with the store's own type. `createStore` infers only
- * the keys, so a literal such as `'loading'` is checked against the store's type instead of
- * widening to `string`, and only the keys actually given are typed as present.
- */
-type Seed<V, K extends keyof V> = { [P in K]: V[P] }
-
-const normalizeOptions = <U extends StoreParamsShape<U>, V extends object, I>(
-  timeToCleanOrOptions: number | StoreOptions<U, V, I> | undefined,
-  AttatchedComponent: React.ComponentType<U> | undefined
-): Required<Pick<StoreOptions<U, V, I>, "timeToClean">> & Omit<StoreOptions<U, V, I>, "timeToClean"> => {
-  if (typeof timeToCleanOrOptions === "object") {
-    return { timeToClean: 0, AttachedComponent: AttatchedComponent, ...timeToCleanOrOptions }
-  }
-  return { timeToClean: timeToCleanOrOptions ?? 0, AttachedComponent: AttatchedComponent }
-}
-
-/** Contexts that already received their initialState (one seeding per Context instance). */
-const seededContexts = new WeakSet<Context<any>>()
+/** What `useStore` returns: every key optional, `undefined` until the store has run once. */
+export type StoreState<V> = { [P in keyof V]?: V[P] | undefined }
 
 /**
  * One instance of a store, as `storeRef(params)` returns it: read it and keep it running from code
  * outside React (socket handlers, routers, tests), and read several instances in one component with
  * `useMultipleStore([refA, refB])`.
  */
-export type StoreRef<V, I = {}> = {
+export type StoreRef<V> = {
   /** Context name of this store instance (`name?params`). */
   readonly name: string
   /** Snapshot of the current state: a plain object, safe to read anywhere (handlers, sockets, tests). */
-  get(): StoreState<V, I>
+  get(): StoreState<V>
   /**
    * Run `listener` after every change, with the new snapshot and the key that changed.
    * Keeps the context alive while subscribed. Returns an unsubscribe function.
    */
-  subscribe(listener: (state: StoreState<V, I>, changedKey: keyof V) => void): () => void
+  subscribe(listener: (state: StoreState<V>, changedKey: keyof V) => void): () => void
   /**
    * Keep the store running even while no component consumes it (the hook is mounted inside
    * the global `AutoRootCtx`). Returns a release function; the store is torn down after
@@ -655,80 +522,51 @@ export type StoreRef<V, I = {}> = {
 }
 
 /**
- * The imperative handle returned by `getStore(params)`.
- * @deprecated Renamed `StoreRef`, which `storeRef(params)` returns.
+ * The `useStore` of a store: `useStore(params?, { schedule }?)` returns a tracking proxy, and
+ * `useStore(params, { select, isEqual?, schedule? })` returns the selection.
  */
-export type StoreHandle<V, I> = StoreRef<V, I>
+export interface UseStore<U, V> {
+  // the selection first: options without `select` fall through to the proxy
+  // params may be undefined only when every param is optional
+  <R>(params: {} extends U ? U | undefined : U, options: StoreSelect<StoreState<V>, R>): R
+  (...args: [...StoreParams<U>, options?: StoreReadOptions]): StoreState<V>
+}
 
-/** The state of a store instance itself, as `useStoreStatus` returns it. */
-export type StoreStatus = {
-  /** The store hook has published at least once: values are the hook's, not only `initialState`. */
-  readonly ready: boolean
-  /** The store hook threw and the instance is disabled until it is torn down. */
-  readonly failed: boolean
-  /** What the store hook threw, while `failed`. */
-  readonly error: unknown
+/** What `createStore` returns. */
+export type Store<U, V> = {
+  /**
+   * Read the instance for `params`, starting it if nothing runs it yet. Without `select`, a proxy
+   * that re-renders the component only for the keys it read; with `select`, the selected value.
+   */
+  useStore: UseStore<U, V>
+  /** The instance for `params`, outside React or for `useMultipleStore`. */
+  storeRef: (...args: StoreParams<U>) => StoreRef<V>
 }
 
 /**
- * createAutoCtx
- *
- * Bridges a Root context (from createRootCtx) to the global AutoRootCtx renderer.
- * You do NOT mount the Root component yourself — just mount <AutoRootCtx /> once at the app root.
- *
- * Usage:
+ * Turn a hook into a store: one running instance per params, started by its first reader, shared by
+ * every reader, and stopped `timeToClean` ms after the last one leaves.
  * ```
- *    const { useCtxState: useTestCtxState } = createAutoCtx(createRootCtx(
- *      'test-state',
- *      stateFn
- *    ))
+ * const { useStore, storeRef } = createStore('counter', useCounterState)
+ * const { useStore } = createStore('user', useUserState, { timeToClean: 5000 })
  * ```
- *
- * Then inside components:
- * ```
- *   const ctxState = useTestCtxState({ any: 'params' })
- * ```
- * AutoRootCtx will subscribe/unsubscribe instances per unique params and render the appropriate Root under the hood.
  */
-export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, K extends keyof V = never>(
-  rootCtx: ReturnType<typeof createRootCtx<U, V>>,
-  timeToCleanOrOptions: number | StoreOptions<U, V, Seed<V, K>> = 0,
-  AttatchedComponent: React.ComponentType<U> | undefined = undefined
-) => createAutoCtxWith<U, V, Seed<V, K>>(rootCtx, timeToCleanOrOptions, AttatchedComponent)
-
-const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
-  { useRootState, getCtxName, name }: ReturnType<typeof createRootCtx<U, V>>,
-  timeToCleanOrOptions: number | StoreOptions<U, V, I> = 0,
-  AttatchedComponent: React.ComponentType<U> | undefined = undefined
-) => {
-  const { timeToClean, AttachedComponent, initialState, schedule: defaultSchedule } = normalizeOptions(timeToCleanOrOptions, AttatchedComponent)
-
-  const scoped = (scopeId: string | null, ctxName: string) => scopeId ? `${scopeId}/${ctxName}` : ctxName
-
-  const seedValues = (params: U): Partial<V> | undefined => {
-    if (!initialState) return undefined
-    return (typeof initialState === "function" ? (initialState as (params: U) => I)(params) : initialState) as Partial<V>
-  }
-
-  // Seed initialState once per Context instance, before anything subscribes, so the very
-  // first render already sees values instead of undefined. No event is dispatched.
-  const seedContext = (ctx: Context<V>, params: U) => {
-    // a retired context lost the dead instance's actions: put back the ones initialState holds
-    if (!initialState || (seededContexts.has(ctx) && !ctx.retired)) return
-    seededContexts.add(ctx)
-    const seed = seedValues(params)!
-    for (const key of Object.keys(seed) as (keyof V)[]) {
-      if (!Object.hasOwn(ctx.data, key)) ctx.data[key] = seed[key]
-    }
-  }
+export function createStore<U extends StoreParamsShape<U>, V extends object>(
+  name: string,
+  useFn: (params: U) => V,
+  options: StoreOptions = {},
+): Store<U, V> {
+  if (!isProduction) checkOptions(name, options, arguments.length - 3)
+  const { timeToClean = 0, schedule: defaultSchedule } = options
+  const { useRootState, getCtxName } = createRootCtx(name, useFn)
 
   const missingRootMessage = (ctxName: string) =>
-    `[react-state-custom] Store "${ctxName}" is used but no <AutoRootCtx /> (or <StateScopeProvider>) is mounted, ` +
+    `[react-state-custom] Store "${ctxName}" is used but no <AutoRootCtx /> is mounted, ` +
     `so its state hook never runs. Mount <AutoRootCtx /> once near your app root.`
 
   /**
-   * Ask the scope's AutoRootCtx to run the store hook for `params`, as soon as it has published its
-   * `subscribe` function (it may still be mounting in the same pass). Returns a release function.
+   * Ask AutoRootCtx to run the store hook for `params`, as soon as it has published its `subscribe`
+   * function (it may still be mounting in the same pass). Returns a release function.
    * This subscribes to `auto-ctx` directly instead of reading `subscribe` during render, so a
    * consumer never re-renders just because AutoRootCtx came up after it.
    */
@@ -739,9 +577,7 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
     const unsub = autoCtx.subscribe("subscribe", (subscribe: Function | undefined) => {
       if (!active) return
       release?.()
-      // a store replaced by mockStore (react-state-custom/testing) runs without its AttachedComponent
-      const attached = storeMocks.has(name) ? undefined : AttachedComponent
-      release = subscribe ? subscribe(name, useRootState, params, timeToClean, attached) : undefined
+      release = subscribe ? subscribe(name, useRootState, params, timeToClean) : undefined
     })
     // No AutoRootCtx has published its subscribe fn yet. Give it a moment, then tell the developer
     // instead of failing silently.
@@ -759,13 +595,12 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
   }
 
   /**
-   * Mount the store (through the scope's AutoRootCtx) without a React consumer, and keep its
-   * context alive, until the returned release function is called.
+   * Mount the store (through AutoRootCtx) without a React consumer, and keep its context alive,
+   * until the returned release function is called.
    */
-  const retainStore = (scopeId: string | null, params: U) => {
-    const auto = acquireContext<any>(scoped(scopeId, "auto-ctx"))
-    const store = acquireContext<V>(scoped(scopeId, getCtxName(params)))
-    seedContext(store.ctx, params)
+  const retainStore = (params: U) => {
+    const auto = acquireContext<any>("auto-ctx")
+    const store = acquireContext<V>(getCtxName(params))
     const unmount = mountStore(auto.ctx, store.ctx.name, params)
     return () => {
       unmount()
@@ -774,16 +609,13 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
     }
   }
 
-  const useCtxState = (...args: StoreParams<U>): Context<V> => {
-    const e = (args[0] ?? {}) as U
-    const ctxName = getCtxName(e)
-
+  /** The context of the instance for `params`, which runs while this component is mounted. */
+  const useInstance = (params: U): Context<V> => {
     const autoCtx = useDataContext<any>("auto-ctx")
-    const ctx = useDataContext<V>(ctxName)
-    seedContext(ctx, e)
+    const ctx = useDataContext<V>(getCtxName(params))
 
     useEffect(
-      () => mountStore(autoCtx, ctx.name, e),
+      () => mountStore(autoCtx, ctx.name, params),
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [autoCtx, ctx]
     )
@@ -795,28 +627,24 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
    * The instance for `params`: read it and keep it running from code outside React (socket
    * handlers, routers, tests) or from event handlers that want the latest value without
    * subscribing, and pass it to `useMultipleStore` to read several instances in one component.
-   * Global scope only: stores inside a `StateScopeProvider` are reachable from their components
-   * through `useStore`.
    */
-  const storeRef = (...args: StoreParams<U>): StoreRef<V, I> => {
+  const storeRef = (...args: StoreParams<U>): StoreRef<V> => {
     const params = (args[0] ?? {}) as U
     const ctxName = getCtxName(params)
-    const snapshot = (ctx: Context<V> | undefined): StoreState<V, I> =>
-      ({ ...(seedValues(params) ?? {}), ...(ctx?.data ?? {}) }) as StoreState<V, I>
+    const snapshot = (ctx: Context<V> | undefined) => ({ ...(ctx?.data ?? {}) }) as StoreState<V>
     const live = () => isServer() ? undefined : getContext.fromCache(ctxName) as Context<V> | undefined
 
-    const ref: StoreRef<V, I> = {
+    const ref: StoreRef<V> = {
       name: ctxName,
       get: () => snapshot(live()),
       get ready() { return live()?.ready ?? false },
       get error() { return live()?.error },
       subscribe: (listener) => {
         const { ctx, release } = acquireContext<V>(ctxName)
-        seedContext(ctx, params)
         // One update calls the listener once per changed key, with the same complete data: build the
         // snapshot once per revision, not a copy of every key for each of them.
         let revision = -1
-        let state: StoreState<V, I>
+        let state: StoreState<V>
         const unsub = ctx.subscribeAll((changedKey) => {
           if (revision !== ctx.revision) {
             revision = ctx.revision
@@ -826,415 +654,31 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
         })
         return () => { unsub(); release() }
       },
-      retain: () => retainStore(null, params),
+      retain: () => retainStore(params),
     }
-    storeRefs.set(ref, {
-      name: ctxName,
-      prepare: ctx => seedContext(ctx, params),
-      retain: scopeId => retainStore(scopeId, params),
-      server: serverValues(params),
-      schedule: defaultSchedule,
-    })
+    storeRefs.set(ref, { name: ctxName, retain: () => retainStore(params), schedule: defaultSchedule })
     return ref
   }
 
-  /** What the server rendered for these params: consumers read it while hydrating (see useQuickSubscribe). */
-  const serverValues = (params: U) => () => (seedValues(params) ?? {}) as Partial<V>
-
-  /**
-   * `useStore(params?, options?)` returns a tracking proxy: re-render only for the keys read during render.
-   * `useStore(params, { select, isEqual? })` returns `select(state)` and re-renders only when that
-   * value changes (by default `shallowEqual`): use it for deep reads (`s => s.user?.name`) and
-   * derived values. A store without params takes `undefined` as its params there.
-   * `options.schedule` says when the component re-renders for a change (`frame()`, `throttle(ms)`, ...).
-   */
-  // the deprecated forms first and last: react-state-custom/testing reads the types from the last two
-  /**
-   * @deprecated Removed in 2.0. Pass the selector in the options: `useStore(undefined, { select })`.
-   * Its default `isEqual` is `shallowEqual` instead of `Object.is`.
-   */
-  function useStore<R>(selector: {} extends U ? (state: StoreState<V, I>) => R : never, options?: StoreSelectOptions<R> | ((a: R, b: R) => boolean)): R
-  // params may be undefined only when every param is optional
-  function useStore<R>(params: {} extends U ? U | undefined : U, options: StoreSelect<StoreState<V, I>, R>): R
-  function useStore(...args: [...StoreParams<U>, options?: StoreReadOptions]): StoreState<V, I>
-  /**
-   * @deprecated Removed in 2.0. Pass the selector in the options: `useStore(params, { select, isEqual })`.
-   * Its default `isEqual` is `shallowEqual` instead of `Object.is`.
-   */
-  function useStore<R>(params: {} extends U ? U | undefined : U, selector: (state: StoreState<V, I>) => R, options?: StoreSelectOptions<R> | ((a: R, b: R) => boolean)): R
-  function useStore(...args: any[]) {
-    // params are never functions: a function first is the selector of a store without params
-    const [params, second, third] = (typeof args[0] === "function" ? [undefined, ...args] : args) as [U | undefined, unknown, unknown]
-    const positional = typeof second === "function"
-    const options = (positional ? (typeof third === "function" ? { isEqual: third } : third) : second) as Partial<StoreSelect<unknown, unknown>> | undefined
-    const selector = positional ? second as (state: unknown) => unknown : options?.select
+  function useStore(...args: unknown[]) {
+    const [params, options] = args as [U | undefined, Partial<StoreSelect<unknown, unknown>> | undefined]
+    if (!isProduction) checkParams(name, params, options)
+    const ctx = useInstance((params ?? {}) as U)
+    const selector = options?.select
     const withSelector = typeof selector === "function"
-    if (!isProduction) checkParams(name, params)
-    const ctx = useCtxState(params as any)
-    const server = serverValues((params ?? {}) as U)
     const schedule = options?.schedule ?? defaultSchedule
     // isProduction never changes at runtime, so this conditional hook keeps a stable order
     if (!isProduction) useSelectorModeCheck(`useStore("${ctx.name}")`, withSelector)
-    // The two modes run different hooks: a call site must always pass a selector or never.
+    // The two forms run different hooks: a call site must always pass a selector or never.
     return withSelector
-      ? useDataSelector(ctx, selector, options?.isEqual ?? (positional ? Object.is : shallowEqual), server, schedule)
-      : useQuickSubscribe(ctx, server, schedule) as StoreState<V, I>
+      ? useDataSelector(ctx, selector, options?.isEqual ?? shallowEqual, schedule)
+      : useQuickSubscribe(ctx, schedule)
   }
-
-  /**
-   * Like `useStore`, but suspends (throws a promise for the nearest `<Suspense>`) until the store
-   * hook has published its first result, or until `isReady(state)` returns true when given.
-   * The result is typed as the full state: nothing is `undefined` anymore.
-   * With a list of keys instead of a predicate, it waits until each of them holds a value (seeded or
-   * published) and types those keys as present, the others as in `useStore`.
-   * While suspended the store is kept mounted imperatively, so it keeps running even though the
-   * suspended component has not committed.
-   */
-  function useStoreSuspense(...args: [...StoreParams<U>, isReady?: (state: StoreState<V, I>) => boolean]): V
-  // params may be undefined only when every param is optional, as in the selector form of useStore.
-  // Only a tuple says which keys it holds: a widened array ((keyof V)[]) is typed like useStore.
-  function useStoreSuspense<const K extends readonly (keyof V)[]>(params: {} extends U ? U | undefined : U, keys: K): number extends K['length'] ? StoreState<V, I> : StoreStateWith<V, I, K[number]>
-  function useStoreSuspense(...args: any[]) {
-    const [params, readiness] = args as [U | undefined, ((state: StoreState<V, I>) => boolean) | readonly (keyof V)[] | undefined]
-    // a list of keys is a predicate: it waits like one (per consumer, leased, first load only)
-    const isReady = Array.isArray(readiness) ? hasKeys<StoreState<V, I>>(readiness) : readiness as ((state: StoreState<V, I>) => boolean) | undefined
-    const scopeId = useContext(StateScopeContext)
-    const ctx = useCtxState(params as any)
-    // The instance this component has already rendered ready (it only suspends on first load)
-    const readyFor = useRef<Context<V> | null>(null)
-    // A store hook that threw is disabled: hand its error to this component's error boundary,
-    // whether it failed before the first result or later.
-    // stores never run on the server, so the server (and hydration) snapshot is "not failed"
-    const failed = useSyncExternalStore(ctx.onStatus, () => ctx.failed, () => false)
-    if (failed) throw ctx.error
-    // With a predicate, readiness is the predicate alone (initialState may already satisfy it);
-    // without one, readiness means the store hook has published once. Once ready for this instance,
-    // the component never suspends again: a refetch turning the predicate false would otherwise swap
-    // committed content for the fallback, in an urgent update no transition can hold.
-    const ready = readyFor.current === ctx || (isReady ? isReady(ctx.data as StoreState<V, I>) : ctx.ready)
-    if (!ready) {
-      if (isServer()) {
-        throw new Error(
-          `[react-state-custom] useStoreSuspense("${ctx.name}") cannot resolve on the server: store hooks only run on the client. ` +
-          `Render it inside a client-only boundary, or pass an initialState and an isReady predicate it satisfies.`
-        )
-      }
-      throw waitUntilReady(ctx, isReady, () => retainStore(scopeId, (params ?? {}) as U))
-    }
-    // React may wait a while before committing a resolved boundary (it throttles reveals after a
-    // fallback). Keep the retain taken while suspended until then, and drop it once this component has
-    // committed: useCtxState's effect, declared above, has subscribed by the time this one runs.
-    readyFor.current = ctx
-    // only the first load suspends: a store that clears a key it was waited for breaks the type
-    if (!isProduction && Array.isArray(readiness)) warnClearedKeys(ctx, readiness)
-    extendHeldRetain(ctx)
-    useEffect(() => releaseHeldRetain(ctx), [ctx])
-    const state = useQuickSubscribe(ctx, serverValues((params ?? {}) as U), defaultSchedule) as V
-    // Ready before the store ran: the predicate held on initialState, and this render reads only that
-    return !isProduction && !ctx.ready && !isServer() ? watchSeedReads(ctx, state) : state
-  }
-
-  /**
-   * The state of the instance rather than its values: whether the hook has published (`ready`) and
-   * whether it threw and is disabled (`failed`, `error`). Re-renders only when that changes. Like
-   * `useStore` it counts as a consumer, so it starts the instance and keeps it running.
-   */
-  const useStoreStatus = (...args: StoreParams<U>): StoreStatus => {
-    const source = statusOf(useCtxState(...args))
-    return useSyncExternalStore(source.subscribe, source.get, serverStatus)
-  }
-
-  /** `storeRef` under its old name: a separate function, so that its deprecation stays its own. */
-  const getStore = (...args: StoreParams<U>) => storeRef(...args)
 
   // so that react-state-custom/testing finds this store from whichever of these a module exports
-  const entry = { name, getStore: storeRef as (params?: object) => StoreRef<any, any> }
-  for (const fn of [useCtxState, useStore, useStoreSuspense, useStoreStatus, storeRef, getStore]) storeEntries.set(fn, entry)
+  const entry = { name, storeRef: storeRef as (params?: object) => StoreRef<any> }
+  storeEntries.set(useStore, entry)
+  storeEntries.set(storeRef, entry)
 
-  return {
-    useStore,
-    storeRef,
-    /**
-     * The raw `Context` of the instance in the current scope.
-     * @deprecated Removed in 2.0, with scopes: read the store with `useStore`.
-     */
-    useCtxState,
-    /**
-     * Suspends until the store has published.
-     * @deprecated Removed in 2.0: render from the values with a fallback while they are `undefined`.
-     */
-    useStoreSuspense,
-    /**
-     * Whether the instance has published and whether it failed.
-     * @deprecated Removed in 2.0: keep loading state in the store (`isLoading`). From 2.0 on, a store
-     * that throws throws in the components reading it, for their error boundary.
-     */
-    useStoreStatus,
-    /** @deprecated Renamed `storeRef`. */
-    getStore,
-  }
+  return { useStore: useStore as UseStore<U, V>, storeRef }
 }
-
-/** Stores never run on the server, nor before hydration completes. */
-const SERVER_STATUS: StoreStatus = Object.freeze({ ready: false, failed: false, error: undefined })
-const serverStatus = () => SERVER_STATUS
-
-/** One status source per context: a stable snapshot object that changes only with the status. */
-const statusSources = new WeakMap<Context<any>, { subscribe: (onChange: () => void) => () => void, get: () => StoreStatus }>()
-
-const statusOf = (ctx: Context<any>) => {
-  let source = statusSources.get(ctx)
-  if (!source) {
-    let last: StoreStatus | undefined
-    source = {
-      subscribe: onChange => {
-        const offStatus = ctx.onStatus(onChange)
-        const offReady = ctx.onReady(onChange)
-        return () => { offStatus(); offReady() }
-      },
-      get: () => {
-        if (!last || last.ready !== ctx.ready || last.failed !== ctx.failed || !Object.is(last.error, ctx.error)) {
-          last = { ready: ctx.ready, failed: ctx.failed, error: ctx.error }
-        }
-        return last
-      },
-    }
-    statusSources.set(ctx, source)
-  }
-  return source
-}
-
-/** Readiness for a list of keys: each holds a value (not `undefined`), seeded or published. `null` counts. */
-const hasKeys = <S,>(keys: readonly PropertyKey[]) => (state: S) =>
-  keys.every(key => (state as Record<PropertyKey, unknown>)[key] !== undefined)
-
-const warnedClearedKeys = new Set<string>()
-
-/**
- * Development check for `useStoreSuspense(params, keys)`: a component renders on after its first
- * load without suspending again, so a key the store sets back to `undefined` reaches it typed as present.
- */
-const warnClearedKeys = (ctx: Context<any>, keys: readonly PropertyKey[]) => {
-  for (const key of keys) {
-    const id = `${ctx.name.split("?")[0]}:${String(key)}`
-    if ((ctx.data as Record<PropertyKey, unknown>)[key] !== undefined || warnedClearedKeys.has(id)) continue
-    warnedClearedKeys.add(id)
-    console.warn(
-      `[react-state-custom] useStoreSuspense("${ctx.name}") waited for "${String(key)}", which the store has set back ` +
-      `to undefined: the type says it is present. Keep the last value while reloading, with a loading flag.`
-    )
-  }
-}
-
-/** Keys that renders from initialState read although initialState lacks them, per instance (development only). */
-const seedReads = new WeakMap<Context<any>, Set<string>>()
-
-const warnedSeedReads = new Set<string>()
-
-const seedReadWarning = (name: string, key: string) =>
-  `[react-state-custom] useStoreSuspense("${name}") rendered from initialState, which satisfied isReady before ` +
-  `the store ran, and read "${key}", which initialState does not have: that render got undefined although the ` +
-  `type says "${key}" is present. Add "${key}" to initialState (a no-op function for an action), or check it in isReady.`
-
-/**
- * Development check for a `useStoreSuspense` render resolved by a predicate that held on
- * initialState alone. The result is typed as the full state, but only the seeded keys exist yet.
- * Records the missing keys the render reads, and once the store has published, warns about those
- * the hook does return a value for: those are the reads the type got wrong.
- */
-const watchSeedReads = <V extends object>(ctx: Context<V>, state: V): V => new Proxy(state, {
-  get(target, p, receiver) {
-    if (typeof p === "string" && !Object.hasOwn(ctx.data, p) && !(p in Object.prototype)) {
-      let keys = seedReads.get(ctx)
-      if (!keys) {
-        const missing = keys = new Set()
-        seedReads.set(ctx, missing)
-        ctx.onReady(() => {
-          seedReads.delete(ctx)
-          const name = ctx.name.split("?")[0]!
-          for (const key of missing) {
-            if ((ctx.data as Record<string, unknown>)[key] === undefined || warnedSeedReads.has(`${name}:${key}`)) continue
-            warnedSeedReads.add(`${name}:${key}`)
-            console.warn(seedReadWarning(name, key))
-          }
-        })
-      }
-      keys.add(p)
-    }
-    return Reflect.get(target, p, receiver)
-  },
-})
-
-type IsReady<V, I> = ((state: StoreState<V, I>) => boolean) | undefined
-
-type PendingReady<V, I> = {
-  promise: Promise<void>
-  /** The predicate of every render waiting on it (undefined = wait for the first publish). */
-  predicates: Set<IsReady<V, I>>
-  check: () => void
-}
-
-/** One pending wait per context, shared by every render that suspends on it (other consumers, StrictMode, retries). */
-const pendingReady = new WeakMap<Context<any>, PendingReady<any, any>>()
-
-/**
- * How long a wait keeps its store before it wakes the components waiting on it. A suspended component
- * never commits, so nothing reports one that went away: woken, a component still there renders, is
- * still not ready and waits again, while the store of one that went away is released.
- */
-const WAIT_LEASE = 5000
-
-/**
- * Imperative retains taken while a component was suspended, kept after the promise resolves until a
- * component reading the store commits. React throttles revealing a resolved Suspense boundary (300 ms
- * in React 19, 500 ms in React 18), so a short fixed delay could tear the store down before anyone
- * subscribed, and the commit would then mount a fresh instance and suspend again.
- */
-const heldRetains = new WeakMap<Context<any>, { release: () => void, timer: ReturnType<typeof setTimeout> }>()
-
-/** Safety net for a resolved render that never commits: release this long after its last render. */
-const RETAIN_UNTIL_COMMIT = 1000
-
-const releaseHeldRetain = (ctx: Context<any>) => {
-  const held = heldRetains.get(ctx)
-  if (!held) return
-  heldRetains.delete(ctx)
-  clearTimeout(held.timer)
-  held.release()
-}
-
-const holdRetain = (ctx: Context<any>, release: () => void) => {
-  releaseHeldRetain(ctx)
-  heldRetains.set(ctx, { release, timer: setTimeout(() => releaseHeldRetain(ctx), RETAIN_UNTIL_COMMIT) })
-}
-
-/** Restart the safety timer: called from each ready render, which proves the boundary is still trying to commit. */
-const extendHeldRetain = (ctx: Context<any>) => {
-  const held = heldRetains.get(ctx)
-  if (!held) return
-  clearTimeout(held.timer)
-  held.timer = setTimeout(() => releaseHeldRetain(ctx), RETAIN_UNTIL_COMMIT)
-}
-
-/**
- * Returns a promise that resolves when `ctx` is ready (see useStoreSuspense). The store is retained
- * imperatively in a microtask, never during render: calling AutoRootCtx's setState from inside a
- * render would restart that render, which would retain again, forever.
- * Components waiting with different predicates share the wait, which resolves as soon as one of them
- * holds: the others render, are still not ready and wait again. It also resolves after WAIT_LEASE.
- */
-const waitUntilReady = <V, I>(
-  ctx: Context<V>,
-  isReady: IsReady<V, I>,
-  retain: () => () => void
-): Promise<void> => {
-  const existing = pendingReady.get(ctx)
-  if (existing) {
-    existing.predicates.add(isReady as IsReady<any, any>)
-    existing.check()
-    return existing.promise
-  }
-
-  const pending: PendingReady<V, I> = { predicates: new Set([isReady]), check: () => { }, promise: Promise.resolve() }
-  pending.promise = new Promise<void>(resolve => {
-    let done = false
-    let release: (() => void) | undefined
-    let lease: ReturnType<typeof setTimeout> | undefined
-    let unsubAll = () => { }
-    let unsubReady = () => { }
-    let unsubStatus = () => { }
-    const finish = () => {
-      done = true
-      clearTimeout(lease)
-      unsubAll()
-      unsubReady()
-      unsubStatus()
-      pendingReady.delete(ctx)
-      resolve()
-      // kept until a component reading the store commits, or for about a second (see heldRetains)
-      if (release) holdRetain(ctx, release)
-    }
-    const anyReady = () => {
-      for (const fn of pending.predicates) {
-        if (fn ? fn(ctx.data as StoreState<V, I>) : ctx.ready) return true
-      }
-      return false
-    }
-    pending.check = () => {
-      if (done) return
-      // a failure resolves the wait too: the retried render throws the store's error
-      if (ctx.failed || anyReady()) finish()
-    }
-    queueMicrotask(() => {
-      if (done) return
-      release = retain()
-      lease = setTimeout(finish, WAIT_LEASE)
-      unsubAll = ctx.subscribeAll(pending.check)
-      unsubReady = ctx.onReady(pending.check)
-      unsubStatus = ctx.onStatus(pending.check)
-      pending.check()
-    })
-  })
-  pendingReady.set(ctx, pending as PendingReady<any, any>)
-  return pending.promise
-}
-
-/** What `createStore` returns. */
-export type Store<U extends StoreParamsShape<U>, V extends object, I = {}> = ReturnType<typeof createAutoCtxWith<U, V, I>>
-
-/**
- * Turn a hook into a store: one running instance per params, started by its first reader, shared by
- * every reader, and stopped `timeToClean` ms after the last one leaves.
- * ```
- * const { useStore, storeRef } = createStore('counter', useCounterState)
- * const { useStore } = createStore('user', useUserState, { timeToClean: 5000 })
- * ```
- */
-export function createStore<U extends StoreParamsShape<U>, V extends object, K extends keyof V = never>(
-  name: string,
-  useFn: (params: U, preState: Partial<V>) => V,
-  options?: StoreOptions<U, V, Seed<V, K>>
-): Store<U, V, Seed<V, K>>
-/** @deprecated Removed in 2.0. Pass an options object: `createStore(name, useFn, { timeToClean })`. */
-export function createStore<U extends StoreParamsShape<U>, V extends object>(
-  name: string,
-  useFn: (params: U, preState: Partial<V>) => V,
-  timeToClean: number,
-  AttachedComponent?: React.ComponentType<U>
-): Store<U, V>
-/** @deprecated Removed in 2.0, with `AttachedComponent`: put the side effect in the store hook, as an effect. */
-export function createStore<U extends StoreParamsShape<U>, V extends object, K extends keyof V = never>(
-  name: string,
-  useFn: (params: U, preState: Partial<V>) => V,
-  options: StoreOptions<U, V, Seed<V, K>> | undefined,
-  AttachedComponent: React.ComponentType<U>
-): Store<U, V, Seed<V, K>>
-export function createStore<U extends StoreParamsShape<U>, V extends object>(
-  name: string,
-  useFn: (params: U, preState: Partial<V>) => V,
-  timeToCleanOrOptions: number | StoreOptions<U, V, any> = 0,
-  AttatchedComponent: React.ComponentType<U> | undefined = undefined
-) {
-  return createAutoCtxWith<U, V, any>(createRootCtx(name, useFn), timeToCleanOrOptions, AttatchedComponent)
-}
-
-/** Scopes created in this page so far, which numbers their ids. */
-let scopeCount = 0
-
-export const StateScopeProvider: React.FC<{
-  children: React.ReactNode
-  Wrapper?: React.ComponentType<{ children?: React.ReactNode }>
-  debugging?: boolean | StateDebugRenderer
-}> = ({ children, Wrapper, debugging }) => {
-  // Not useId: a root hydrated from server HTML numbers its ids by tree position, so two islands
-  // (one hydrateRoot each) got the same id and shared one scope, two AutoRootCtx running every store
-  // twice. Store contexts are global to the page, so the id must be too. It never reaches the HTML,
-  // so server and client need not agree; the state keeps it for the provider's lifetime.
-  const [scopeId] = useState(() => `scope${++scopeCount}`)
-  return <StateScopeContext.Provider value={scopeId}>
-    <AutoRootCtx Wrapper={Wrapper} debugging={debugging} />
-    {children}
-  </StateScopeContext.Provider>
-}
-
-StateScopeProvider.displayName = "StateScopeProvider"

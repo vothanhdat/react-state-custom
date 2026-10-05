@@ -108,7 +108,7 @@ export function memoize<T extends (...args: any[]) => any>(func: T): Memoized<T>
 }
 
 /**
- * JSON text of a store's state for debugging views (`debugging`, the dev tool's default renderer).
+ * JSON text of a store's state for the dev tool's default renderer.
  * Unlike plain `JSON.stringify` it keeps what state objects commonly hold and never throws:
  * functions show as `ƒ name()`, `undefined`, `bigint` and symbols as text, Map and Set as their
  * entries, Errors as their message, and a circular reference as `[Circular]`.
@@ -197,8 +197,8 @@ export const DependencyTracker = {
 /**
  * `Object.is` one level deep: true for the same value, or for two arrays, plain objects, `Map`s or
  * `Set`s of the same kind whose items, keys or values are each `Object.is`-equal. Any other pair of
- * objects (dates, class instances) is equal only when it is the same object. Pass it as `isEqual`:
- * `useStore(params, s => s.ids, shallowEqual)` re-renders only when the array's contents change.
+ * objects (dates, class instances) is equal only when it is the same object. The default `isEqual`
+ * of `select`: `useStore(params, { select: s => s.ids })` re-renders only when the array's contents change.
  */
 export const shallowEqual = (a: unknown, b: unknown): boolean => {
   if (Object.is(a, b)) return true

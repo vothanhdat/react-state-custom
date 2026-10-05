@@ -1,8 +1,7 @@
 // Type-level tests, checked by `yarn typecheck` (tsc), never run.
 import { useState } from 'react'
-import { createStore, createRootCtx, createAutoCtx, scheduled, shallowEqual, useFrameState, sync, frame, throttle, debounce, idle, type Scheduler, type StoreStatus } from '../../src'
-import { useMultipleStore as useMany, type StoreRef } from '../../src'
-import { frame as frameFromSubpath, type Scheduler as SubpathScheduler } from '../../src/schedulers'
+import { createStore, useMultipleStore, type Store, type StoreRef, type StoreState } from '../../src'
+import { scheduled, useFrameState, sync, frame, throttle, debounce, idle, type Scheduler } from '../../src/schedulers'
 
 type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
 const expectType = <T>(_value: T) => { }
@@ -26,15 +25,16 @@ export const InterfaceConsumer = () => {
   return null
 }
 
-// Type aliases keep working
+// Type aliases keep working; every key is optional until the store has run
 type TodoParams = { listId: string; page?: number }
 type TodoState = { items: string[] }
-export const aliases = createStore('types-aliases', (_: TodoParams): TodoState => ({ items: [] }), {
-  initialState: { items: [] },
-})
+export const aliases = createStore('types-aliases', (_: TodoParams): TodoState => ({ items: [] }))
 export const AliasConsumer = () => {
   const { items } = aliases.useStore({ listId: 'a' })
-  assert<Equals<typeof items, string[]>>()
+  assert<Equals<typeof items, string[] | undefined>>()
+  // default at the read
+  const { items: list = [] } = aliases.useStore({ listId: 'a' })
+  assert<Equals<typeof list, string[]>>()
   return null
 }
 
@@ -43,7 +43,7 @@ export const noParams = createStore('types-no-params', () => ({ n: 1 }))
 export const NoParamsConsumer = () => {
   const { n } = noParams.useStore()
   expectType<number | undefined>(n)
-  const doubled = noParams.useStore(undefined, s => (s.n ?? 0) * 2)
+  const doubled = noParams.useStore(undefined, { select: s => (s.n ?? 0) * 2 })
   expectType<number>(doubled)
   return null
 }
@@ -53,51 +53,21 @@ export const optional = createStore('types-optional', ({ initial = 0 }: { initia
 export const OptionalConsumer = () => {
   optional.useStore()
   optional.useStore({ initial: 2 })
-  optional.useStore(undefined, s => s.initial)
+  optional.useStore(undefined, { select: s => s.initial })
+  optional.storeRef()
   return null
 }
 
-// Required params are required by every form, the selector form included
+// Required params are required by every form
 export const required = createStore('types-required', ({ id }: { id: string }) => ({ name: id }))
 export const RequiredConsumer = () => {
-  required.useStore({ id: 'a' }, s => s.name)
+  required.useStore({ id: 'a' }, { select: s => s.name })
   // @ts-expect-error params are required
   required.useStore()
   // @ts-expect-error params are required with a selector too
-  required.useStore(undefined, s => s.name)
-  // @ts-expect-error params are required by useStoreSuspense
-  required.useStoreSuspense()
-  // @ts-expect-error params are required by useStoreStatus
-  required.useStoreStatus()
-  const status = required.useStoreStatus({ id: 'a' })
-  assert<Equals<typeof status, StoreStatus>>()
-  // @ts-expect-error params are required by the key form too
-  required.useStoreSuspense(undefined, ['name'])
-  return null
-}
-
-// useStoreSuspense(params, keys): the listed keys are present, the others as in useStore
-export const keyed = createStore('types-keyed', () => ({ items: ['a'], add: (_: string) => { }, note: undefined as string | undefined, owner: null as string | null }), {
-  initialState: { owner: null },
-})
-export const KeyedConsumer = () => {
-  const s = keyed.useStoreSuspense(undefined, ['items', 'add'])
-  assert<Equals<typeof s.items, string[]>>()
-  assert<Equals<typeof s.add, (_: string) => void>>()
-  assert<Equals<typeof s.owner, string | null>>()           // seeded
-  assert<Equals<typeof s.note, string | undefined>>()       // neither listed nor seeded
-  // @ts-expect-error not a key of the store
-  keyed.useStoreSuspense(undefined, ['nope'])
-  const listed = ['add'] as const
-  const fromTuple = keyed.useStoreSuspense(undefined, listed) // a tuple kept in a variable
-  assert<Equals<typeof fromTuple.add, (_: string) => void>>()
-  // a widened array does not say which keys it holds: nothing beyond the seed is typed as present
-  const wide: readonly ('items' | 'add')[] = ['items']
-  const w = keyed.useStoreSuspense(undefined, wide)
-  assert<Equals<typeof w.add, ((_: string) => void) | undefined>>()
-  assert<Equals<typeof w.owner, string | null>>()
-  const full = keyed.useStoreSuspense()
-  assert<Equals<typeof full.items, string[]>>()             // the forms without keys are unchanged
+  required.useStore(undefined, { select: s => s.name })
+  // @ts-expect-error and by storeRef
+  required.storeRef()
   return null
 }
 
@@ -108,79 +78,42 @@ createStore('types-object-param', ({ user }: { user: User }) => ({ id: user.id }
 // @ts-expect-error an interface with an object value is rejected as well
 createStore('types-object-param-interface', ({ user }: { user: User } & CounterParams) => ({ id: user.id }))
 
-// The lower layers accept interfaces too
-export const lower = createAutoCtx(createRootCtx('types-lower', useCounter))
+// The options take timeToClean and schedule, nothing else
+createStore('types-options', () => ({ n: 1 }), { timeToClean: 5000, schedule: frame() })
+// @ts-expect-error removed in 2.0: default at the read
+createStore('types-initial-state', () => ({ n: 1 }), { initialState: { n: 0 } })
+// @ts-expect-error removed in 2.0: put the effect in the store hook
+createStore('types-attached', () => ({ n: 1 }), { AttachedComponent: () => null })
+// @ts-expect-error the options are an object
+createStore('types-number', () => ({ n: 1 }), 5000)
+// @ts-expect-error the hook receives its params only
+createStore('types-pre-state', (_: {}, preState: { n?: number }) => ({ n: preState.n ?? 0 }))
 
-// initialState: only the keys it holds are typed as present, and its values are checked against the
-// store's types, so a literal needs no `as const`
-type LoadStatus = 'loading' | 'ready' | 'error'
-const useLoad = (_: { id: string }) => ({
-  status: 'loading' as LoadStatus,
-  ids: [] as string[],
-  byId: {} as Record<string, number>,
-  user: null as { name: string } | null,
-  reload: () => { },
-})
-export const seededLiteral = createStore('types-seed-literal', useLoad, { initialState: { status: 'loading' } })
-export const seededSeveral = createStore('types-seed-several', useLoad, { initialState: { status: 'ready', ids: [], byId: {} } })
-export const seededByParams = createStore('types-seed-params', useLoad, {
-  initialState: ({ id }) => ({ status: id ? 'loading' as const : 'error' as const }),
-})
-export const SeedConsumer = () => {
-  const one = seededLiteral.useStore({ id: 'a' })
-  assert<Equals<typeof one.status, LoadStatus>>()
-  assert<Equals<typeof one.ids, string[] | undefined>>()            // not seeded: still optional
-  assert<Equals<typeof one.reload, (() => void) | undefined>>()     // actions are never seeded
-  const several = seededSeveral.useStore({ id: 'a' })
-  assert<Equals<typeof several.ids, string[]>>()
-  assert<Equals<typeof several.byId, Record<string, number>>>()
-  assert<Equals<typeof several.user, { name: string } | null | undefined>>()
-  const byParams = seededByParams.useStore({ id: 'a' })
-  assert<Equals<typeof byParams.status, LoadStatus>>()
-  assert<Equals<typeof byParams.ids, string[] | undefined>>()
-  const handle = seededLiteral.getStore({ id: 'a' }).get()
-  assert<Equals<typeof handle.status, LoadStatus>>()
-  assert<Equals<typeof handle.ids, string[] | undefined>>()
-  return null
-}
-// @ts-expect-error not a value of the store's type
-createStore('types-seed-wrong-value', useLoad, { initialState: { status: 'done' } })
-// @ts-expect-error not a key of the store
-createStore('types-seed-wrong-key', useLoad, { initialState: { stauts: 'loading' } })
-export const lowerSeeded = createAutoCtx(createRootCtx('types-lower-seeded', useLoad), { initialState: { status: 'loading' } })
-export const LowerSeedConsumer = () => {
-  const s = lowerSeeded.useStore({ id: 'a' })
-  assert<Equals<typeof s.status, LoadStatus>>()
-  assert<Equals<typeof s.ids, string[] | undefined>>()
-  return null
-}
-
-// Read options: a schedule for the proxy, isEqual and a schedule for a selector, the selector first
-// for a store without required params
+// Read options: a schedule for the proxy; select, isEqual and a schedule for a selection
 export const scheduledReads = createStore('types-schedule', () => ({ n: 1, ids: ['a'] }), { schedule: frame() })
 export const ScheduledConsumer = () => {
   const { n } = scheduledReads.useStore(undefined, { schedule: throttle(100) })
   expectType<number | undefined>(n)
-  const ids = scheduledReads.useStore(undefined, s => s.ids ?? [], { isEqual: shallowEqual, schedule: frame() })
+  const ids = scheduledReads.useStore(undefined, { select: s => s.ids ?? [], schedule: frame() })
   assert<Equals<typeof ids, string[]>>()
-  const first = scheduledReads.useStore(s => s.ids?.[0])
-  assert<Equals<typeof first, string | undefined>>()
-  const count = scheduledReads.useStore(s => s.ids?.length ?? 0, { schedule: debounce(50, { maxWait: 500 }) })
+  const count = scheduledReads.useStore(undefined, { select: s => s.ids?.length ?? 0, schedule: debounce(50, { maxWait: 500 }) })
   assert<Equals<typeof count, number>>()
-  const same = scheduledReads.useStore(s => s.n, (a, b) => a === b)
-  expectType<number | undefined>(same)
-  // @ts-expect-error a schedule comes from a factory now
+  // isEqual is typed by what select returns
+  scheduledReads.useStore(undefined, { select: s => s.n, isEqual: (a, b) => expectType<number | undefined>(a) === expectType<number | undefined>(b) })
+  // @ts-expect-error a schedule comes from a factory
   scheduledReads.useStore(undefined, { schedule: 'frame' })
   scheduledReads.useStore(undefined, { schedule: sync() })
   // @ts-expect-error isEqual compares selections
-  scheduledReads.useStore(s => s.n, { isEqual: (a: string, b: string) => a === b })
+  scheduledReads.useStore(undefined, { select: s => s.n, isEqual: (a: string, b: string) => a === b })
+  // @ts-expect-error the selector goes in the options
+  scheduledReads.useStore(s => s.n)
+  // @ts-expect-error the selector goes in the options
+  scheduledReads.useStore(undefined, s => s.n)
   return null
 }
 export const RequiredScheduledConsumer = () => {
   required.useStore({ id: 'a' }, { schedule: frame() })
-  required.useStore({ id: 'a' }, s => s.name, { schedule: idle(500) })
-  // @ts-expect-error the selector-first form needs a store without required params
-  required.useStore(s => s.name)
+  required.useStore({ id: 'a' }, { select: s => s.name, schedule: idle(500) })
   return null
 }
 
@@ -205,7 +138,7 @@ export const FrameStateConsumer = () => {
   return null
 }
 
-// The 2.0 API: useStore(params, { select }), storeRef(params), useMultipleStore(refs)
+// storeRef(params) and useMultipleStore(refs)
 
 const items = createStore('types-items', ({ id }: { id: string }) => ({ label: id, hits: 0, hit: () => { } }))
 const user = createStore('types-user', () => ({ name: 'Ada' }))
@@ -213,15 +146,11 @@ const user = createStore('types-user', () => ({ name: 'Ada' }))
 export const SelectOption = () => {
   const label = items.useStore({ id: 'a' }, { select: s => s.label ?? '' })
   assert<Equals<typeof label, string>>()
-  // isEqual is typed by what select returns
-  items.useStore({ id: 'a' }, { select: s => s.hits, isEqual: (a, b) => expectType<number | undefined>(a) === expectType<number | undefined>(b), schedule: frameFromSubpath() })
   // a store without params takes undefined there
   const name = user.useStore(undefined, { select: s => s.name })
   assert<Equals<typeof name, string | undefined>>()
-  // @ts-expect-error params are required
-  items.useStore(undefined, { select: s => s.label })
   // without select, the options take a schedule only
-  const proxy = items.useStore({ id: 'a' }, { schedule: frameFromSubpath() })
+  const proxy = items.useStore({ id: 'a' }, { schedule: frame() })
   expectType<string | undefined>(proxy.label)
   return null
 }
@@ -230,31 +159,39 @@ export const Refs = () => {
   const ref = items.storeRef({ id: 'a' })
   expectType<StoreRef<{ label: string, hits: number, hit: () => void }>>(ref)
   expectType<string | undefined>(ref.get().label)
-  // @ts-expect-error params are required
-  items.storeRef()
-  user.storeRef()
+  assert<Equals<ReturnType<typeof ref.get>, StoreState<{ label: string, hits: number, hit: () => void }>>>()
+  ref.subscribe((state, key) => {
+    expectType<number | undefined>(state.hits)
+    assert<Equals<typeof key, 'label' | 'hits' | 'hit'>>()
+  })
+  const release: () => void = ref.retain()
+  void release
+  expectType<boolean>(ref.ready)
+  expectType<unknown>(ref.error)
 
   // typed by position
-  const [u, i] = useMany([user.storeRef(), items.storeRef({ id: 'a' })])
+  const [u, i] = useMultipleStore([user.storeRef(), items.storeRef({ id: 'a' })])
   assert<Equals<typeof u.name, string | undefined>>()
   assert<Equals<typeof i.hits, number | undefined>>()
   // @ts-expect-error a tuple of two
-  useMany([user.storeRef(), items.storeRef({ id: 'a' })])[2]
+  useMultipleStore([user.storeRef(), items.storeRef({ id: 'a' })])[2]
 
   // a list of any length
-  const list = useMany(['a', 'b'].map(id => items.storeRef({ id })))
+  const list = useMultipleStore(['a', 'b'].map(id => items.storeRef({ id })))
   expectType<(string | undefined)[]>(list.map(item => item.label))
 
   // select over every state
-  const total = useMany(['a', 'b'].map(id => items.storeRef({ id })), { select: states => states.reduce((sum, s) => sum + (s.hits ?? 0), 0) })
+  const total = useMultipleStore(['a', 'b'].map(id => items.storeRef({ id })), { select: states => states.reduce((sum, s) => sum + (s.hits ?? 0), 0) })
   assert<Equals<typeof total, number>>()
-  const both = useMany([user.storeRef(), items.storeRef({ id: 'a' })], { select: ([u, i]) => `${u.name} ${i.label}` })
+  const both = useMultipleStore([user.storeRef(), items.storeRef({ id: 'a' })], { select: ([u, i]) => `${u.name} ${i.label}` })
   assert<Equals<typeof both, string>>()
 
   // @ts-expect-error only refs
-  useMany([{ name: 'x' }])
+  useMultipleStore([{ name: 'x' }])
   return null
 }
 
-// the schedulers entry exports the same types
-export const subpathScheduler: SubpathScheduler = frameFromSubpath()
+// What createStore returns, as a type
+export const typed: Store<{ id: string }, { label: string, hits: number, hit: () => void }> = items
+// @ts-expect-error a different state
+export const mistyped: Store<{ id: string }, { label: number }> = items

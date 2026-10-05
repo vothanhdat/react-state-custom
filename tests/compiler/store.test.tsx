@@ -1,4 +1,4 @@
-import React, { Profiler, Suspense, useEffect, useState } from 'react'
+import React, { Profiler, useEffect, useState } from 'react'
 import { act, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { AutoRootCtx, createStore, useMultipleStore } from '../../src'
@@ -93,37 +93,6 @@ describe('react-state-custom under the React Compiler', () => {
     act(() => storeRef().get().increment!())
     await tick()
     expect(screen.getByTestId('v').textContent).toBe('z:2')
-  })
-
-  // 1.x only: removed in 2.0
-  it('useStore with a selector', async () => {
-    const { useStore, getStore } = createStore('compiler-selector', useCounterState)
-    const Consumer = () => {
-      const doubled = useStore({}, s => (s.double ?? 0) + 1)
-      return <i data-testid="v">{doubled}</i>
-    }
-    render(<><AutoRootCtx /><Consumer /></>)
-    await tick()
-    expect(screen.getByTestId('v').textContent).toBe('1')
-    act(() => getStore().get().increment!())
-    await tick()
-    expect(screen.getByTestId('v').textContent).toBe('3')
-  })
-
-  // 1.x only: removed in 2.0
-  it('useStoreSuspense', async () => {
-    const { useStoreSuspense, getStore } = createStore('compiler-suspense', useCounterState)
-    const Consumer = () => {
-      const { count } = useStoreSuspense()
-      return <i data-testid="v">{count}</i>
-    }
-    render(<><AutoRootCtx /><Suspense fallback={<i data-testid="fb" />}><Consumer /></Suspense></>)
-    await tick(20)
-    await tick(60)
-    expect(screen.getByTestId('v').textContent).toBe('0')
-    act(() => getStore().get().increment!())
-    await tick()
-    expect(screen.getByTestId('v').textContent).toBe('1')
   })
 
   it('useStore(params, { select }) re-renders only when the selection changes', async () => {

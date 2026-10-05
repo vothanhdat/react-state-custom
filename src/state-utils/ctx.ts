@@ -1,18 +1,12 @@
 import { memoize, DependencyTracker } from "./utils";
 import { schedulerOf, SYNC, type Scheduler } from "./schedule";
-import { debounce } from "./schedulers";
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 
 /** True while rendering on the server (no DOM). Evaluated per call so test environments can toggle it. */
 export const isServer = () => typeof window === "undefined"
 
 /** useLayoutEffect on the client (publish before paint, no one-frame flash), useEffect on the server. */
 export const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect
-import { useArrayChangeId } from "./useArrayChangeId"
-
-
-
-export const StateScopeContext = createContext<string | null>(null)
 
 /**
  * The stable wrapper a store publishes for a function-valued key, with the implementation it forwards to.
@@ -21,7 +15,7 @@ export const StateScopeContext = createContext<string | null>(null)
  */
 export type FunctionSource = { latest: Function, calledInRender: boolean, dead?: boolean }
 
-/** Stable wrapper -> its source. Filled by createRootCtx, read by the subscribe hooks. */
+/** Stable wrapper -> its source. Filled by createRootCtx, read by the readers (useQuickSubscribe, selectors). */
 export const functionSources = new WeakMap<Function, FunctionSource>()
 
 /** The implementation behind a store's function wrapper, or the value itself. */
@@ -65,34 +59,29 @@ const notify = <L>(listeners: Iterable<L>, call: (listener: L) => void) => {
 }
 
 /**
- * Generic context for managing shared state and event subscriptions.
- * Still extends EventTarget for compatibility (`instanceof`), but subscriptions no longer go
- * through `addEventListener`/`dispatchEvent`: see `notify` above.
+ * The data of one store instance and the subscriptions to it. Subscribers are called directly, see
+ * `notify` above.
  * @template D - The shape of the data managed by the context.
  */
-export class Context<D> extends EventTarget {
+export class Context<D> {
   /**
    * Create a new Context instance.
-   * @param name - The name of the context (for debugging).
+   * @param name - The name of the context: `"store?params"`, or `"auto-ctx"` for AutoRootCtx.
    */
-  constructor(public name: string) {
-    super();
-  }
+  constructor(public name: string) { }
 
   /**
    * The current data held by the context.
    */
   public data: Partial<D> = {}
-  /**
-   * @deprecated Unused since 1.1; kept so existing code that reads it keeps compiling. Will be removed in 2.0.
-   */
-  public registry = new Set<string>()
 
+  /** Components and handles holding this context in the cache (see scheduleEvict). */
   public useCounter = 0
 
   /**
-   * True once a store root has published its first result into this context.
-   * `false` while only `initialState` (or nothing) is in `data`. Used by `useStoreSuspense`.
+   * True once a store hook has published its first result into this context, until the instance is
+   * torn down. Read by `storeRef(params).ready` and by readers with a schedule, whose first data is
+   * never delayed.
    */
   public ready = false
   private readyListeners = new Set<() => void>()
@@ -142,13 +131,13 @@ export class Context<D> extends EventTarget {
     notify(this.statusListeners, listener => listener())
   }
 
-  /** Store instances running on this context (internal: one, unless several AutoRootCtx share a scope). */
+  /** Store instances running on this context: one, unless several AutoRootCtx are mounted. */
   public instances = 0
 
   /**
    * True after the store instance publishing here was torn down, until another one is ready.
    * Its values stay for whoever still holds this context (a component that rendered with it, a
-   * subscriber) and warm-start the next instance through `preState`, but its actions are gone.
+   * subscriber), but its actions are gone.
    */
   public retired = false
 
@@ -338,9 +327,8 @@ export const liveContext = <D>(name: string, rendered: Context<D>): Context<D> =
 
 /**
  * Non-hook counterpart of `useDataContext`: get the cached Context for `name` and keep it alive
- * until `release()` is called. Used by the imperative store handle and by `useStoreSuspense`,
- * which must hold a context while no component is committed.
- * On the server it returns a throwaway instance.
+ * until `release()` is called. Used by `storeRef(params)`, which holds a context while no
+ * component is committed. On the server it returns a throwaway instance.
  */
 export const acquireContext = <D>(name: string): { ctx: Context<D>, release: () => void } => {
   if (isServer()) return { ctx: new Context<D>(name), release: () => { } }
@@ -359,15 +347,10 @@ export const acquireContext = <D>(name: string): { ctx: Context<D>, release: () 
 }
 
 /**
- * Type alias for a function that returns a Context instance.
- */
-export type getContext<D> = (e: string) => Context<D>
-
-/**
  * React hook to get a typed Context instance by name.
  *
  * Server rendering: returns an uncached, throwaway instance (see below); the library is client-side,
- * on the server consumers only ever see `initialState`.
+ * and on the server readers see an empty state.
  *
  * Instances are reference counted: the context is evicted from the cache shortly after
  * the last user unmounts. Because a component may render before the eviction timer fires
@@ -379,61 +362,36 @@ export type getContext<D> = (e: string) => Context<D>
  * @param name - The context name.
  * @returns The Context instance.
  */
-export const useDataContext = <D>(name: string = "noname") => {
-  const scopeId = useContext(StateScopeContext)
-  const namespacedName = scopeId ? `${scopeId}/${name}` : name
-  DependencyTracker.addDependency(namespacedName);
+export const useDataContext = <D>(name: string) => {
+  DependencyTracker.addDependency(name);
 
   const [, forceRender] = useState(0)
   const ref = useRef<{ name: string, ctx: Context<any> } | null>(null)
-  if (!ref.current || ref.current.name !== namespacedName) {
+  if (!ref.current || ref.current.name !== name) {
     // On the server nothing publishes or subscribes (effects never run), so instances need not be
     // shared, and the module-level cache would only grow per request because eviction lives in an
     // effect cleanup. Use a throwaway instance there; the HTML comes out identical.
-    ref.current = { name: namespacedName, ctx: isServer() ? new Context<any>(namespacedName) : getContextInRender(namespacedName) }
+    ref.current = { name, ctx: isServer() ? new Context<any>(name) : getContextInRender(name) }
   }
   const ctx = ref.current.ctx
 
   useEffect(() => {
-    const live = liveContext(namespacedName, ctx)
+    const live = liveContext(name, ctx)
     if (live !== ctx) {
       // someone created a fresh instance in between: adopt it
-      ref.current = { name: namespacedName, ctx: live }
+      ref.current = { name, ctx: live }
       forceRender(c => c + 1)
     }
 
     live.useCounter += 1;
     return () => {
       live.useCounter -= 1;
-      scheduleEvict(namespacedName, live)
+      scheduleEvict(name, live)
     }
-  }, [ctx, namespacedName])
+  }, [ctx, name])
 
   return ctx as Context<D>
 }
-
-/**
- * React hook to publish a value to the context when it changes.
- * @param ctx - The context instance.
- * @param key - The key to update.
- * @param value - The new value.
- */
-export const useDataSource = <D, K extends keyof D>(ctx: Context<D> | undefined, key: K, value: D[K] | undefined) => {
-  useIsomorphicLayoutEffect(() => {
-    if (ctx && !Object.is(ctx.data[key], value)) {
-      ctx.publish(key, value)
-    }
-  }, [key, value, ctx])
-}
-
-const noopSubscribe = () => () => { }
-
-/**
- * The scheduler of the `debounceTime` argument of the subscribe hooks: a number of milliseconds is a
- * debounce, which renders at least every second (or every `ms`, when longer) while changes go on.
- */
-const schedulerOfDelay = (delay: number | Scheduler | undefined) =>
-  typeof delay === "number" ? (delay > 0 ? debounce(delay) : SYNC) : schedulerOf(delay)
 
 /**
  * Run `deliver` for a change now, or when `plan` says. A context's first data is delivered at once,
@@ -456,82 +414,6 @@ export const deliverOn = (ctx: Context<any>, plan: Scheduler, deliver: () => voi
   }
 }
 
-/**
- * React hook to subscribe to a context value.
- * Built on `useSyncExternalStore`, so updates are delivered synchronously and
- * consistently across components (no tearing, no extra timer tick).
- * @param ctx - The context instance.
- * @param key - The key to subscribe to.
- * @param schedule - When to re-render for a change: a scheduler such as `frame()` (default at once).
- *   A number of milliseconds is `debounce(ms)`, which re-renders at least every second while changes go on.
- * @returns The current value for the key.
- */
-export const useDataSubscribe = <D, K extends keyof D>(ctx: Context<D> | undefined, key: K, schedule: number | Scheduler = 0): D[K] | undefined => {
-  const plan = schedulerOfDelay(schedule)
-  const store = useMemo(() => {
-    if (!ctx) return { subscribe: noopSubscribe, getSnapshot: () => undefined }
-
-    let snapshot = ctx.data[key]
-    const read = () => snapshot
-
-    const subscribe = (onStoreChange: () => void) => {
-      const { listener, cancel } = deliverOn(ctx, plan, () => {
-        snapshot = ctx.data[key]
-        onStoreChange()
-      })
-      // subscribe reports a present key at once: the snapshot is read right after instead
-      let subscribing = true
-      const unsub = ctx.subscribe(key, () => { if (!subscribing) listener() })
-      subscribing = false
-      // make sure the snapshot reflects anything published between render and subscribe
-      snapshot = ctx.data[key]
-      return () => {
-        unsub()
-        cancel()
-      }
-    }
-
-    return { subscribe, getSnapshot: read }
-  }, [ctx, key, plan])
-
-  return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
-}
-
-/**
- * React hook to subscribe to a context value and transform it before returning.
- * The transform is re-run only when the underlying value changes (by `Object.is`)
- * or when a new transform function is passed.
- * @param ctx - The context instance.
- * @param key - The key to subscribe to.
- * @param transform - Function to transform the value.
- * @returns The transformed value.
- */
-export const useDataSubscribeWithTransform = <D, K extends keyof D, E>(ctx: Context<D> | undefined, key: K, transform: (e: D[K] | undefined) => E): E => {
-  const subscribe = useMemo(
-    () => (onStoreChange: () => void) => ctx ? ctx.subscribe(key, onStoreChange) : () => { },
-    [ctx, key]
-  )
-
-  // A new getSnapshot whenever the transform changes. useSyncExternalStore checks for changes with the
-  // one of the committed render, so a transform from a render React discarded is never used for that.
-  const getSnapshot = useMemo(() => {
-    let computed = false
-    let raw: D[K] | undefined
-    let out: E
-    return () => {
-      const current = ctx?.data[key]
-      if (!computed || !Object.is(current, raw)) {
-        computed = true
-        raw = current
-        out = transform(current)
-      }
-      return out
-    }
-  }, [ctx, key, transform])
-
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
-}
-
 /** Run a selector; a store function it calls is a render-time dependency (see functionSources). */
 export const runSelector = <D, R>(selector: (data: D) => R, data: D) => {
   selectorScope.depth++
@@ -543,10 +425,10 @@ export const runSelector = <D, R>(selector: (data: D) => R, data: D) => {
 }
 
 /**
- * Subscribe to a derived value of the whole context data.
+ * Subscribe to a derived value of the whole context data: `useStore(params, { select })`.
  * `selector` runs against the plain `ctx.data` object (not a proxy), so it may read as deep as it
  * likes; the component re-renders only when the selected value changes according to `isEqual`
- * (default `Object.is`). A new `selector` function each render is fine.
+ * (default `Object.is`; useStore passes `shallowEqual`). A new `selector` function each render is fine.
  * With a `schedule` such as `frame()`, React is told about changes when the schedule says, and
  * the selector runs then, on the data of that moment.
  * @param ctx - The context instance.
@@ -557,15 +439,9 @@ export const useDataSelector = <D, R>(
   ctx: Context<D> | undefined,
   selector: (data: Partial<D>) => R,
   isEqual: (a: R, b: R) => boolean = Object.is,
-  /** What the server rendered for this context (a store's `initialState`), selected from while hydrating. */
-  serverData?: () => Partial<D>,
   /** When the component re-renders for a change: `frame()`, `throttle(ms)`, ... (default at once). */
   schedule?: Scheduler
 ): R => {
-  // Read only for the server snapshot, which React uses while hydrating.
-  const serverDataRef = useRef(serverData)
-  serverDataRef.current = serverData
-
   const plan = schedulerOf(schedule)
   const subscribe = useMemo(() => (onStoreChange: () => void) => {
     if (!ctx) return () => { }
@@ -604,14 +480,14 @@ export const useDataSelector = <D, R>(
       return result
     }
 
-    // On the server and while hydrating: what the server rendered, unless it equals the live selection.
-    // React re-renders with the live selection once hydrated.
+    // On the server and while hydrating: what the server rendered, the selection of an empty state
+    // (stores never run there), unless it equals the live selection. React re-renders with the live
+    // selection once hydrated.
     const getServerSnapshot = () => {
       if (server) return server.value
       const live = getSnapshot()
-      const data = serverDataRef.current
-      const fromServer = data ? runSelector(selector, data()) : live
-      server = { value: data && !isEqual(fromServer, live) ? fromServer : live }
+      const fromServer = runSelector(selector, {} as Partial<D>)
+      server = { value: isEqual(fromServer, live) ? live : fromServer }
       return server.value
     }
 
@@ -621,120 +497,4 @@ export const useDataSelector = <D, R>(
   const value = useSyncExternalStore(subscribe, snapshots.getSnapshot, snapshots.getServerSnapshot)
   useIsomorphicLayoutEffect(() => { shown.current = { value } }, [value])
   return value
-}
-
-/**
- * React hook to publish multiple values to the context.
- * Keys that were published by this hook earlier but are no longer present in `entries`
- * are published as `undefined` and removed from the context data.
- * @param ctx - The context instance.
- * @param entries - Array of [key, value] pairs to update.
- */
-export const useDataSourceMultiple = <D, T extends readonly (keyof D)[]>(
-  ctx: Context<D> | undefined,
-  ...entries: { -readonly [P in keyof T]: [T[P], D[T[P]]] }
-) => {
-  const changeId = useArrayChangeId(entries.flat())
-  const published = useRef<{ ctx: Context<D> | undefined, keys: Set<keyof D> }>({ ctx: undefined, keys: new Set() })
-
-  useIsomorphicLayoutEffect(() => {
-    if (!ctx) return
-    if (published.current.ctx !== ctx) published.current = { ctx, keys: new Set() }
-
-    const next = new Set<keyof D>()
-    for (const [key] of entries) next.add(key)
-    const removed = [...published.current.keys].filter(key => !next.has(key))
-    published.current.keys = next
-    // one update: subscribers never see some keys new and others still old
-    ctx.publishMany(entries as [keyof D, D[keyof D]][], removed)
-  }, [ctx, changeId])
-}
-
-/**
- * Shared implementation for the multi-key subscribe hooks.
- * Keeps a cached tuple snapshot that only changes identity when one of the values changes.
- */
-const useMultiKeySnapshot = <D, K extends readonly (keyof D)[]>(
-  ctx: Context<D> | undefined,
-  keys: K,
-  plan: Scheduler
-): { [i in keyof K]: D[K[i]] | undefined } => {
-  const keysId = useArrayChangeId(keys as unknown as any[])
-
-  const store = useMemo(() => {
-    const readAll = () => keys.map(key => ctx?.data?.[key])
-    let snapshot = readAll()
-
-    const refresh = () => {
-      const current = readAll()
-      if (current.some((v, i) => !Object.is(v, snapshot[i]))) snapshot = current
-    }
-
-    const subscribe = (onStoreChange: () => void) => {
-      if (!ctx) return () => { }
-      // One update notifies once per changed key with the data already complete: read the keys once
-      // per revision. While subscribing, each key is reported at once: refresh once afterwards.
-      let refreshed = -1
-      let subscribing = true
-      const { listener, cancel } = deliverOn(ctx, plan, () => {
-        refresh()
-        onStoreChange()
-      })
-      const notify = () => {
-        if (subscribing || ctx.revision === refreshed) return
-        refreshed = ctx.revision
-        listener()
-      }
-      const unsubs = keys.map(key => ctx.subscribe(key, notify))
-      subscribing = false
-      refreshed = ctx.revision
-      refresh()
-      return () => {
-        cancel()
-        unsubs.forEach(unsub => unsub())
-      }
-    }
-
-    return { subscribe, getSnapshot: () => snapshot }
-    // keys are captured by content via keysId
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ctx, keysId, plan])
-
-  return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot) as any
-}
-
-/**
- * React hook to subscribe to multiple context values.
- * @param ctx - The context instance.
- * @param keys - Keys to subscribe to.
- * @returns An object with the current values for the keys.
- */
-export const useDataSubscribeMultiple = <D, K extends readonly (keyof D)[]>(
-  ctx: Context<D> | undefined,
-  ...keys: K
-): { [P in K[number]]: D[P] | undefined } => {
-  const values = useMultiKeySnapshot(ctx, keys, SYNC)
-
-  return useMemo(
-    () => Object.fromEntries(keys.map((key, index) => [key, values[index]])) as any,
-    // keys are captured by content via values' identity
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [values]
-  )
-}
-
-/**
- * React hook to subscribe to multiple context values with debouncing.
- * @param ctx - The context instance.
- * @param debounceTime - Debounce time in ms (default 50); it re-renders at least every second while
- *   changes go on. A scheduler (`frame()`, `throttle(ms)`, ...) is accepted too.
- * @param keys - Keys to subscribe to.
- * @returns Array of current values for the keys.
- */
-export const useDataSubscribeMultipleWithDebounce = <D, K extends (keyof D)[]>(
-  ctx: Context<D> | undefined,
-  debounceTime: number | Scheduler = 50,
-  ...keys: K
-): { [i in keyof K]: D[K[i]] | undefined } => {
-  return useMultiKeySnapshot(ctx, keys, schedulerOfDelay(debounceTime))
 }

@@ -1,5 +1,5 @@
-import { useContext, useEffect, useMemo, useRef, useState } from "react"
-import { useDataContext, StateScopeContext, type Context, useIsomorphicLayoutEffect, functionSources, selectorScope, type FunctionSource } from "./ctx"
+import { useEffect, useRef, useState } from "react"
+import { useDataContext, type Context, useIsomorphicLayoutEffect, functionSources, selectorScope, type FunctionSource } from "./ctx"
 import { paramsToId, type ParamsToIdRecord, type StoreParamsShape } from "./paramsToId"
 import { DependencyTracker } from "./utils"
 import { storeMocks } from "./storeRegistry"
@@ -100,39 +100,11 @@ const createStableFn = (key: string, value: Function, wrappers: Map<string, Stab
 
 
 /**
- * createRootCtx
- *
- * Factory that creates a headless "Root" component and companion hooks for a context namespace.
- * It derives a unique context name from a base `name` and a props object `U`, then publishes
- * a computed state `V` (from `useFn`) to that context. `useFn` receives `(props, preState)` where
- * `preState` is the previously published data for this context (if any), letting you warm start
- * when a Root remounts (e.g., during AutoRootCtx cleanup/revival).
- *
- * Usage (manual mounting):
- * ```
- * const { Root, useCtxState } = createRootCtx('user-state', (props, preState) =>
- *   useUserState(props, preState)
- * )
- *  ...
- * // Mount exactly one Root per unique props combination
- * <Root userId={id} />
- *  ...
- * // Read anywhere ,using the same props shape
- * const user = useCtxState({ userId: id })
- *```
- * Strict vs lenient consumers:
- * - useCtxStateStrict(props) throws if a matching Root is not mounted.
- * - useCtxState(props) logs an error (after 1s) instead of throwing.
- *
- * Multiple instances safety:
- * - Mounting more than one Root with the same resolved context name throws (guards accidental duplicates).
- *
- * Name resolution notes:
- * - The context name is built from `name` + sorted key/value pairs of `props` (U), joined by "-".
- * - Prefer stable, primitive props to avoid collisions; if you need automation, pair with `createAutoCtx` and
- *   mount a single <AutoRootCtx Wrapper={ErrorBoundary} /> at the app root so you don't manually mount `Root`.
+ * The parts of a store that run its hook: `getCtxName(params)` names an instance (`"name?params"`),
+ * and `useRootState(params)` runs the hook and publishes what it returns to the instance's context.
+ * AutoRootCtx renders `useRootState` once per running instance.
  */
-export const createRootCtx = <U extends StoreParamsShape<U>, V extends object>(name: string, useFn: (e: U, preState: Partial<V>) => V) => {
+export const createRootCtx = <U extends StoreParamsShape<U>, V extends object>(name: string, useFn: (params: U) => V) => {
 
   const getCtxName = (e: U) => [name, paramsToId(e as ParamsToIdRecord)]
     .filter(Boolean)
@@ -142,100 +114,39 @@ export const createRootCtx = <U extends StoreParamsShape<U>, V extends object>(n
 
   const useRootState = (e: U) => {
     const ctxName = getCtxName(e)
-    const scopeId = useContext(StateScopeContext)
-    const scopedCtxName = scopeId ? `${scopeId}/${ctxName}` : ctxName
     const ctx = useDataContext<V>(ctxName)
-    // what an earlier instance with this identity published (warm start); read once, on mount
-    const [preState] = useState(() => ({ ...ctx.data }) as Partial<V>)
     // A test double set with mockStore (react-state-custom/testing) runs in place of the hook, for the
     // whole life of the instance: switching hooks in a running instance would break their order.
     const [mock] = useState(() => storeMocks.get(name))
 
-    DependencyTracker.enter(scopedCtxName);
+    DependencyTracker.enter(ctxName);
     let rawState: V;
     try {
-      rawState = mock ? mock(e, preState) as V : useFn(e, preState)
+      rawState = mock ? mock(e) as V : useFn(e)
     } finally {
       DependencyTracker.leave();
     }
 
     usePublish(ctx, rawState as Record<string, unknown>)
 
-    // Declared after usePublish so it runs after the first publish: the context is
-    // "ready" once consumers can see real values instead of initialState (see useStoreSuspense).
+    // Declared after usePublish so it runs after the first publish: the context is "ready" once
+    // readers can see the hook's values instead of nothing.
     useIsomorphicLayoutEffect(() => { ctx.markReady() }, [ctx])
 
     // The error boundary that catches this reports the component stack. No JS stack is captured at
     // mount: that cost ~30% of mounting an instance, and it only ever pointed into React and this file.
     useEffect(() => {
-      if (ctxMountedCheck.has(scopedCtxName)) {
-        throw new Error("RootContext " + scopedCtxName + " are mounted more than once")
+      if (ctxMountedCheck.has(ctxName)) {
+        throw new Error(`[react-state-custom] Store "${ctxName}" is mounted more than once`)
       }
-      ctxMountedCheck.add(scopedCtxName)
-      return () => { ctxMountedCheck.delete(scopedCtxName) };
-    }, [scopedCtxName])
+      ctxMountedCheck.add(ctxName)
+      return () => { ctxMountedCheck.delete(ctxName) };
+    }, [ctxName])
 
     return rawState;
   }
 
-  const Debug = ({ }) => <></>
-
-  const RootState: React.FC<U> = (e: U) => {
-    const state = useRootState(e);
-    return <Debug {...e} {...state} />
-  }
-
   useRootState.displayName = `useState[${name}]`
-  RootState.displayName = `StateContainer[${name}]`
-  Debug.displayName = `Debug[${name}]`
 
-  return {
-    name,
-    getCtxName,
-    useRootState,
-    Root: RootState,
-    /**
-     * Strict consumer: throws if the corresponding Root for these props isn't mounted.
-     * Use in development/tests to fail fast when wiring is incorrect.
-     */
-    useCtxStateStrict: (e: U = {} as U): Context<V> => {
-      const ctxName = getCtxName(e)
-      const scopeId = useContext(StateScopeContext)
-      const scopedCtxName = scopeId ? `${scopeId}/${ctxName}` : ctxName
-
-      const stack = useMemo(() => new Error().stack, [])
-
-      useEffect(() => {
-        if (!ctxMountedCheck.has(scopedCtxName)) {
-          const err = new Error("RootContext [" + scopedCtxName + "] is not mounted")
-          err.stack = stack;
-          throw err
-        }
-      }, [scopedCtxName])
-
-      return useDataContext<V>(ctxName)
-    },
-    /**
-     * Lenient consumer: schedules a console.error if the Root isn't mounted instead of throwing.
-     * Useful in production to avoid hard crashes while still surfacing misconfiguration.
-     */
-    useCtxState: (e: U = {} as U): Context<V> => {
-      const ctxName = getCtxName(e)
-      const scopeId = useContext(StateScopeContext)
-      const scopedCtxName = scopeId ? `${scopeId}/${ctxName}` : ctxName
-
-      const stack = useMemo(() => new Error().stack, [])
-
-      useEffect(() => {
-        if (!ctxMountedCheck.has(scopedCtxName)) {
-          const err = new Error("RootContext [" + scopedCtxName + "] is not mounted")
-          err.stack = stack;
-          let timeout = setTimeout(() => console.error(err), 1000)
-          return () => clearTimeout(timeout)
-        }
-      }, [ctxMountedCheck.has(scopedCtxName)])
-
-      return useDataContext<V>(ctxName)
-    }
-  }
+  return { name, getCtxName, useRootState }
 }

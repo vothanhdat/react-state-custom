@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, renderHook, act } from '@testing-library/react'
+import { render, act } from '@testing-library/react'
 import { useEffect, useState } from 'react'
 import { createStore, AutoRootCtx } from '../src'
 

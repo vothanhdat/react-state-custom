@@ -5,7 +5,6 @@ import { render, act } from '@testing-library/react'
 import { createRoot } from 'react-dom/client'
 import { Profiler, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createStore, AutoRootCtx } from '../src'
-import { getContext, useDataSubscribe } from '../src/state-utils/ctx'
 import { scheduled, sync, debounce, frame, idle, throttle, useFrameState, type Scheduler } from '../src/schedulers'
 import { flushScheduled } from '../src/testing'
 
@@ -187,22 +186,6 @@ describe('schedule: debounce', () => {
     await act(async () => { vi.advanceTimersByTime(50) })
     expect(seen).toEqual([seen[0], 120])
   })
-
-  // 1.x only: removed in 2.0
-  it('useDataSubscribe(ctx, key, ms) is a debounce that no longer starves under a stream', async () => {
-    vi.useFakeTimers()
-    const ctx = getContext('schedule-raw-debounce')
-    const { seen, Track } = committed()
-    const Reader = () => <Track value={useDataSubscribe(ctx, 'n', 50)} />
-    render(<Reader />)
-    for (let i = 1; i <= 120; i++) {
-      act(() => ctx.publish('n', i))
-      await act(async () => { vi.advanceTimersByTime(16) })
-    }
-    expect(seen.length).toBe(2)                      // undefined, then about a second in
-    await act(async () => { vi.advanceTimersByTime(100) })
-    expect(seen[seen.length - 1]).toBe(120)
-  })
 })
 
 describe('schedule: idle', () => {
@@ -331,22 +314,6 @@ describe('schedule: rules', () => {
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => { })
     expect(() => render(<Reader />)).toThrow('Options come after the params')
     quiet.mockRestore()
-  })
-})
-
-// 1.x only: removed in 2.0
-describe('useStore(selector) on a store without params', () => {
-  it('reads like useStore(undefined, selector), with isEqual or options', async () => {
-    const { useStore, storeRef } = counterStore()
-    const Reader = () => {
-      const odd = useStore(s => (s.n ?? 0) % 2 === 1)
-      const n = useStore(s => s.n, { isEqual: Object.is })
-      const same = useStore(s => s.n, (a, b) => a === b)
-      return <b data-testid="r">{`${odd} ${n} ${same}`}</b>
-    }
-    const { getByTestId } = render(<><AutoRootCtx /><Reader /></>)
-    await act(async () => storeRef().get().setN!(3))
-    expect(getByTestId('r').textContent).toBe('true 3 3')
   })
 })
 

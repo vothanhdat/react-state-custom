@@ -2,9 +2,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, renderHook, act } from '@testing-library/react'
 import { Component, useState, type ReactNode } from 'react'
 import { createStore, useMultipleStore, AutoRootCtx } from '../src'
-import { getContext, useDataContext, useDataSubscribe, useDataSubscribeMultiple, type Context } from '../src/state-utils/ctx'
+import { getContext, useDataContext, type Context } from '../src/state-utils/ctx'
 import { paramsToId } from '../src/state-utils/paramsToId'
-import { useQuickSubscribe } from '../src/state-utils/useQuickSubscribe'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
 
@@ -98,35 +97,6 @@ describe('synchronous propagation', () => {
     act(() => set(1))
     expect(container.textContent).toBe('1 2 1 1')
   })
-
-  // 1.x only: removed in 2.0
-  it('delivers updates to useDataSubscribe and useDataSubscribeMultiple in the same act, without timers', () => {
-    const ctx = getContext('sync') as Context<{ a: number, b: number }>
-    const { result } = renderHook(() => ({
-      a: useDataSubscribe(ctx, 'a'),
-      both: useDataSubscribeMultiple(ctx, 'a', 'b'),
-      quick: useQuickSubscribe(ctx).a,
-    }))
-    act(() => { ctx.publish('a', 1); ctx.publish('b', 2) })
-    expect(result.current.a).toBe(1)
-    expect(result.current.both).toEqual({ a: 1, b: 2 })
-    expect(result.current.quick).toBe(1)
-  })
-
-  // 1.x only: removed in 2.0
-  it('useDataSubscribeMultiple returns a stable object until a value changes', () => {
-    const ctx = getContext('stable-multi') as Context<{ a: number, b: number }>
-    ctx.publish('a', 1); ctx.publish('b', 2)
-    const { result, rerender } = renderHook(() => useDataSubscribeMultiple(ctx, 'a', 'b'))
-    const first = result.current
-    rerender()
-    expect(result.current).toBe(first)
-    act(() => ctx.publish('a', 1)) // same value, no change
-    expect(result.current).toBe(first)
-    act(() => ctx.publish('a', 3))
-    expect(result.current).not.toBe(first)
-    expect(result.current.a).toBe(3)
-  })
 })
 
 describe('context cache lifecycle', () => {
@@ -157,7 +127,6 @@ describe('context cache lifecycle', () => {
     await tick(1100)
     expect(getContext.fromCache('never-commits')).toBeUndefined()
   })
-
 })
 
 class Boundary extends Component<{ children?: ReactNode }, { failed: boolean }> {

@@ -2,9 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import React from 'react'
 import { createStore, AutoRootCtx } from '../src'
-import { createAutoCtx } from '../src/state-utils/createAutoCtx'
-import { createRootCtx } from '../src/state-utils/createRootCtx'
-import { useDataSubscribe } from '../src/state-utils/ctx'
 import { withRealTimers } from './utils'
 
 describe('AutoRootCtx', () => {
@@ -348,106 +345,4 @@ describe('createStore instances', () => {
       }, { timeout: 5000 })
     })
   }, 5000)
-})
-
-// 1.x only: removed in 2.0
-
-describe('AutoRootCtx Wrapper', () => {
-  it('should wrap roots with provided Wrapper component', async () => {
-    const useCounter = () => {
-      const [count] = React.useState(50)
-      return { count }
-    }
-
-    const autoCtx = createAutoCtx(createRootCtx('wrapper-test', useCounter))
-
-    const WrapperComponent = ({ children }: { children?: React.ReactNode }) => {
-      return <div data-testid="wrapper">{children}</div>
-    }
-
-    function Consumer() {
-      const ctx = autoCtx.useCtxState({})
-      const count = useDataSubscribe(ctx, 'count')
-      return <div data-testid="count">{count}</div>
-    }
-
-    render(
-      <>
-        <AutoRootCtx Wrapper={WrapperComponent} />
-        <Consumer />
-      </>
-    )
-
-    await waitFor(() => {
-      expect(screen.getByTestId('wrapper')).toBeDefined()
-      expect(screen.getByTestId('count').textContent).toBe('50')
-    })
-  })
-})
-
-describe('createAutoCtx with AttatchedComponent', () => {
-  it('should render AttatchedComponent alongside the state runner', async () => {
-    const useCounter = () => {
-      const [count] = React.useState(42)
-      return { count }
-    }
-
-    const AttatchedComponent: React.FC<{}> = () => {
-      return <div data-testid="attached">Attached Component Rendered</div>
-    }
-
-    const autoCtx = createAutoCtx(createRootCtx('attached-test', useCounter), 0, AttatchedComponent)
-
-    function Consumer() {
-      const ctx = autoCtx.useCtxState({})
-      const count = useDataSubscribe(ctx, 'count')
-      return <div data-testid="count">{count}</div>
-    }
-
-    render(
-      <>
-        <AutoRootCtx />
-        <Consumer />
-      </>
-    )
-
-    await waitFor(() => {
-      expect(screen.getByTestId('count').textContent).toBe('42')
-      expect(screen.getByTestId('attached').textContent).toBe('Attached Component Rendered')
-    })
-  })
-
-  it('should render one AttatchedComponent per instance, with its params', async () => {
-    const useStore = ({ id }: { id: string }) => {
-      const [value] = React.useState(`value-${id}`)
-      return { value }
-    }
-
-    const AttatchedComponent: React.FC<{ id: string }> = ({ id }) => {
-      return <div data-testid={`attached-${id}`}>Attached: {id}</div>
-    }
-
-    const autoCtx = createAutoCtx(createRootCtx('attached-multi-test', useStore), 0, AttatchedComponent)
-
-    function Consumer({ id }: { id: string }) {
-      const ctx = autoCtx.useCtxState({ id })
-      const value = useDataSubscribe(ctx, 'value')
-      return <div data-testid={`value-${id}`}>{value}</div>
-    }
-
-    render(
-      <>
-        <AutoRootCtx />
-        <Consumer id="a" />
-        <Consumer id="b" />
-      </>
-    )
-
-    await waitFor(() => {
-      expect(screen.getByTestId('value-a').textContent).toBe('value-a')
-      expect(screen.getByTestId('value-b').textContent).toBe('value-b')
-      expect(screen.getByTestId('attached-a').textContent).toBe('Attached: a')
-      expect(screen.getByTestId('attached-b').textContent).toBe('Attached: b')
-    })
-  })
 })

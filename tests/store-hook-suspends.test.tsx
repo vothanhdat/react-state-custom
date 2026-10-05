@@ -85,16 +85,4 @@ describe('a store hook that suspends', () => {
     await waitFor(() => el.innerHTML === '<span>other</span><b>two</b>')
     root.unmount()
   })
-
-  // 1.x only: removed in 2.0
-  it('an AttachedComponent that suspends does not hide the app either', async () => {
-    const data = deferred<string>()
-    const Attached = () => { use(data.promise); return null }
-    const { useStore } = createStore('hook-suspends-attached', () => ({ value: 'ran' }), { AttachedComponent: Attached })
-    const Plain = () => { const { value } = useStore(); return <b>{value ?? '…'}</b> }
-    const { el, root } = mount(<Suspense fallback={<i>app-fallback</i>}><AutoRootCtx /><Plain /></Suspense>)
-    await waitFor(() => el.innerHTML === '<b>ran</b>')
-    data.resolve('x')
-    root.unmount()
-  })
 })

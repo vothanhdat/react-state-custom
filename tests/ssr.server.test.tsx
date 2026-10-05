@@ -2,7 +2,6 @@
 import { describe, it, expect } from 'vitest'
 import { renderToString } from 'react-dom/server'
 import { createStore, useMultipleStore, AutoRootCtx } from '../src'
-import { StateScopeProvider } from '../src/state-utils/createAutoCtx'
 import { getContext } from '../src/state-utils/ctx'
 import { DevToolContainer } from '../src/dev-tool'
 
@@ -54,24 +53,9 @@ describe('server rendering (node environment, no DOM)', () => {
     expect(getContext.cache.size).toBe(0)
   })
 
-  // 1.x only: removed in 2.0, with scopes
-  it('works inside StateScopeProvider', () => {
-    const { useStore } = createStore('ssr-scoped', (_: {}) => ({ v: 1 }))
-    const C = () => <i>{useStore().v ?? 0}</i>
-    expect(renderToString(<StateScopeProvider><C /></StateScopeProvider>)).toContain('<i>0</i>')
-    expect(getContext.cache.size).toBe(0)
-  })
-
   it('renders an initially open dev tool, at a fixed height until the viewport is known', () => {
     const html = renderToString(<DevToolContainer defaultOpen />)
     expect(html).toContain('aria-label="react-state-custom stores"')
     expect(html).toContain('height:300px')
-  })
-
-  // 1.x only: removed in 2.0
-  it('reports a store as not ready and not failed on the server', () => {
-    const { useStoreStatus } = createStore('ssr-status', (): { v: number } => { throw new Error('never runs on the server') })
-    const Status = () => { const { ready, failed } = useStoreStatus(); return <i>{`${ready}/${failed}`}</i> }
-    expect(renderToString(<><AutoRootCtx /><Status /></>)).toContain('false/false')
   })
 })

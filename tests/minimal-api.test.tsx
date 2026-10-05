@@ -4,7 +4,6 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, act } from '@testing-library/react'
 import { useEffect, useRef, useState } from 'react'
 import { createStore, useMultipleStore, AutoRootCtx } from '../src'
-import { StateScopeProvider } from '../src/state-utils/createAutoCtx'
 import { frame } from '../src/schedulers'
 import { flushScheduled } from '../src/testing'
 
@@ -61,12 +60,6 @@ describe('storeRef(params)', () => {
     act(() => { release() })
     await tick()
     expect(running.has('a')).toBe(false)
-  })
-
-  // 1.x only: removed in 2.0
-  it('is what getStore returned, under its new name', () => {
-    const { storeRef, getStore } = itemStore()
-    expect(getStore({ id: 'a' }).name).toBe(storeRef({ id: 'a' }).name)
   })
 })
 
@@ -129,6 +122,29 @@ describe('useStore(params, { select })', () => {
     const Wrong = () => <>{String(useStore({ select: (s: { label?: string }) => s.label } as never))}</>
     expect(() => render(<><AutoRootCtx /><Wrong /></>)).toThrow(/got \{ select \} as its params\. Options come after the params/)
     error.mockRestore()
+  })
+
+  it('says where a selector goes when it is passed in a 1.x form', () => {
+    const { useStore } = itemStore()
+    const error = vi.spyOn(console, 'error').mockImplementation(() => { })
+    const positional = () => <>{String((useStore as Function)({ id: 'a' }, (s: { label?: string }) => s.label))}</>
+    const first = () => <>{String((useStore as Function)((s: { label?: string }) => s.label))}</>
+    for (const Wrong of [positional, first]) {
+      expect(() => render(<><AutoRootCtx /><Wrong /></>)).toThrow(/got a function\. A selector goes in the options/)
+    }
+    error.mockRestore()
+  })
+})
+
+describe('createStore(name, useFn, options)', () => {
+  it('says what 2.0 removed when it gets the options of 1.x', () => {
+    const useFn = () => ({ n: 1 })
+    const create = createStore as (...args: unknown[]) => unknown
+    expect(() => create(`minimal-old-${++names}`, useFn, { initialState: { n: 0 } })).toThrow(/initialState was removed in 2\.0/)
+    expect(() => create(`minimal-old-${++names}`, useFn, { initialState: {}, AttachedComponent: () => null })).toThrow(/initialState and AttachedComponent were removed/)
+    expect(() => create(`minimal-old-${++names}`, useFn, 5000)).toThrow(/takes its options as an object/)
+    expect(() => create(`minimal-old-${++names}`, useFn, {}, () => null)).toThrow(/AttachedComponent argument was removed/)
+    expect(() => create(`minimal-old-${++names}`, useFn, undefined)).not.toThrow()
   })
 })
 
@@ -268,28 +284,6 @@ describe('useMultipleStore(refs)', () => {
     expect(getByTestId('labels').textContent).toBe('A,B')
     act(() => { flushScheduled() })
     expect(getByTestId('labels').textContent).toBe('Alpha,Beta')
-  })
-
-  // 1.x only: removed in 2.0, with scopes
-  it('reads the instances of the scope it renders in', async () => {
-    const { storeRef, useStore } = itemStore()
-    const Rename = () => {
-      const { setLabel } = useStore({ id: 'a' })
-      useEffect(() => { setLabel?.('Scoped') }, [setLabel])
-      return null
-    }
-    const Label = ({ testId }: { testId: string }) => {
-      const [item] = useMultipleStore([storeRef({ id: 'a' })])
-      return <span data-testid={testId}>{item.label}</span>
-    }
-    const { getByTestId } = render(<>
-      <AutoRootCtx />
-      <Label testId="global" />
-      <StateScopeProvider><Rename /><Label testId="scoped" /></StateScopeProvider>
-    </>)
-    await tick()
-    expect(getByTestId('global').textContent).toBe('A')
-    expect(getByTestId('scoped').textContent).toBe('Scoped')
   })
 
   it('works inside a store hook, over a list of instances', async () => {

@@ -13,14 +13,8 @@ import "./DevTool.css"
 /** Up to this many stores can be compared side by side. */
 const MAX_SELECTED = 5
 
-/** Store name without params: `"scope/counter?initial=1"` → `"scope/counter"`. */
+/** Store name without params: `"counter?initial=1"` → `"counter"`. */
 const groupOf = (name: string) => name.split("?")[0] ?? name
-
-/** `"a/b/counter"` → `["a/b", "counter"]`: scoped stores are named `<scopeId>/<name>`. */
-const splitScope = (group: string) => {
-    const at = group.lastIndexOf('/')
-    return at === -1 ? [undefined, group] as const : [group.slice(0, at), group.slice(at + 1)] as const
-}
 
 /** `"counter?initial=1&user=a%20b"` → `"initial=1, user=a b"`, or `"(no params)"`. */
 export const paramsLabel = (name: string) => {
@@ -39,9 +33,9 @@ export const paramsLabel = (name: string) => {
  */
 export const DevToolState: React.FC<{ Component?: DataViewComponent }> = ({ Component = DataViewDefault }) => {
     const version = useCacheVersion()
-    // every live context except the internal root of each scope (named "auto-ctx" or "<scopeId>/auto-ctx")
+    // every live context except AutoRootCtx's own ("auto-ctx")
     const names = useMemo(
-        () => [...getContext.cache.values()].map(ctx => ctx.name).filter(name => !/(^|\/)auto-ctx$/.test(name)),
+        () => [...getContext.cache.values()].map(ctx => ctx.name).filter(name => name !== "auto-ctx"),
         [version]
     )
     const [filterString, setFilterString] = useState("")
@@ -81,11 +75,9 @@ export const DevToolState: React.FC<{ Component?: DataViewComponent }> = ({ Comp
             <HightlightWrapper highlight={filterString}>
                 {groups.length === 0 && <div className="state-empty">{names.length === 0 ? "No store mounted" : "No match"}</div>}
                 {groups.map(([group, instances]) => {
-                    const [scope, storeName] = splitScope(group)
                     return <Fragment key={group}>
                         <div className="state-group-header">
-                            <HighlightString text={storeName} />
-                            {scope && <small> {scope}</small>}
+                            <HighlightString text={group} />
                         </div>
                         {instances.map(name => <StateLabelRender
                             key={name}
@@ -137,14 +129,12 @@ export const StateView: React.FC<{ dataKey: string, Component?: DataViewComponen
         }
     }, [ctx])
 
-    const [scope, storeName] = splitScope(groupOf(dataKey))
     return <div className="state-view" data-store={dataKey}>
         <div className="state-view-header" title={dataKey}>
-            <span className="state-view-name">{storeName}</span>
+            <span className="state-view-name">{groupOf(dataKey)}</span>
             <span className="state-view-params">{paramsLabel(dataKey)}</span>
-            {scope && <span className="state-badge">{scope}</span>}
             {!ctx && <span className="state-badge state-badge-gone">unmounted</span>}
-            {ctx && !ctx.ready && <span className="state-badge">initial</span>}
+            {ctx && !ctx.ready && <span className="state-badge">not running</span>}
             {onClose && <button type="button" className="state-view-close" onClick={onClose} aria-label={`Close ${dataKey}`}>×</button>}
         </div>
         <div className="state-view-body">

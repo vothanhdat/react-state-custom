@@ -31,7 +31,7 @@ const ErrorWrapper: React.FC<{ children?: React.ReactNode }> = ({ children }: an
 createRoot(document.getElementById('root')!)
     .render(<>
         <StrictMode>
-            <AutoRootCtx Wrapper={ErrorWrapper} debugging={true} />
+            <AutoRootCtx />
             <ErrorWrapper>
                 <Dev />
             </ErrorWrapper>

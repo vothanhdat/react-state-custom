@@ -26,24 +26,23 @@ const sameKeys = (a: PropertyKey[], b: PropertyKey[]) => a.length === b.length &
 /** Server snapshot meaning "render what the server rendered": the live data has moved on since. */
 export const FROM_SERVER = -1
 
-/** True when `live` holds a value the server could not have rendered from `seed`. */
-const differsFromSeed = (seed: Record<PropertyKey, unknown>, live: Record<PropertyKey, unknown>) => {
-  for (const key of Object.keys(seed)) if (!Object.is(seed[key], live[key])) return true
-  for (const key of Object.keys(live)) if (!Object.hasOwn(seed, key) && live[key] !== undefined) return true
+/** True when `live` holds a value the server could not have rendered: any key that is not `undefined`. */
+const hasValues = (live: Record<PropertyKey, unknown>) => {
+  for (const key of Object.keys(live)) if (live[key] !== undefined) return true
   return false
 }
 
 const outOfRenderWarning = (key: PropertyKey) =>
-  `useQuickSubscribe: "${String(key)}" was read outside of render (e.g. in an event handler or effect). ` +
+  `useStore: "${String(key)}" was read outside of render (e.g. in an event handler or effect). ` +
   `The value is current, but this read is not tracked, so later changes to it will not re-render the component. ` +
-  `Read it during render and capture it, or use useDataSubscribe for ad-hoc reads.`
+  `Read it during render and capture it, or use storeRef(params).get() for reads outside render.`
 
 const restWarning = (name: string) =>
-  `useQuickSubscribe: the state of "${name}" was spread during render. That reads every key, ` +
+  `useStore: the state of "${name}" was spread during render. That reads every key, ` +
   `so the component re-renders whenever any of them changes. Read only the keys you need, or use a selector.`
 
 const readOnlyError = (key: PropertyKey) =>
-  `useQuickSubscribe: "${String(key)}" is read-only. A write here would change the data under every reader ` +
+  `useStore: "${String(key)}" is read-only. A write here would change the data under every reader ` +
   `without notifying them. Change the state in the store hook (for example with a setter it returns).`
 
 /** Stores already warned about a spread, so a list of components spreading one store warns once. */
@@ -64,7 +63,7 @@ const refuseWrite = (_target: unknown, key: PropertyKey): never => {
  * - Changes are checked against the render on screen, not the latest one: React can render and then
  *   discard (a transition that suspends keeps the previous UI on screen while it waits), and a
  *   discarded render must not change what the UI on screen is subscribed to.
- * - While hydrating, reads come from `serverData` (what the server rendered) when the live data has
+ * - While hydrating, reads come from an empty state (what the server rendered) when the live data has
  *   already moved on, e.g. a store that ran for an earlier island or Suspense boundary.
  * - With a schedule other than `'sync'`, a change asks for a check when the schedule says, which
  *   compares with the data of that moment. A store's first data (it becomes ready after the render on
@@ -75,7 +74,6 @@ export function createTracker<D>(ctx: Context<D> | undefined) {
   let version = 0
   /** The data this render reads from instead of the live data (the server's, while hydrating). */
   let rendering: Partial<D> | undefined
-  let serverData: (() => Partial<D>) | undefined
   let serverSnapshot: number | undefined
 
   const listeners = new Set<() => void>()
@@ -244,7 +242,8 @@ export function createTracker<D>(ctx: Context<D> | undefined) {
     view,
     /** Called at the start of every render: reopen the getter and start recording this render's reads. */
     beginRender(snapshot: number) {
-      rendering = snapshot === FROM_SERVER && serverData ? serverData() : undefined
+      // what the server rendered from: stores never run there, so every key reads undefined
+      rendering = snapshot === FROM_SERVER ? {} : undefined
       open = true
       rendered = true
       reading.seen.clear()
@@ -317,19 +316,13 @@ export function createTracker<D>(ctx: Context<D> | undefined) {
       return () => { listeners.delete(listener) }
     },
     getSnapshot: () => version,
-    /** What the server rendered for this context; read lazily by getServerSnapshot and beginRender. */
-    setServerData(server: (() => Partial<D>) | undefined) {
-      serverData = server
-    },
     /**
-     * Used by React on the server and while hydrating. Without `serverData` it is the live snapshot.
-     * With it, a component hydrating after the store has published (another island or Suspense
-     * boundary started it) renders the server's data first, then React re-renders it with live data.
+     * Used by React on the server and while hydrating. A component hydrating after the store has
+     * published (another island or Suspense boundary started it) renders what the server rendered
+     * first, an empty state, then React re-renders it with the live data.
      */
     getServerSnapshot: () => {
-      if (serverSnapshot === undefined) {
-        serverSnapshot = serverData && differsFromSeed(serverData() as any, data() as any) ? FROM_SERVER : version
-      }
+      serverSnapshot ??= hasValues(data() as Record<PropertyKey, unknown>) ? FROM_SERVER : version
       return serverSnapshot
     },
   }
@@ -338,7 +331,7 @@ export function createTracker<D>(ctx: Context<D> | undefined) {
 export type Tracker<D> = ReturnType<typeof createTracker<D>>
 
 /**
- * useQuickSubscribe is a custom React hook for efficiently subscribing to specific properties of a context's data object.
+ * The proxy form of `useStore`: subscribes to the properties of a context's data that the component reads.
  * 
  * @template D - The shape of the context data.
  * @param {Context<D> | undefined} ctx - The context object containing data and a subscribe method.
@@ -362,8 +355,6 @@ export type Tracker<D> = ReturnType<typeof createTracker<D>>
  */
 export const useQuickSubscribe = <D>(
   ctx: Context<D> | undefined,
-  /** What the server rendered for this context (a store's `initialState`), read while hydrating. */
-  serverData?: () => Partial<D>,
   /** When the component re-renders for a change: `frame()`, `throttle(ms)`, ... (default at once). */
   schedule?: Scheduler
 ): {
@@ -373,7 +364,6 @@ export const useQuickSubscribe = <D>(
   const tracker = useMemo(() => createTracker(ctx), [ctx])
   const plan = schedulerOf(schedule)
 
-  tracker.setServerData(serverData)
   const snapshot = useSyncExternalStore(tracker.subscribe, tracker.getSnapshot, tracker.getServerSnapshot)
   tracker.beginRender(snapshot)
 

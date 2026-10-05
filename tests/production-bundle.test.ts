@@ -8,7 +8,7 @@ import { resolve } from 'path'
  * a constant set to `process.env.NODE_ENV === 'production'`: the app's bundler replaces the expression
  * and its minifier folds the constant and drops the branches. A constant computed at runtime (it was
  * wrapped in a try/catch) kept every branch and its warning text.
- * This bundles the library source as an app does (Vite, production and development modes).
+ * This bundles the library source, both entries, as an app does (Vite, production and development modes).
  */
 
 const root = resolve(__dirname, '..')
@@ -18,17 +18,16 @@ const devOnly = [
   'was spread during render',               // useQuickSubscribe: spread warning
   'is read-only. A write here',             // useQuickSubscribe: write through the proxy
   'was read outside of render',             // useQuickSubscribe: untracked read
-  'More than one <AutoRootCtx',             // second root in a scope
-  'changed identity',                       // inline Wrapper / debugging renderer
+  'More than one <AutoRootCtx',             // second root
   'Two different stores are named',         // duplicate store name
   'was called with a selector',             // selector toggled at a call site
   'is used but no <AutoRootCtx',            // store without a root
-  'which the store has set back',           // useStoreSuspense(params, keys): cleared key
-  'rendered from initialState',             // useStoreSuspense: seed reads
   'Circular dependency detected',           // DependencyTracker
   'is not a schedule',                      // schedule: a value that is not a scheduler
   'expected a number of milliseconds',      // throttle(ms), debounce(ms), idle(ms) with a bad delay
   'Options come after the',                 // useStore({ schedule }) on a store without params
+  'A selector goes in the options',         // useStore(params, selector), the 1.x form
+  'Readers get undefined until the store',  // createStore options 1.x took
 ]
 
 const bundle = async (mode: 'production' | 'development') => {
@@ -52,7 +51,7 @@ const bundleIn = async (mode: 'production' | 'development') => {
       write: false,
       minify: 'esbuild',
       rollupOptions: {
-        input: resolve(root, 'src/index.ts'),
+        input: { index: resolve(root, 'src/index.ts'), schedulers: resolve(root, 'src/schedulers/index.ts') },
         preserveEntrySignatures: 'strict',
         external: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
       },

@@ -1,208 +1,33 @@
 # Tests
 
-This directory contains the test suite for `react-state-custom`.
-
-## Running Tests
-
 ```bash
-# Run tests once (exits after completion)
-yarn test
-
-# Run tests in watch mode (development)
-yarn test:watch
-
-# Run tests with UI
-yarn test:ui
-
-# Run tests with coverage
-yarn test:coverage
+yarn test              # the suite, jsdom, every render under StrictMode
+yarn test:compiler     # tests/compiler: stores and components compiled by the React Compiler
+yarn build && yarn test:dist   # the same, against the built package
+yarn test:package-types        # tests/package-types: an app's tsc against dist/, six module resolutions
+yarn typecheck         # the library, tests/types, the benchmarks and both demos
 ```
 
-**Note:** Tests now run to completion without hanging. Default command uses `vitest run`.
+CI also runs the suite on React 18.3 (`.github/workflows/test.yml`); tests that need React 19.2 (`<Activity>`) skip there.
 
-## Current Test Status
+## Layout
 
-**Overall: 76/76 tests passing (100%)** 🎉
+| Files | What they cover |
+|---|---|
+| `createStore`, `auto-root*`, `integration` | instances per params, sharing, `timeToClean`, several roots, buckets, store names |
+| `minimal-api`, `store-ref`, `store-selector`, `store-functions`, `store-publish` | `useStore` and `{ select }`, `storeRef`, `useMultipleStore`, what a store publishes |
+| `store-errors`, `teardown`, `hot-reload`, `store-hook-suspends` | a store that throws, a torn-down instance, hot updates, a hook that suspends |
+| `concurrent`, `ssr.*` | transitions, `useDeferredValue`, `<Activity>`, server rendering and hydration |
+| `schedule` | the `schedule` option and `react-state-custom/schedulers` |
+| `testing` | `react-state-custom/testing` |
+| `render-count`, `bulk-updates`, `node-env`, `production-bundle` | render counts, linear updates, development checks that cost nothing in production |
+| `recipes` | the recipes of the guide, as written there |
+| `ctx`, `useQuickSubscribe`, `review-fixes` | internals: the context, the tracking proxy, the context cache |
+| `examples.smoke`, `dev-tool` | the playground examples and the dev tool |
+| `types/` | type-level tests, checked by `yarn typecheck`, never run |
 
-- ✅ `ctx.test.ts` - 21/21 tests (100%)
-- ✅ `createRootCtx.test.tsx` - 10/10 tests (100%)
-- ✅ `useArrayChangeId.test.ts` - 11/11 tests (100%)
-- ✅ `useQuickSubscribe.test.ts` - 16/16 tests (100%)
-- ✅ `createAutoCtx.test.tsx` - 15/15 tests (100%)
-- ✅ `integration.test.tsx` - 3/3 tests (100%)
+## Conventions
 
-**Test Duration:** ~1.0-1.2 seconds
-
-## Test Structure
-
-### Core Tests
-
-- **`ctx.test.ts`** (21 tests, ✅ all passing) - Tests for the core Context system:
-  - Context class publish/subscribe mechanism with act() wrapping
-  - `getContext` memoization
-  - `useDataContext` hook
-  - `useDataSource` and `useDataSourceMultiple` hooks with proper state updates
-  - `useDataSubscribe` and `useDataSubscribeMultiple` hooks
-  - Debouncing behavior
-  - Selective re-rendering for non-subscribed keys
-
-- **`createRootCtx.test.tsx`** (10 tests, ✅ all passing) - Tests for root context creation:
-  - Root component creation and rendering
-  - Context data provision through Root
-  - Unique context name derivation from props
-  - `useCtxState` and `useCtxStateStrict` hooks
-  - Error handling when Root is not mounted
-  - State updates with act() wrapping
-  - Props key ordering normalization
-
-- **`createAutoCtx.test.tsx`** (15 tests, ✅ all passing) - Tests for auto context system:
-  - ✅ AutoRootCtx component behavior
-  - ✅ Multiple subscribers and root instances
-  - ✅ Error boundary wrapping
-  - ✅ Reference counting and cleanup with delays
-  - ✅ Rapid mount/unmount cycles
-  - ✅ State updates after auto-mounting
-  - ✅ AttatchedComponent rendering alongside state runner
-  - ✅ AttatchedComponent receives params correctly
-
-### Utility Tests
-
-- **`useArrayChangeId.test.ts`** (11 tests, ✅ all passing) - Tests for array change detection:
-  - Shallow comparison behavior (length + element reference)
-  - Stability with unchanged primitive values
-  - Object reference comparison (not deep equality)
-  - Nested array handling (by reference)
-  - Mixed type handling
-  - Large array performance
-  - **Fixed:** Implementation bug where getter pattern was resetting state
-
-- **`useQuickSubscribe.test.ts`** (16 tests, ✅ all passing) - Tests for proxy-based subscription:
-  - Selective subscription via property access
-  - Re-render optimization
-  - Dynamic property access patterns
-  - Object and array value handling
-  - Memory leak prevention
-  - Re-subscribing to context changes
-
-## Test Utilities
-
-### Setup
-
-- **`setup.ts`** - Global test setup and cleanup
-  - **TextEncoder/TextDecoder polyfills** (fixes esbuild errors)
-  - Configures React Testing Library
-  - Automatic cleanup after each test
-
-### Configuration
-
-- **`vitest.config.test.ts`** - Vitest configuration
-  - jsdom environment for React testing
-  - **Test timeouts:** 500ms default, 1000ms for async tests
-  - **Watch mode disabled** by default (no hanging)
-  - **Exclude patterns** to prevent testing config files
-  - Thread pool for environment isolation
-  - Coverage settings with proper excludes
-
-## Testing Patterns
-
-### Hook Testing with act()
-
-```typescript
-import { renderHook, act } from '@testing-library/react'
-
-// Wrap state updates in act()
-const { result, rerender } = renderHook(() => useYourHook())
-
-act(() => {
-  // Perform actions that cause state updates
-  result.current.increment()
-})
-
-expect(result.current.count).toBe(1)
-
-// Rerender with new props
-act(() => {
-  rerender({ newProp: 'value' })
-})
-```
-
-### Component Testing
-
-```typescript
-import { render, screen } from '@testing-library/react'
-
-render(<YourComponent />)
-expect(screen.getByTestId('element')).toBeInTheDocument()
-```
-
-### Context Testing
-
-```typescript
-const ctx = getContext('test-context')
-const listener = vi.fn()
-ctx.subscribe('key', listener)
-act(() => {
-  ctx.publish('key', value)
-})
-expect(listener).toHaveBeenCalledWith(value)
-```
-
-## Coverage Goals
-
-- **Target**: 80%+ code coverage
-- **Focus areas**:
-  - Core context system (highest priority)
-  - Root context creation
-  - Auto context lifecycle
-  - Subscription hooks
-
-## CI/CD Integration
-
-Tests run automatically on:
-- Pull requests
-- Pushes to master
-- Before publishing to npm (via `prepublishOnly`)
-
-## Debugging Tests
-
-```bash
-# Run specific test file
-yarn test ctx.test.ts
-
-# Run specific test
-yarn test -t "should publish and notify"
-
-# Run with verbose output
-yarn test --reporter=verbose
-
-# Open UI for debugging
-yarn test:ui
-```
-
-## Best Practices
-
-1. **Isolation**: Each test should be independent and not rely on other tests
-2. **Cleanup**: Use `afterEach` to clean up resources (automatic via setup.ts)
-3. **Descriptive names**: Test names should clearly describe what they test
-4. **Arrange-Act-Assert**: Structure tests with clear setup, action, and verification phases
-5. **Mock sparingly**: Test real behavior when possible; mock external dependencies
-6. **Test user behavior**: Focus on how users interact with the library, not implementation details
-
-## Current Test Status
-
-✅ Context class basic functionality (21 tests)
-✅ Context subscription and unsubscription
-✅ Context memoization
-✅ useDataSource hooks
-✅ useDataSubscribe hooks  
-✅ Root context creation (10 tests)
-✅ useCtxState and useCtxStateStrict hooks
-✅ Auto context system (15 tests - all passing)
-✅ useArrayChangeId utility (11 tests - all passing)
-✅ useQuickSubscribe utility (16 tests - all passing)
-✅ Integration tests (3 tests - all passing)
-⏳ Integration tests (TODO)
-⏳ Performance tests (TODO)
-⏳ Example tests (TODO)
-
-**Current Stats: 50/60 tests passing (83%)**
+- `setup.ts` renders under StrictMode and calls `cleanup()` and `resetStores()` after each test. Pass `{ reactStrictMode: false }` to `render` where a test counts renders.
+- Give each store a unique name: names identify instances across the whole page.
+- Most tests wait with `act` and real timers (`tick`); tests of a schedule use fake timers or `flushScheduled()`.

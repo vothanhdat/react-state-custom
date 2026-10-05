@@ -4,7 +4,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, renderHook, act, screen, fireEvent } from '@testing-library/react'
 import { useEffect, useState } from 'react'
 import { AutoRootCtx, createStore } from '../src'
-import { StateScopeProvider } from '../src/state-utils/createAutoCtx'
 import { mockStore, resetStores, storeHandle, waitForStore } from '../src/testing'
 
 type Task = { id: string; title: string }
@@ -97,13 +96,6 @@ describe('mockStore', () => {
     expect(screen.getByText('loading p1')).toBeTruthy()
   })
 
-  // 1.x only: removed in 2.0, with scopes
-  it('applies inside a StateScopeProvider', () => {
-    mockStore(useTasks, { tasks: [{ id: 's', title: 'Scoped' }] })
-    render(<StateScopeProvider><TaskList projectId="p1" /></StateScopeProvider>)
-    expect(screen.getByText('Scoped')).toBeTruthy()
-  })
-
   it('serves a hook under test that reads the store, through renderHook', () => {
     const { useStore: useSession } = createStore('testing-session', () => ({ user: undefined as { name: string } | undefined }))
     const useGreeting = () => {
@@ -191,9 +183,10 @@ describe('waitForStore', () => {
   it('rejects after the timeout, saying why', async () => {
     await expect(waitForStore(useTasks, { projectId: 'none' }, undefined, { timeout: 20 }))
       .rejects.toThrow('waitForStore("testing-tasks?projectId=none") timed out after 20 ms: no instance of it is running')
-    render(<App />)
+    const app = render(<App />)
     await expect(waitForStore(useTasks, { projectId: 'p1' }, state => state.tasks?.length === 3, { timeout: 50 }))
       .rejects.toThrow('isReady still returns false')
+    app.unmount()
     mockStore(useTasks, {})
     render(<><AutoRootCtx /><TaskList projectId="p3" /></>)
     await expect(waitForStore(useTasks, { projectId: 'p3' }, ['tasks', 'add'], { timeout: 20 }))

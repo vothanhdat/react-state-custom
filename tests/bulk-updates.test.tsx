@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
 import { useState } from 'react'
 import { createStore, AutoRootCtx } from '../src'
-import { Context, useDataSubscribeMultiple } from '../src/state-utils/ctx'
+import { Context } from '../src/state-utils/ctx'
 import { useQuickSubscribe } from '../src/state-utils/useQuickSubscribe'
 
 /**
@@ -82,31 +82,6 @@ describe('updates and mounts with many keys stay linear', () => {
     const onMount = await countCalls(Object, 'is', () => show(true))
     expect(onMount).toBeLessThan(10 * N)
     expect(container.querySelector('b')!.textContent).toBe('0')
-
-    const onUpdate = await countCalls(Object, 'is', bump)
-    expect(onUpdate).toBeLessThan(20 * N)
-    expect(container.querySelector('b')!.textContent).toBe(String(N))
-  })
-
-  // 1.x only: removed in 2.0
-  it('useDataSubscribeMultiple mounts and updates in linear time', async () => {
-    const { useStore, useCtxState, keys, bump } = keyedStore('bulk-multi')
-    const Multi = () => {
-      const values = useDataSubscribeMultiple(useCtxState(), ...keys)
-      return <b>{Object.values(values).reduce<number>((sum, v) => sum + (v ?? 0), 0)}</b>
-    }
-    let show = (_: boolean) => { }
-    const App = () => {
-      const [on, setOn] = useState(false)
-      show = setOn
-      return <><AutoRootCtx /><Probe />{on && <Multi />}</>
-    }
-    const Probe = () => <i>{useStore().id0}</i>
-    const { container } = render(<App />)
-    await act(async () => { })
-
-    const onMount = await countCalls(Object, 'is', () => show(true))
-    expect(onMount).toBeLessThan(10 * N)
 
     const onUpdate = await countCalls(Object, 'is', bump)
     expect(onUpdate).toBeLessThan(20 * N)

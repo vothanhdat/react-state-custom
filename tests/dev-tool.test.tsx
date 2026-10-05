@@ -3,7 +3,6 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
 import { AutoRootCtx, createStore } from '../src'
-import { StateScopeProvider } from '../src/state-utils/createAutoCtx'
 import { getContext } from '../src/state-utils/ctx'
 import { DevToolContainer, DevToolState, StateView } from '../src/dev-tool'
 
@@ -94,19 +93,6 @@ describe('DevToolContainer', () => {
 
     await userEvent.click(within(view()).getByRole('button', { name: /Close dt-counter/ }))
     expect(panel.querySelector('[data-store="dt-counter?initial=1"]')).toBeNull()
-  })
-
-  // 1.x only: removed in 2.0, with scopes
-  it('shows the scope of stores mounted inside a StateScopeProvider', async () => {
-    render(<>
-      <StateScopeProvider><Counter initial={2} /></StateScopeProvider>
-      <DevToolContainer />
-    </>)
-    await screen.findByText('count:2')
-    const panel = await openPanel()
-    const header = within(panel).getByText('dt-counter').closest('.state-group-header')!
-    expect(header.querySelector('small')?.textContent?.trim()).toMatch(/\S+/)   // the scope id
-    expect(within(panel).queryByText(/auto-ctx/)).toBeNull()
   })
 
   it('hides the trigger while open, closes from the panel, and remembers the open state per tab', async () => {

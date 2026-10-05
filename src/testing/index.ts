@@ -5,37 +5,25 @@ import { acquireContext, getContext, type Context } from "../state-utils/ctx"
 import { DependencyTracker } from "../state-utils/utils"
 import { cancelAllScheduled, flushAllScheduled } from "../state-utils/schedule"
 import { storeEntries, storeMocks, type StoreEntry } from "../state-utils/storeRegistry"
-import type { StoreRef, StoreParams, StoreState, StoreStateWith } from "../state-utils/createAutoCtx"
+import type { StoreRef, StoreParams, StoreState, UseStore } from "../state-utils/createAutoCtx"
 
-/** A function `createStore` returned. `useStore`, `storeRef` and `useStoreSuspense` also carry the store's types. */
+/** A function `createStore` returned: `useStore` or `storeRef`, which carry the store's types. */
 export type StoreFunction = (...args: any[]) => any
 
 /**
- * `[params, state, initialState]` of the store behind one of its functions. An overloaded function
- * is matched against both of its overloads, the only way to read the first one; matched against a
- * single signature, its generic last overload would take any return type and match anything.
+ * `[params, state]` of the store behind one of its functions. `storeRef` first: a plain function
+ * returning a ref could otherwise pass for the overloads of `useStore`.
  */
 type TypesOf<F> =
-  // storeRef (the return type of useStore's selector overload reads as unknown here)
-  F extends (...args: infer A) => infer H
-    ? H extends StoreRef<infer V, infer I> ? [Exclude<A[0], undefined>, V, I]
-    // useStore: the proxy overload, then the selector one, whose `state` names the types
-    : F extends { (...args: infer A): any, <R>(params: any, selector: (state: StoreState<infer V, infer I>) => R, isEqual?: any): R }
-      ? unknown extends V ? SuspenseTypesOf<F> : [Exclude<A[0], undefined>, V, I]
-    : SuspenseTypesOf<F>
-  : Unknown
-
-/** useStoreSuspense: the predicate overload, whose `state` names the types, then the keys one. */
-type SuspenseTypesOf<F> =
-  F extends { (params: infer P, isReady?: (state: StoreState<infer V, infer I>) => boolean): any, <const K extends readonly any[]>(params: any, keys: K): any }
-    ? unknown extends V ? Unknown : [Exclude<P, undefined>, V, I]
-    : Unknown
-
-type Unknown = [any, any, {}]
+  F extends (...args: infer A) => StoreRef<infer V> ? [Exclude<A[0], undefined>, V]
+  : F extends UseStore<infer U, infer V> ? [U, V]
+  : [any, any]
 
 type ParamsOf<F> = TypesOf<F>[0]
 type StateOf<F> = TypesOf<F>[1]
-type InitialOf<F> = TypesOf<F>[2]
+
+/** What `waitForStore(store, params, keys)` resolves with: the keys it waited for hold a value. */
+type StoreStateWith<V, K extends keyof V> = StoreState<V> & { [P in K]-?: Exclude<V[P], undefined> }
 
 /** The params argument when more arguments follow it: `undefined` is accepted when no param is required. */
 type ParamsArg<F> = {} extends ParamsOf<F> ? ParamsOf<F> | undefined : ParamsOf<F>
@@ -49,12 +37,11 @@ const entryOf = (store: unknown, caller: string): StoreEntry => {
   )
 }
 
-/** Names of the running instances of the store `name`, in any scope (a scope prefixes them with `scope<n>/`). */
+/** Names of the running instances of the store `name`. */
 const runningInstances = (name: string) => {
   const running: string[] = []
   for (const ctx of getContext.cache.values() as Iterable<Context<unknown>>) {
-    const unscoped = ctx.name.replace(/^scope\d+\//, "")
-    if (ctx.instances > 0 && (unscoped === name || unscoped.startsWith(`${name}?`))) running.push(ctx.name)
+    if (ctx.instances > 0 && (ctx.name === name || ctx.name.startsWith(`${name}?`))) running.push(ctx.name)
   }
   return running
 }
@@ -72,14 +59,13 @@ export type StoreMock<V> = {
 
 /**
  * Replace a store's hook in the instances that start from now on. `mock` is what the store publishes,
- * some of its keys or all of them, or a hook of `(params, preState)` returning them, which may use
- * other hooks. The store's own hook and its `AttachedComponent` do not run; `initialState` and
- * `timeToClean` still apply. Functions are published as actions, so a `vi.fn()` passed here records
- * the calls readers make. Applies in every scope. `resetStores()` removes every mock.
+ * some of its keys or all of them, or a hook of `(params)` returning them, which may use other hooks.
+ * The store's own hook does not run; `timeToClean` still applies. Functions are published as
+ * actions, so a `vi.fn()` passed here records the calls readers make. `resetStores()` removes every mock.
  */
 export const mockStore = <F extends StoreFunction>(
   store: F,
-  mock: NoInfer<Partial<StateOf<F>> | ((params: ParamsOf<F>, preState: Partial<StateOf<F>>) => Partial<StateOf<F>>)>,
+  mock: NoInfer<Partial<StateOf<F>> | ((params: ParamsOf<F>) => Partial<StateOf<F>>)>,
 ): StoreMock<StateOf<F>> => {
   const { name } = entryOf(store, "mockStore")
   const running = runningInstances(name)
@@ -98,8 +84,8 @@ export const mockStore = <F extends StoreFunction>(
   }
   const getOverrides = () => overrides
 
-  const useMock = (params: ParamsOf<F>, preState: Partial<StateOf<F>>) => {
-    const values = typeof mock === "function" ? mock(params, preState) : mock
+  const useMock = (params: ParamsOf<F>) => {
+    const values = typeof mock === "function" ? mock(params) : mock
     const extra = useSyncExternalStore(subscribe, getOverrides, getOverrides)
     return extra ? { ...values, ...extra } : values
   }
@@ -139,10 +125,9 @@ export const flushScheduled = (): boolean => flushAllScheduled()
 /**
  * The `storeRef(params)` of a store, from any of its functions: read its state, call its
  * actions, subscribe or `retain()` it, also when its module exports only `useStore`.
- * Global scope only, like `storeRef`.
  */
-export const storeHandle = <F extends StoreFunction>(store: F, ...args: StoreParams<ParamsOf<F>>): StoreRef<StateOf<F>, InitialOf<F>> =>
-  entryOf(store, "storeHandle").getStore(args[0] as object | undefined)
+export const storeHandle = <F extends StoreFunction>(store: F, ...args: StoreParams<ParamsOf<F>>): StoreRef<StateOf<F>> =>
+  entryOf(store, "storeHandle").storeRef(args[0] as object | undefined)
 
 /** Options of `waitForStore`. */
 export type WaitForStoreOptions = {
@@ -183,26 +168,25 @@ const timeoutMessage = (ctx: Context<object>, timeout: number, state: Record<Pro
 
 /**
  * Wait until the store instance has published (its hook ran), or until `isReady(state)` holds, or
- * until each of `keys` holds a value, which types those keys as present, like `useStoreSuspense`.
+ * until each of `keys` holds a value, which types those keys as present.
  * Resolves with the state; rejects with what the store hook threw if it fails, and after `timeout`.
  * It does not start the store: render a component that reads it, or `retain()` it.
- * Global scope only, like `storeRef`.
  */
-export function waitForStore<F extends StoreFunction>(store: F, ...args: StoreParams<ParamsOf<F>>): Promise<StoreState<StateOf<F>, InitialOf<F>>>
+export function waitForStore<F extends StoreFunction>(store: F, ...args: StoreParams<ParamsOf<F>>): Promise<StoreState<StateOf<F>>>
 // the predicate first: checked against the keys overload first, its parameter would get no type
 export function waitForStore<F extends StoreFunction>(
-  store: F, params: ParamsArg<F>, isReady: NoInfer<((state: StoreState<StateOf<F>, InitialOf<F>>) => boolean) | undefined>, options?: WaitForStoreOptions,
-): Promise<StoreState<StateOf<F>, InitialOf<F>>>
+  store: F, params: ParamsArg<F>, isReady: NoInfer<((state: StoreState<StateOf<F>>) => boolean) | undefined>, options?: WaitForStoreOptions,
+): Promise<StoreState<StateOf<F>>>
 export function waitForStore<F extends StoreFunction, const K extends readonly (keyof StateOf<F>)[]>(
   store: F, params: ParamsArg<F>, keys: K, options?: WaitForStoreOptions,
-): Promise<number extends K["length"] ? StoreState<StateOf<F>, InitialOf<F>> : StoreStateWith<StateOf<F>, InitialOf<F>, K[number]>>
+): Promise<number extends K["length"] ? StoreState<StateOf<F>> : StoreStateWith<StateOf<F>, K[number]>>
 export function waitForStore(
   store: StoreFunction,
   params?: object,
   until?: readonly PropertyKey[] | ((state: any) => boolean),
   { timeout = 1000 }: WaitForStoreOptions = {},
 ): Promise<unknown> {
-  const handle = entryOf(store, "waitForStore").getStore(params)
+  const handle = entryOf(store, "waitForStore").storeRef(params)
   const keys = Array.isArray(until) ? until as readonly PropertyKey[] : undefined
   const isReady = keys
     ? (state: Record<PropertyKey, unknown>) => keys.every(key => state[key] !== undefined)

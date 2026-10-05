@@ -47,7 +47,7 @@ export const schedulerOf = (schedule: Scheduler | undefined): Scheduler => {
       warned.add(text)
       console.error(
         `[react-state-custom] ${text} is not a schedule. Import one: sync(), frame(), throttle(ms), ` +
-        `debounce(ms, { maxWait }) or idle(ms) from react-state-custom. Rendering at once instead.`
+        `debounce(ms, { maxWait }) or idle(ms) from react-state-custom/schedulers. Rendering at once instead.`
       )
     }
   }

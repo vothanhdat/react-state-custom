@@ -1,9 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { render, act, fireEvent } from '@testing-library/react'
 import * as React from 'react'
-import { Suspense, memo, startTransition, useDeferredValue, useEffect, useState } from 'react'
+import { Suspense, memo, startTransition, useDeferredValue, useState } from 'react'
 import { createStore, AutoRootCtx } from '../src'
-import { useDataSubscribeWithTransform } from '../src/state-utils/ctx'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
 
@@ -105,10 +104,6 @@ describe('a transition that suspends, when the discarded render selects what is 
 
   it('useStore with a selector', () => run('coincide-selector', ({ mode, store }) =>
     <span data-testid="v">{String(store.useStore(undefined, { select: s => mode === 'a' ? s.a : s.b }))}</span>))
-
-  // 1.x only: removed in 2.0
-  it('useDataSubscribeWithTransform', () => run('coincide-transform', ({ mode, store }) =>
-    <span data-testid="v">{String(useDataSubscribeWithTransform(store.useCtxState(), 'a', a => mode === 'a' ? a : 0))}</span>))
 })
 
 describe('useDeferredValue on a store value', () => {
@@ -143,50 +138,11 @@ describe('useDeferredValue on a store value', () => {
   })
 })
 
-// 1.x only: removed in 2.0, with useStoreSuspense
-describe('loading stores in parallel', () => {
-  /** A store that starts "fetching" in an effect and never finishes, recording when it started. */
-  const fetching = (name: string, started: string[]) => createStore(name, () => {
-    const [data] = useState<string>()
-    useEffect(() => { started.push(name) }, [])
-    return { data }
-  })
-
-  it('starts every useStoreSuspense store of one boundary at once', async () => {
-    const started: string[] = []
-    const user = fetching('parallel-user', started)
-    const feed = fetching('parallel-feed', started)
-    const Header = () => <b>{user.useStoreSuspense({}, s => s.data !== undefined).data}</b>
-    const Feed = () => <i>{feed.useStoreSuspense({}, s => s.data !== undefined).data}</i>
-    render(<><AutoRootCtx /><Suspense fallback="loading"><Header /><Feed /></Suspense></>)
-    await tick()
-    expect(started).toContain('parallel-user')
-    expect(started).toContain('parallel-feed')
-  })
-
-  it('starts a useStore store in its own boundary while another boundary is suspended', async () => {
-    const started: string[] = []
-    const user = fetching('separate-user', started)
-    const feed = fetching('separate-feed', started)
-    const Header = () => <b>{user.useStoreSuspense({}, s => s.data !== undefined).data}</b>
-    const Feed = () => <i>{feed.useStore().data ?? '…'}</i>
-    render(<>
-      <AutoRootCtx />
-      <Suspense fallback="h"><Header /></Suspense>
-      <Suspense fallback="f"><Feed /></Suspense>
-    </>)
-    await tick()
-    expect(started).toContain('separate-user')
-    expect(started).toContain('separate-feed')
-  })
-})
-
 describe.skipIf(!Activity)('<Activity mode="hidden">', () => {
-  const setup = (name: string, options: { timeToClean?: number, warmStart?: boolean } = {}) => {
+  const setup = (name: string, options: { timeToClean?: number } = {}) => {
     let increment = () => {}
-    // warmStart: 1.x only, preState is removed in 2.0
-    const { useStore } = createStore(name, (_: {}, preState: { n?: number }) => {
-      const [n, setN] = useState(options.warmStart ? preState.n ?? 0 : 0)
+    const { useStore } = createStore(name, (_: {}) => {
+      const [n, setN] = useState(0)
       increment = () => setN(x => x + 1)
       return { n }
     }, { timeToClean: options.timeToClean ?? 0 })
@@ -223,14 +179,6 @@ describe.skipIf(!Activity)('<Activity mode="hidden">', () => {
 
   it('keeps the instance running through timeToClean', async () => {
     const { getByTestId, hideAndShow, countTo3 } = setup('activity-time-to-clean', { timeToClean: 60_000 })
-    await countTo3()
-    await hideAndShow()
-    expect(getByTestId('n').textContent).toBe('3')
-  })
-
-  // 1.x only: removed in 2.0
-  it('lets a new instance warm-start from preState', async () => {
-    const { getByTestId, hideAndShow, countTo3 } = setup('activity-warm-start', { warmStart: true })
     await countTo3()
     await hideAndShow()
     expect(getByTestId('n').textContent).toBe('3')

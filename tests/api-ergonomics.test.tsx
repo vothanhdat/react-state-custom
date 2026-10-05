@@ -35,44 +35,6 @@ describe('createStore', () => {
   })
 })
 
-// 1.x only: removed in 2.0
-describe('createStore options', () => {
-  it('seeds initialState so the very first render has values, then the store takes over', async () => {
-    const useUser = ({ userId }: { userId: string }) => {
-      const [user] = useState(() => ({ id: userId, name: 'Ada' }))
-      return { user, isLoading: false }
-    }
-    const { useStore } = createStore('seeded', useUser, {
-      initialState: { user: null as { id: string, name: string } | null, isLoading: true },
-    })
-    const firstRender: unknown[] = []
-    const C = () => {
-      const { user, isLoading } = useStore({ userId: 'u1' })
-      // types: non-optional because they are in initialState
-      const _check: boolean = isLoading
-      void _check
-      if (firstRender.length === 0) firstRender.push(user, isLoading)
-      return <span data-testid="out">{isLoading ? 'loading' : user!.name}</span>
-    }
-    const { getByTestId } = render(<><AutoRootCtx /><C /></>)
-    expect(firstRender).toEqual([null, true])
-    await tick()
-    expect(getByTestId('out').textContent).toBe('Ada')
-  })
-
-  it('accepts initialState as a function of params and a bare number as timeToClean', async () => {
-    const { useStore } = createStore('seeded-fn', ({ n }: { n: number }) => ({ double: n * 2 }), {
-      initialState: ({ n }) => ({ double: n * 2 }),
-      timeToClean: 0,
-    })
-    const { result } = renderHook(() => useStore({ n: 21 }).double)
-    expect(result.current).toBe(42)
-
-    const legacy = createStore('legacy-number', (_: {}) => ({ v: 1 }), 5000)
-    expect(typeof legacy.useStore).toBe('function')
-  })
-})
-
 describe('proxy ergonomics', () => {
   it('symbol keys pass through without being tracked and without warnings', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})

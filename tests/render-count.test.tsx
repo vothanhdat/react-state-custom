@@ -48,24 +48,6 @@ describe('render count on first data', () => {
     expect(renders).toBe(2)
   })
 
-  // 1.x only: removed in 2.0
-  it('initialState matching the first publish, reading only seeded keys: 1 render', async () => {
-    const { useStore } = createStore('rc-seeded', () => {
-      const [count] = useState(0)
-      return { count, increment: () => { } }
-    }, { initialState: { count: 0 } })
-    let renders = 0
-    const Consumer = () => {
-      renders++
-      const { count } = useStore()
-      return <span data-testid="v">{count}</span>
-    }
-    render(<><AutoRootCtx /><Consumer /></>, noStrict)
-    await tick()
-    expect(screen.getByTestId('v').textContent).toBe('0')
-    expect(renders).toBe(1)
-  })
-
   it('a second consumer of an already running store: 1 render', async () => {
     const { useStore } = createStore('rc-second', () => {
       const [count] = useState(3)

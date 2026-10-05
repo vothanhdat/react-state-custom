@@ -1,5 +1,5 @@
-import { useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
-import { Context, deliverOn, getContextInRender, isServer, liveContext, runSelector, StateScopeContext, useIsomorphicLayoutEffect } from "./ctx"
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
+import { Context, deliverOn, getContextInRender, isServer, liveContext, runSelector, useIsomorphicLayoutEffect } from "./ctx"
 import { useSelectorModeCheck, type StoreReadOptions, type StoreRef, type StoreSelect } from "./createAutoCtx"
 import { createTracker, FROM_SERVER, type Tracker } from "./useQuickSubscribe"
 import { schedulerOf, SYNC, type Scheduler } from "./schedule"
@@ -7,9 +7,9 @@ import { storeRefs, type StoreRefTarget } from "./storeRegistry"
 import { DependencyTracker, isProduction, shallowEqual } from "./utils"
 
 /** What `useMultipleStore` returns for each ref: what `useStore` returns for its params. */
-export type StatesOf<T extends readonly StoreRef<any, any>[]> = { -readonly [K in keyof T]: T[K] extends { get(): infer S } ? S : never }
+export type StatesOf<T extends readonly StoreRef<any>[]> = { -readonly [K in keyof T]: T[K] extends { get(): infer S } ? S : never }
 
-/** One instance a component reads: the target of its ref, its context name in the scope, and the context it renders with. */
+/** One instance a component reads: the target of its ref, its context name, and the context it renders with. */
 type Slot = { name: string, target: StoreRefTarget, ctx: Context<any> }
 
 const targetOf = (ref: unknown, index: number): StoreRefTarget => {
@@ -26,21 +26,19 @@ const sameOr = <T,>(previous: T[], next: T[]) =>
   previous.length === next.length && previous.every((item, i) => item === next[i]) ? previous : next
 
 /**
- * The instances `refs` name, in the current scope, each kept and run while the component is
- * mounted: what `useStore` does for its params, for a list whose length may change between renders.
+ * The instances `refs` name, each kept and run while the component is mounted: what `useStore`
+ * does for its params, for a list whose length may change between renders.
  */
-const useInstances = (refs: readonly StoreRef<any, any>[]) => {
-  const scopeId = useContext(StateScopeContext)
+const useInstances = (refs: readonly StoreRef<any>[]) => {
   const [, forceRender] = useState(0)
   /** The context each name renders with, as useDataContext keeps one, until the name leaves the list. */
   const [held] = useState(() => new Map<string, Context<any>>())
   const slots = refs.map((ref, i): Slot => {
     const target = targetOf(ref, i)
-    const name = scopeId ? `${scopeId}/${target.name}` : target.name
+    const { name } = target
     DependencyTracker.addDependency(name)
     let ctx = held.get(name)
     if (!ctx) held.set(name, ctx = isServer() ? new Context<any>(name) : getContextInRender(name))
-    target.prepare(ctx)
     return { name, target, ctx }
   })
   const key = slots.map(slot => slot.name).join("\n")
@@ -56,14 +54,14 @@ const useInstances = (refs: readonly StoreRef<any, any>[]) => {
         held.set(slot.name, live)
         adopted = true
       }
-      return slot.target.retain(scopeId)
+      return slot.target.retain()
     })
     for (const name of held.keys()) if (!names.has(name)) held.delete(name)
     if (adopted) forceRender(n => n + 1)
     return () => releases.forEach(release => release())
     // the names say which instances; a context adopted above re-renders, with the same names
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, scopeId])
+  }, [key])
 
   return slots
 }
@@ -91,7 +89,6 @@ const createReaders = () => {
       byName.set(slot.name, entry = { ctx: slot.ctx, tracker })
       all.add(tracker)
     }
-    entry.tracker.setServerData(slot.target.server as () => Partial<any>)
     return entry.tracker
   }
 
@@ -148,9 +145,6 @@ const useSelection = <R,>(slots: Slot[], selector: (states: object[]) => R, isEq
   const contexts = lastContexts.current = sameOr(lastContexts.current, slots.map(slot => slot.ctx))
   const lastPlans = useRef<Scheduler[]>([])
   const plans = lastPlans.current = sameOr(lastPlans.current, slots.map(slot => schedulerOf(schedule ?? slot.target.schedule)))
-  // read only for the server snapshot, which React uses while hydrating
-  const servers = useRef(slots)
-  servers.current = slots
 
   const subscribe = useMemo(() => (onStoreChange: () => void) => {
     const offs = contexts.map((ctx, i) => {
@@ -187,11 +181,12 @@ const useSelection = <R,>(slots: Slot[], selector: (states: object[]) => R, isEq
       return result
     }
 
-    // On the server and while hydrating: what the server rendered, unless it equals the live selection
+    // On the server and while hydrating: what the server rendered, the selection over empty states
+    // (stores never run there), unless it equals the live selection
     const getServerSnapshot = () => {
       if (server) return server.value
       const live = getSnapshot()
-      const fromServer = runSelector(selector, servers.current.map(slot => slot.target.server()))
+      const fromServer = runSelector(selector, contexts.map(() => ({})))
       server = { value: isEqual(fromServer, live) ? live : fromServer }
       return server.value
     }
@@ -221,9 +216,9 @@ const useSelection = <R,>(slots: Slot[], selector: (states: object[]) => R, isEq
  * })
  * ```
  */
-export function useMultipleStore<const T extends readonly StoreRef<any, any>[], R>(refs: T, options: StoreSelect<StatesOf<T>, R>): R
-export function useMultipleStore<const T extends readonly StoreRef<any, any>[]>(refs: T, options?: StoreReadOptions): StatesOf<T>
-export function useMultipleStore(refs: readonly StoreRef<any, any>[], options?: Partial<StoreSelect<object[], unknown>>): unknown {
+export function useMultipleStore<const T extends readonly StoreRef<any>[], R>(refs: T, options: StoreSelect<StatesOf<T>, R>): R
+export function useMultipleStore<const T extends readonly StoreRef<any>[]>(refs: T, options?: StoreReadOptions): StatesOf<T>
+export function useMultipleStore(refs: readonly StoreRef<any>[], options?: Partial<StoreSelect<object[], unknown>>): unknown {
   const slots = useInstances(refs)
   const selector = options?.select
   const withSelector = typeof selector === "function"
