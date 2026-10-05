@@ -12,7 +12,7 @@ yarn bench:browser   # headless Chrome, about 10 minutes
 
 ## Setup
 
-- 1000 consumer components. Updates are made from outside React (`getStore().get().set()`,
+- 1000 consumer components. Updates are made from outside React (`storeRef().get().set()`,
   `store.setState()`, `store.set(atom)`, or the provider's `setState` for the context baseline) and
   wrapped in `act()`, so one iteration is one update plus every re-render and recomputation it causes.
 - No StrictMode, React 19.2, jsdom 27, Node 24, Apple M4 Pro in high-power mode. Numbers are means
@@ -86,9 +86,8 @@ computed: the summary or mid store hook, the derived atom, the selector, or the 
 | React context | 1000 | 206 |
 
 `react-state-custom` renders each consumer twice on mount: once to ask for the store, once when the store
-hook has published. Pass `initialState` to render once when the seed already matches (see
-`tests/render-count.test.tsx`). The adapters here stay lazy, as the library is designed: no `initialState`,
-and a derived layer defaults with `??` or `?.` while the layer below has not published yet. Per update, selective subscriptions
+hook has published (see `tests/render-count.test.tsx`). Stores are lazy by design: a derived layer
+defaults with `??` or `?.` while the layer below has not published yet. Per update, selective subscriptions
 re-render only the consumers that read the changed value, like Zustand and Jotai; a plain context
 re-renders all of them.
 
@@ -158,7 +157,7 @@ re-render only the five readers of the changed item, like a Zustand selector or 
   It loses by 10x whenever only some consumers care.
 - **Code size favours Zustand and Jotai in every scenario**, by roughly 1.5x. `createStore(() => init)`
   plus a one-line selector, or an `atom` per value, is hard to beat; our layer is
-  `createStore(name, hook)` with `useState` inside, and a write from outside React is `getStore().get().action()`
+  `createStore(name, hook)` with `useState` inside, and a write from outside React is `storeRef().get().action()`
   instead of `store.setState()`. Some of the difference is bench plumbing (a unique name per run, typed
   casts), but the shape is real: the hook form costs more words per layer. None of them are library
   ceremony, though: there is no store object, selector, atom or provider to write, only `createStore` and
@@ -181,7 +180,7 @@ from a worktree of its commit.
 |---|---|---|
 | 4000 keys change: a component listing them (`Object.keys`) | 900 | 2.5 |
 | 4000 keys change: a component reading every key | 3.6 | 3.4 |
-| 4000 keys change: one `getStore().subscribe` listener | 2581 | 3.0 |
+| 4000 keys change: one `storeRef().subscribe` listener | 2581 | 3.0 |
 | a component reading all 4000 keys of a running store: mount + unmount | 199 | 1.5 |
 | 5000 instances: mount + unmount | 626 | 439 |
 

@@ -26,9 +26,7 @@ jsdom does no layout or paint; the Chrome runs include style and layout, and the
 
 **Client only.** Store hooks never run on the server, where `useStore` returns `{}`. See [Server-side rendering](/guide/ssr).
 
-**`storeRef` is global-scope only.** In 1.x, instances inside a deprecated `StateScopeProvider` are reachable from their components, not from module-level code.
-
-**No in-place recovery after a store throws.** The error boundary disables the instance until it is torn down and mounted again. Catch inside the hook when you need recovery.
+**No in-place recovery after a store throws.** The store's error boundary disables the instance until it is torn down, and its readers throw the error for their own boundaries. Catch inside the hook when you need recovery.
 
 **Top-level key tracking.** The proxy subscribes to top-level keys. Use a selector for deep or derived values, and keep a list of independently changing items as an object keyed by id rather than an array under one key. See [Collections](/guide/selectors#collections-keys-not-arrays). A nested object from elsewhere can be [flattened in a shared store](/guide/composing-stores#flatten-a-nested-source).
 
@@ -68,7 +66,7 @@ Unmount every consumer and let it tear down, or expose a `reset` action from the
 
 ### What happens to a store when I edit it with hot reload on?
 
-The running instance picks up the new hook and keeps its state, like a component under Fast Refresh. If the edit added, removed or reordered hooks, the old state no longer fits: the instance restarts with the new hook (in 1.x, the deprecated `preState` argument holds what it last published). A hook that still throws after the restart is disabled like any failing store. Editing a hook that the store calls from another module can also change its hooks; it is handled the same way.
+The running instance picks up the new hook and keeps its state, like a component under Fast Refresh. If the edit added, removed or reordered hooks, the old state no longer fits: the instance restarts with the new hook, from its own initial state, as a component does under Fast Refresh. A hook that still throws after the restart is disabled like any failing store. Editing a hook that the store calls from another module can also change its hooks; it is handled the same way.
 
 ### Does it work with React 18?
 
@@ -84,7 +82,7 @@ In a separate entry: `react-state-custom/dev-tool` plus `react-state-custom/styl
 
 ### Can I use it without `createStore`?
 
-In 1.x, `createRootCtx`, `createAutoCtx` and the `Context` class with its hooks are exported; see [Primitives](/api/primitives). They are deprecated and become internal in 2.0, where the API is `createStore`, `useMultipleStore` and `AutoRootCtx`.
+No. The API is `createStore`, `useMultipleStore` and `AutoRootCtx`; the layers under them are internal. `storeRef(params)` covers code outside React.
 
 ### How do I read a list of instances?
 

@@ -125,7 +125,7 @@ const initial = useUserStore({ userId }, { select: s => s.user?.name[0] })
 const users = useMultipleStore(ids.map(userId => userRef({ userId })))
 ```
 
-The whole API is `createStore` (which returns `useStore` and `storeRef`), `useMultipleStore` and `<AutoRootCtx />`. Schedulers live in `react-state-custom/schedulers`. 1.10 marks everything else deprecated for 2.0: see [Migrating to 2.0](https://vothanhdat.github.io/react-state-custom/docs/guide/migrating-to-2).
+The whole API is `createStore` (which returns `useStore` and `storeRef`), `useMultipleStore` and `<AutoRootCtx />`. Schedulers live in `react-state-custom/schedulers`. Coming from 1.x: see [Migrating to 2.0](https://vothanhdat.github.io/react-state-custom/docs/guide/migrating-to-2).
 
 ## 📚 Guide
 
@@ -135,7 +135,7 @@ The full guide lives on the **[documentation site](https://vothanhdat.github.io/
 - **Stores**: [store options](https://vothanhdat.github.io/react-state-custom/docs/guide/store-options) (`timeToClean`, `schedule`), [organizing stores in layers](https://vothanhdat.github.io/react-state-custom/docs/guide/layers), [events from a store](https://vothanhdat.github.io/react-state-custom/docs/guide/events), [realtime data](https://vothanhdat.github.io/react-state-custom/docs/guide/realtime), [parameterized stores](https://vothanhdat.github.io/react-state-custom/docs/guide/parameterized-stores), [composing stores](https://vothanhdat.github.io/react-state-custom/docs/guide/composing-stores), [progressive data](https://vothanhdat.github.io/react-state-custom/docs/guide/progressive-data), [error handling](https://vothanhdat.github.io/react-state-custom/docs/guide/error-handling)
 - **Reading state**: [selectors](https://vothanhdat.github.io/react-state-custom/docs/guide/selectors), [update cadence](https://vothanhdat.github.io/react-state-custom/docs/guide/update-cadence) (render a reader per frame, throttled, debounced or when idle), [nested objects](https://vothanhdat.github.io/react-state-custom/docs/guide/composing-stores#flatten-a-nested-source), [many instances](https://vothanhdat.github.io/react-state-custom/docs/api/use-multiple-store) with `useMultipleStore`, [concurrent rendering](https://vothanhdat.github.io/react-state-custom/docs/guide/concurrent), [outside React](https://vothanhdat.github.io/react-state-custom/docs/guide/outside-react) with `storeRef()`, [reads outside render](https://vothanhdat.github.io/react-state-custom/docs/guide/reads-outside-render)
 - **Integration**: [developer tools](https://vothanhdat.github.io/react-state-custom/docs/guide/devtools), [server-side rendering](https://vothanhdat.github.io/react-state-custom/docs/guide/ssr), [React Compiler](https://vothanhdat.github.io/react-state-custom/docs/guide/react-compiler), [testing](https://vothanhdat.github.io/react-state-custom/docs/guide/testing), [limitations and FAQ](https://vothanhdat.github.io/react-state-custom/docs/guide/limitations)
-- **[API reference](https://vothanhdat.github.io/react-state-custom/docs/api/create-store)**: every export, the deprecated ones included
+- **[API reference](https://vothanhdat.github.io/react-state-custom/docs/api/create-store)**: every export
 
 ---
 

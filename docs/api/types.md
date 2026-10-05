@@ -10,8 +10,6 @@ What `useStore` returns, and what `select` and `storeRef(params).get()` see: eve
 type StoreState<State> = { [K in keyof State]?: State[K] }
 ```
 
-In 1.x it takes a second parameter, the keys of the deprecated `initialState`, which it types as always present.
-
 ## `StoreRef`
 
 Returned by `storeRef(params)`. See [`storeRef`](/api/create-store#storeref-params).
@@ -50,8 +48,6 @@ type StoreOptions = {
 }
 ```
 
-In 1.x it also takes the deprecated `initialState` and `AttachedComponent`.
-
 ## `StoreReadOptions` / `StoreSelect`
 
 The options of `useStore` and `useMultipleStore`.
@@ -60,12 +56,10 @@ The options of `useStore` and `useMultipleStore`.
 type StoreReadOptions = { schedule?: Scheduler }     // useStore(params, options)
 type StoreSelect<S, R> = {                           // useStore(params, { select, ... })
   select: (state: S) => R
-  isEqual?: (a: R, b: R) => boolean                   // default shallowEqual
+  isEqual?: (a: R, b: R) => boolean                   // default: Object.is one level deep
   schedule?: Scheduler
 }
 ```
-
-`StoreSelectOptions<R>`, `StoreSelect` without `select`, is what the deprecated `useStore(params, selector, options)` takes.
 
 ## `Scheduler` / `ScheduledTask`
 
@@ -84,14 +78,4 @@ Every value of the params must be a primitive (`string`, `number`, `bigint`, `bo
 
 ## `Store`
 
-What `createStore` returns: `Store<Params, State>`.
-
-## Deprecated
-
-Removed in 2.0, with the APIs that use them.
-
-- `StoreHandle`: renamed `StoreRef`.
-- `StoreStatus`: what `useStoreStatus` returns, `{ ready, failed, error }`.
-- `StoreStateWith`: what `useStoreSuspense(params, keys)` returns.
-- `StateDebugRenderer`: the component the `debugging` prop of `AutoRootCtx` takes.
-- `StoreParamsShape`, `ParamValue`, `ParamsToIdRecord`, `ParamsToIdInput`: the params constraint and what `paramsToId` takes. They become internal.
+What `createStore` returns: `Store<Params, State>`, the pair `{ useStore, storeRef }`.

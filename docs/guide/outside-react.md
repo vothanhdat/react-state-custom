@@ -67,8 +67,6 @@ A ref names an instance; it does not hold one. Making one is cheap (it serialize
 
 A ref is also what [`useMultipleStore`](/api/use-multiple-store) takes, to read several instances in one component.
 
-In 1.x, `storeRef` reaches the global instances only: inside a deprecated `StateScopeProvider`, components read theirs with `useStore`. The old name `getStore` returns the same handle and is deprecated.
-
 ## Reading the latest value in an event handler
 
 The proxy returned by `useStore` only tracks reads during render. In a handler, either use the value destructured during render, or read a fresh snapshot:

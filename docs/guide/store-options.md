@@ -58,19 +58,9 @@ When the store's readers re-render for a change: a [scheduler](/api/schedulers) 
 createStore('portfolio', usePortfolioState, { schedule: throttle(250) })
 ```
 
-## Deprecated options
+## Side effects once per instance
 
-These keep working in 1.x and are removed in 2.0. See [Migrating to 2.0](/guide/migrating-to-2).
-
-### `initialState`
-
-Values readers got before the hook had run, typed as always present: `initialState: { user: null, isLoading: true }`, or a function of the params. It also gave the server HTML a loading state.
-
-Instead, default at the read: `const { isLoading = true, user } = useUserStore({ userId })`, or `user?.name ?? '…'`. On the server `useStore` returns `{}`, so the server renders the same loading state the first client render shows.
-
-### `AttachedComponent`
-
-A component rendered next to each instance with the params as props, for side effects once per instance. Instead, write the effect in the store hook: it runs once per instance too.
+A store hook runs once per instance, so an effect in it runs once per instance too, however many components read the store:
 
 ```ts
 const useUserState = ({ userId }: { userId: string }) => {
@@ -78,11 +68,3 @@ const useUserState = ({ userId }: { userId: string }) => {
   // ...
 }
 ```
-
-### A number, or a fourth argument
-
-`createStore('name', useFn, 5000)` meant `{ timeToClean: 5000 }`, and a fourth argument was the `AttachedComponent`. Pass an options object.
-
-### The `preState` argument
-
-The store hook received a second argument: the values previously published by an instance with the same identity while something still held its context (a hot update that restarted the hook, an `<Activity>` shown again). Instead, keep the instance with `timeToClean`, or [keep the values in a store of their own](#keeping-the-values-not-the-resource). From 2.0, a hot update that changes the hook's hooks restarts it from its initial state, as Fast Refresh does with a component.

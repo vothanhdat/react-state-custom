@@ -44,7 +44,7 @@ const Editor = ({ documentId }: { documentId: string }) => {
 }
 ```
 
-When the per-view part becomes a store of its own, because several components of one editor read it, give it its own identity: `useEditorView({ documentId, viewId })`. When two copies must not share anything, the document included, put what tells them apart in the params of every store they use: `useDocument({ documentId, copy })`. (A `StateScopeProvider` around each editor did this in 1.x; scopes are deprecated.)
+When the per-view part becomes a store of its own, because several components of one editor read it, give it its own identity: `useEditorView({ documentId, viewId })`. When two copies must not share anything, the document included, put what tells them apart in the params of every store they use: `useDocument({ documentId, copy })`.
 
 ## Stores without params
 

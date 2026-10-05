@@ -128,7 +128,7 @@ const release = storeHandle(useCart).retain()
 release()
 ```
 
-Like `storeRef`, it reaches the global scope: render the subject under `AutoRootCtx`.
+Like `storeRef`, it only reaches a running instance through `AutoRootCtx`: render one, or the subject under it.
 
 ## Wait for a store
 

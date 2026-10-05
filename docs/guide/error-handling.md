@@ -1,6 +1,6 @@
 # Error handling
 
-Each store instance runs inside its own error boundary. If a store hook throws, during render or in an effect, the boundary catches the error, logs it with `console.error`, and stops running that store. Every other store and the UI keep running.
+Each store instance runs inside its own error boundary. If a store hook throws, during render or in an effect, the boundary catches the error, logs it with `console.error`, and stops running that store. Every other store keeps running, and the components reading the failed one throw its error for their own error boundary.
 
 ## Expected failures are state
 
@@ -25,9 +25,21 @@ Work that can be retried retries in the store, in code: a store that crashed is 
 
 ## A store that throws
 
-A hook that throws is a bug. In 1.x, the failed store's readers keep reading its last published values, and its actions do nothing: the hook that defined them no longer runs. A store that failed before its first result leaves its readers on `undefined`, the loading state.
+A hook that throws is a bug. The instance is disabled: its hook no longer runs, its actions do nothing, and every other store keeps running. The components reading it, through `useStore` (proxy or `select`) or `useMultipleStore`, throw its error during render, for their own error boundary: the failure shows where the store is used. A component that mounts after the failure throws at once, and a store whose hook reads the failed one fails with the same error.
 
-From 2.0, the components reading a failed store throw its error, for their own error boundary: the failure shows where the store is used, and every other store keeps running.
+Put error boundaries where a part of the screen can fail on its own, for example one per panel:
+
+```tsx
+import { ErrorBoundary } from 'react-error-boundary'
+
+<ErrorBoundary fallbackRender={({ error, resetErrorBoundary }) => (
+  <Panel>Could not load the orders: {error.message} <button onClick={resetErrorBoundary}>Retry</button></Panel>
+)}>
+  <OpenOrders />
+</ErrorBoundary>
+```
+
+Without a boundary above the reader, the error reaches the root, as any error thrown in render does, and React unmounts the app.
 
 ## Reporting errors
 
@@ -47,12 +59,4 @@ Listeners registered with `storeRef(params).subscribe()` must not throw. When a 
 
 ## Recovery
 
-A disabled store stays disabled until its instance is torn down and mounted again: when the last reader unmounts (after `timeToClean`) and a new reader appears. There is no in-place restart. If a store must recover without a remount, catch the error inside the hook and expose it as state, as above.
-
-## Deprecated
-
-These keep working in 1.x and are removed in 2.0. See [Migrating to 2.0](/guide/migrating-to-2).
-
-- **`useStoreStatus(params)`** returns `{ ready, failed, error }` for the instance and re-renders only when that changes. Instead, keep loading state in the store; from 2.0 a failed store throws in its readers.
-- **`useStoreSuspense`** throws the store's error into the reader's error boundary, as every reader does from 2.0.
-- **The `Wrapper` prop** of `AutoRootCtx` (and `StateScopeProvider`) replaces `StoreErrorBoundary` around each store, to report errors or render a fallback. Define it at module scope: an inline component is a new type on every render and remounts every store. Instead, report errors with `onCaughtError`.
+A disabled store stays disabled until its instance is torn down: when its boundaries have unmounted the components that read it, and `timeToClean` has passed. A reader that mounts after that, such as the one a boundary's retry renders, starts a fresh instance. There is no in-place restart. If a store must recover without a remount, catch the error inside the hook and expose it as state, as above.

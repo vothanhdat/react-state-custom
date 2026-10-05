@@ -41,7 +41,7 @@ cart.items  // Item[] | undefined, from the cart store
 
 ## `select`
 
-With `select`, it returns `select(states)` over the plain states, in the order of `refs`, and re-renders only when that value changes. `isEqual` defaults to `shallowEqual`, so a fresh array with the same items is no change.
+With `select`, it returns `select(states)` over the plain states, in the order of `refs`, and re-renders only when that value changes. `isEqual` defaults to a shallow comparison (`Object.is` one level deep), so a fresh array with the same items is no change.
 
 ```ts
 // renders when the total changes, not on every message of every room
@@ -62,7 +62,7 @@ const unread = useMultipleStore(roomIds.map(id => roomRef({ id })), {
 - **Inside a store hook** it works as in a component: a store can read a list of instances, for example a summary over the per-id stores of a collection.
 - **Before an instance has run**, its state is `{}`, as with `useStore`. On the server every state is `{}`, and nothing runs.
 - **The refs may be new objects on every render**: instances are matched by name and params, not by the identity of the ref.
-- **Scope**: in 1.x it reads the instances of the `StateScopeProvider` it renders in, like `useStore`.
+- **A failed instance**: the component throws the error of the first instance whose store hook threw, for its error boundary, as `useStore` does. See [Error handling](/guide/error-handling).
 - **Not a ref**: an item that `storeRef` did not make throws a `TypeError` naming its index.
 
 See [Rendering a list](/guide/selectors#rendering-a-list) for when to give each item a store of its own and when to keep a collection in one store.

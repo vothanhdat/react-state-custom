@@ -40,7 +40,7 @@ The panel without the trigger button, for embedding in your own debug UI: `<DevT
 
 ## `StateView`
 
-Renders one store by full context name, with a header showing its params, scope and whether it is still mounted: `<StateView dataKey="counter?initial=10" />`. Reads from the context cache and never creates a store; pass `Component` to change the renderer and `onClose` to get a close button.
+Renders one store by full context name, with a header showing its params and whether it is still mounted: `<StateView dataKey="counter?initial=10" />`. Reads from the context cache and never creates a store; pass `Component` to change the renderer and `onClose` to get a close button.
 
 ## `DataViewComponent`
 
@@ -48,9 +48,9 @@ Renders one store by full context name, with a header showing its params, scope 
 type DataViewComponent = React.FC<{ name: string; value: any }>
 ```
 
-`name` is the full context name (`"<scopeId>/<store>?<params>"`), `value` the store's current data.
+`name` is the full context name (`"<store>?<params>"`), `value` the store's current data.
 
-- `DataViewDefault` prints `value` with [`formatState`](/api/primitives#formatstate): JSON text that keeps functions, `undefined`, `bigint`, `Map`/`Set` entries and marks circular references.
+- `DataViewDefault` prints `value` as JSON text that keeps functions, `undefined`, `bigint`, `Map`/`Set` entries and marks circular references.
 - `ObjectDataView` (entry `react-state-custom/dev-tool/obj-view`) renders an expandable tree with [react-obj-view](https://github.com/vothanhdat/react-obj-view), an optional peer dependency. Import `react-obj-view/dist/react-obj-view.css` next to it.
 
 See the [Developer tools guide](/guide/devtools).

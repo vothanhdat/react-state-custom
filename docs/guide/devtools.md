@@ -19,7 +19,7 @@ function App() {
 
 `DevToolContainer` renders a fixed trigger button. Clicking it opens a panel docked to the bottom of the viewport:
 
-- the left list shows every live store instance, grouped by store name, with its params and how many keys it holds; an instance flashes whenever its data changes, and stores inside a `StateScopeProvider` show their scope next to the name;
+- the left list shows every live store instance, grouped by store name, with its params and how many keys it holds; an instance flashes whenever its data changes;
 - the filter box narrows the list (several words match all of them);
 - click an instance to open it on the right, up to five side by side; an instance whose store unmounts keeps its last data with an `unmounted` badge, and follows the new instance if the store mounts again;
 - drag the title bar to resize the panel, and the edge of the list to resize it; the open state and sizes are remembered per tab.
@@ -34,11 +34,11 @@ Each running store shows up under `AutoRootCtx` in the React DevTools component 
 AutoRootCtx
 └ Bucket
   └ StoreInstance key="todos?listId=work"
-    └ StoreErrorBoundary › StoreFailure
+    └ StoreBoundary
       └ Store(todos)        ← your hook runs here; its hooks show in the inspector
 ```
 
-The key of `StoreInstance` is the instance's name and params. Instances are spread over up to 64 `Bucket` components so that starting or stopping one re-renders only its bucket; only buckets that hold an instance are rendered. `StoreErrorBoundary` is the default `Wrapper`, replaced by yours when you pass one.
+The key of `StoreInstance` is the instance's name and params. Instances are spread over up to 64 `Bucket` components so that starting or stopping one re-renders only its bucket; only buckets that hold an instance are rendered. `StoreBoundary` is the store's own error boundary, with a Suspense boundary inside it.
 
 ## Placing the button
 
@@ -69,7 +69,7 @@ import 'react-obj-view/dist/react-obj-view.css'
 <DevToolContainer Component={ObjectDataView} />
 ```
 
-Or pass your own `Component`. It receives `{ name, value }` for each store, where `name` is the full context name (`"counter?initial=10"`, prefixed by the scope id inside a `StateScopeProvider`).
+Or pass your own `Component`. It receives `{ name, value }` for each store, where `name` is the full context name (`"counter?initial=10"`).
 
 ```tsx
 <DevToolContainer Component={({ name, value }) => <pre>{name}: {JSON.stringify(value)}</pre>} />
@@ -81,15 +81,10 @@ Or pass your own `Component`. It receives `{ name, value }` for each store, wher
 
 ## Debugging without the UI
 
-::: warning Deprecated
-The `debugging` prop is removed in 2.0. Use the dev tool, or read the store in a test with `storeRef(params).get()`.
-:::
-
-`AutoRootCtx` and `StateScopeProvider` accept `debugging`. With `true`, each store instance renders its state as a `<pre data-store="<store>?<params>">` element next to where the store hook runs, useful in tests and when the dev-tool bundle is not wanted:
+In a test, read the store with `storeRef(params).get()`, or [`storeHandle`](/api/testing#storehandle) when the module exports only `useStore`:
 
 ```tsx
-render(<><AutoRootCtx debugging /><App /></>)
-expect(document.querySelector('[data-store="user?userId=42"]')!.textContent).toContain('"isLoading": false')
+render(<><AutoRootCtx /><App /></>)
+await waitForStore(useUserStore, { userId: '42' }, ['user'])
+expect(userRef({ userId: '42' }).get().isLoading).toBe(false)
 ```
-
-Pass a component instead of `true` to render the state your own way; it receives `{ name, value }` like a dev tool renderer. `formatState(value)` from the main entry, deprecated as well, is the JSON formatter used by both.

@@ -12,8 +12,6 @@ useMultipleStore(refs, { schedule: idle(500) })
 createStore('portfolio', usePortfolioState, { schedule: throttle(250) })
 ```
 
-The main entry still exports them in 1.x, marked deprecated; they leave it in 2.0.
-
 Every factory returns the same scheduler for the same arguments (`throttle(100) === throttle(100)`), so calling one in render is fine. Runs due at the same moment (one frame, one throttle tick, one debounce timer, one idle callback) happen in one batch, and React renders them in one commit.
 
 ## `sync()`

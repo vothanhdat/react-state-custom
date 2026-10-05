@@ -16,8 +16,6 @@ function UserName({ userId }: { userId: string }) {
 }
 ```
 
-In 1.x, the deprecated [`initialState`](/guide/store-options#initialstate) option still seeds what the server renders.
-
 ## Next.js App Router
 
 Everything here is a hook, so `AutoRootCtx` and any component calling `useStore` must live in a `'use client'` module. A small client wrapper is enough:
@@ -60,7 +58,3 @@ What works today:
 ## `storeRef` on the server
 
 `get()` returns `{}` and `ready` is `false`; `subscribe` and `retain` are no-ops in effect because no store ever mounts. Do not keep module-level references to stores across requests; they hold nothing useful.
-
-## Deprecated
-
-`useStoreSuspense` throws on the server unless `initialState` already satisfies its `isReady` predicate. Both are removed in 2.0.

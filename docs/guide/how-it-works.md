@@ -64,6 +64,3 @@ Reading everything a component needs from one store avoids the question: values 
 
 `useStore` reads one instance, and the rules of hooks keep its calls fixed in number. [`useMultipleStore(refs)`](/api/use-multiple-store) reads a list of instances in one call, refs made by `storeRef(params)`, so a component or a store can follow one instance per item of a list whose length changes. Each instance starts, is shared and stops as with `useStore`.
 
-## Lower layers
-
-In 1.x, `createStore` is `createAutoCtx(createRootCtx(name, useFn), options)`, and those layers, the `Context` pub/sub class and its subscribe hooks are exported. They are deprecated and become internal in 2.0; see [Primitives](/api/primitives). Scopes (`StateScopeProvider`) are deprecated too: what tells two instances apart belongs in the params.

@@ -16,7 +16,7 @@ useMultipleStore(refs, { select, schedule })    // several instances in one call
 
 Schedulers move to `react-state-custom/schedulers`; the testing helpers and the dev tool stay in their own entries.
 
-1.10 already has the new API next to the old one, and marks everything 2.0 removes `@deprecated`, so your editor strikes it through. Move to the new forms on 1.10, with the app working at every step, then upgrade.
+1.10 already has the new API next to the old one, and marks everything 2.0 removes `@deprecated`, so your editor strikes it through. Move to the new forms on 1.10, with the app working at every step, then upgrade. In 2.0, TypeScript rejects the old forms, and in development the ones JavaScript would accept silently (a selector function passed to `useStore`, `initialState`, a number as options) throw an error that says what to write instead.
 
 ## Selectors
 
@@ -72,7 +72,7 @@ if (isLoading !== false || !user) return <Spinner />
 
 ## Errors
 
-`useStoreStatus`, the `Wrapper` prop and the `StoreErrorBoundary` export are gone. Each store still runs inside its own error boundary, so one store that throws never stops the others, and from 2.0 the components reading a failed store throw its error, for their own error boundary. Report errors with React's `onCaughtError` root option. Expected failures belong in the store's state, with a retry action. See [Error handling](/guide/error-handling).
+`useStoreStatus`, the `Wrapper` prop and the `StoreErrorBoundary` export are gone. Each store still runs inside its own error boundary, so one store that throws never stops the others. What changes is its readers: in 1.x they kept the last values of a failed store; in 2.0 they throw its error, for their own error boundary. Put error boundaries around the parts of the screen that can fail on their own (without one, the error reaches the root and React unmounts the app). Report errors with React's `onCaughtError` root option. Expected failures belong in the store's state, with a retry action. See [Error handling](/guide/error-handling).
 
 ## Scopes
 
@@ -94,8 +94,14 @@ To start every store afresh, as a test or an example preview does, remount `Auto
 
 - `AttachedComponent`: write the effect in the store hook.
 - A number as options: `{ timeToClean: 5000 }`.
-- The `preState` argument of the hook: keep the instance with `timeToClean`, or [keep the values in a store of their own](/guide/store-options#keeping-the-values-not-the-resource).
+- The `preState` argument of the hook: keep the instance with `timeToClean`, or [keep the values in a store of their own](/guide/store-options#keeping-the-values-not-the-resource). A hot update that changes the hooks a store calls restarts it from its own initial state, as Fast Refresh does with a component.
 - The `debugging` prop of `AutoRootCtx`: use the dev tool.
+
+## Types and tests
+
+- `StoreState<State>` and `StoreRef<State>` take the state type only; the second parameter was the keys of `initialState`.
+- `StoreSelectOptions` is gone: `StoreSelect<State, R>` types the options of a selection.
+- `mockStore(store, mock)` from `react-state-custom/testing`: a mock hook receives `(params)`, no `preState`. The helpers take `useStore` or `storeRef`.
 
 ## Imports
 

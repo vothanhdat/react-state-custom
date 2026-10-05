@@ -9,12 +9,10 @@ const tags = usePostStore({ id }, { select: s => s.post?.tags ?? [] })
 ```
 
 - `select` receives the **plain state object**, not the tracking proxy, so it can read as deep as it likes and compute anything. Every key is `undefined` until the store has run once.
-- The result is compared with `shallowEqual` after every publish: `Object.is` one level deep, so a fresh array or plain object holding the same items is no change. Pass `isEqual` next to `select` to compare otherwise, `Object.is` included.
+- The result is compared shallowly after every publish: `Object.is` one level deep, so a fresh array or plain object holding the same items is no change. Pass `isEqual` next to `select` to compare otherwise, `Object.is` included.
 - [`schedule`](/guide/update-cadence) goes in the same options: `{ select, schedule: throttle(100) }`.
 - A new `select` function on every render is fine; it is not used as a dependency.
 - A store without params takes `undefined` as its params: `useCartStore(undefined, { select: s => s.total })`.
-
-In 1.x the selector can also be passed on its own, `useStore(params, selector, isEqual?)` or `useStore(selector)`, compared with `Object.is` by default. That form is deprecated.
 
 ## Proxy or selector?
 

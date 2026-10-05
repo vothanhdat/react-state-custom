@@ -62,14 +62,6 @@ export default defineConfig({
             { text: 'Limitations and FAQ', link: '/guide/limitations' },
           ],
         },
-        {
-          text: 'Deprecated (removed in 2.0)',
-          collapsed: true,
-          items: [
-            { text: 'Scopes', link: '/guide/scopes' },
-            { text: 'Suspense', link: '/guide/suspense' },
-          ],
-        },
       ],
       '/api/': [
         {
@@ -87,15 +79,6 @@ export default defineConfig({
             { text: 'Schedulers', link: '/api/schedulers' },
             { text: 'Testing helpers', link: '/api/testing' },
             { text: 'Developer tools', link: '/api/dev-tools' },
-          ],
-        },
-        {
-          text: 'Deprecated (removed in 2.0)',
-          collapsed: true,
-          items: [
-            { text: 'StateScopeProvider', link: '/api/state-scope-provider' },
-            { text: 'StoreErrorBoundary', link: '/api/store-error-boundary' },
-            { text: 'Primitives', link: '/api/primitives' },
           ],
         },
       ],
