@@ -1,4 +1,5 @@
-import React, { useMemo } from "react"
+import * as React from "react"
+import { useMemo } from "react"
 import { formatState } from "../state-utils/utils"
 
 /** Renders one store's value in the dev tool. `name` is the full context name, `value` the current data. */

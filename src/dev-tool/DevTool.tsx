@@ -1,5 +1,6 @@
 import "./DevTool.css"
-import React, { useState } from "react"
+import * as React from "react"
+import { useState } from "react"
 import { DevToolState } from "./DevToolState"
 import { DataViewDefault, type DataViewComponent } from "./DataViewComponent"
 import { useDragSize } from "./useDragSize"

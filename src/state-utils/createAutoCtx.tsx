@@ -1,4 +1,5 @@
-import React, { Suspense, useEffect, useCallback, useRef, useState, useContext, memo, useSyncExternalStore } from "react"
+import * as React from "react"
+import { Suspense, useEffect, useCallback, useRef, useState, useContext, memo, useSyncExternalStore } from "react"
 import { useDataContext, useDataSelector, acquireContext, getContext, isServer, StateScopeContext, useIsomorphicLayoutEffect, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord, type StoreParamsShape } from "./paramsToId"

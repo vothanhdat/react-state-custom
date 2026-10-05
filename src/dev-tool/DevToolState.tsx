@@ -1,4 +1,5 @@
-import React, { Fragment, useEffect, useMemo, useRef, useState } from "react"
+import * as React from "react"
+import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import { getContext } from "../state-utils/ctx"
 import { debounce } from "../state-utils/utils"
 import { HighlightString, HightlightWrapper } from "./useHighlight"
