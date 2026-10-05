@@ -9,7 +9,7 @@ const tags = usePostStore({ id }, s => s.post?.tags ?? [], shallowEqual)
 ```
 
 - The selector receives the **plain state object** (`initialState` merged with the live data), not the tracking proxy, so it can read as deep as it likes and compute anything.
-- The result is compared with `Object.is` after every publish. Pass your own `isEqual` as the third argument when the selector returns a fresh array or object each time.
+- The result is compared with `Object.is` after every publish. Pass an `isEqual` as the third argument when the selector returns a fresh array or object each time: [`shallowEqual`](/api/primitives#shallowequal), exported by the library, compares arrays and plain objects one level deep.
 - A new selector function on every render is fine; it is not used as a dependency.
 - For stores without params pass `undefined` as the first argument.
 

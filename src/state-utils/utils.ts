@@ -193,3 +193,38 @@ export const DependencyTracker = {
     }
   }
 }
+
+/**
+ * `Object.is` one level deep: true for the same value, or for two arrays, plain objects, `Map`s or
+ * `Set`s of the same kind whose items, keys or values are each `Object.is`-equal. Any other pair of
+ * objects (dates, class instances) is equal only when it is the same object. Pass it as `isEqual`:
+ * `useStore(params, s => s.ids, shallowEqual)` re-renders only when the array's contents change.
+ */
+export const shallowEqual = (a: unknown, b: unknown): boolean => {
+  if (Object.is(a, b)) return true
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false
+  if (Object.getPrototypeOf(a) !== Object.getPrototypeOf(b)) return false
+  if (Array.isArray(a)) {
+    const other = b as unknown[]
+    return a.length === other.length && a.every((item, i) => Object.is(item, other[i]))
+  }
+  if (a instanceof Map) {
+    const other = b as Map<unknown, unknown>
+    if (a.size !== other.size) return false
+    for (const [key, value] of a) if (!other.has(key) || !Object.is(value, other.get(key))) return false
+    return true
+  }
+  if (a instanceof Set) {
+    const other = b as Set<unknown>
+    if (a.size !== other.size) return false
+    for (const item of a) if (!other.has(item)) return false
+    return true
+  }
+  const proto = Object.getPrototypeOf(a)
+  if (proto !== Object.prototype && proto !== null) return false
+  const keys = Object.keys(a)
+  if (keys.length !== Object.keys(b).length) return false
+  return keys.every(key =>
+    Object.prototype.hasOwnProperty.call(b, key) &&
+    Object.is((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]))
+}

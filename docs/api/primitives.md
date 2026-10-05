@@ -138,6 +138,18 @@ paramsToId({ b: 2, a: 'x y' })          // "a=x%20y&b=2"
 paramsToId({ id: '2', page: undefined }) // "id='2'"
 ```
 
+## `shallowEqual`
+
+```ts
+function shallowEqual(a: unknown, b: unknown): boolean
+```
+
+`Object.is` one level deep, for the `isEqual` argument of `useStore(params, selector, isEqual)` and `useDataSelector`. Two arrays, plain objects, `Map`s or `Set`s of the same kind are equal when their items, keys or values are each `Object.is`-equal. Any other pair of objects, such as dates or class instances, is equal only when it is the same object.
+
+```ts
+const ids = useVisible({ projectId }, s => s.ids, shallowEqual) // re-renders only when the ids change
+```
+
 ## `formatState`
 
 ```ts
