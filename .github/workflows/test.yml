@@ -50,6 +50,10 @@ jobs:
 
       - name: Run the React Compiler tests against the package
         run: yarn test:dist
+
+      # skipLibCheck off, bundler / node10 / node16 / nodenext, ESM and CommonJS consumers
+      - name: Type-check the package as apps import it
+        run: yarn test:package-types
       
       - name: Generate coverage
         run: yarn test:coverage

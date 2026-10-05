@@ -8,24 +8,44 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.es.js",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.es.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./dev-tool": {
-      "types": "./dist/dev-tool/index.d.ts",
-      "import": "./dist/dev-tool.es.js",
-      "require": "./dist/dev-tool.cjs"
+      "import": {
+        "types": "./dist/dev-tool/index.d.ts",
+        "default": "./dist/dev-tool.es.js"
+      },
+      "require": {
+        "types": "./dist/dev-tool/index.d.cts",
+        "default": "./dist/dev-tool.cjs"
+      }
     },
     "./dev-tool/obj-view": {
-      "types": "./dist/dev-tool/obj-view.d.ts",
-      "import": "./dist/dev-tool/obj-view.es.js",
-      "require": "./dist/dev-tool/obj-view.cjs"
+      "import": {
+        "types": "./dist/dev-tool/obj-view.d.ts",
+        "default": "./dist/dev-tool/obj-view.es.js"
+      },
+      "require": {
+        "types": "./dist/dev-tool/obj-view.d.cts",
+        "default": "./dist/dev-tool/obj-view.cjs"
+      }
     },
     "./testing": {
-      "types": "./dist/testing/index.d.ts",
-      "import": "./dist/testing.es.js",
-      "require": "./dist/testing.cjs"
+      "import": {
+        "types": "./dist/testing/index.d.ts",
+        "default": "./dist/testing.es.js"
+      },
+      "require": {
+        "types": "./dist/testing/index.d.cts",
+        "default": "./dist/testing.cjs"
+      }
     },
     "./style.css": "./dist/react-state-custom.css",
     "./dist/react-state-custom.css": "./dist/react-state-custom.css",
@@ -76,6 +96,7 @@
     "bench:browser": "node bench/browser/run.mjs",
     "test:compiler": "vitest run --config vitest.config.compiler.ts",
     "test:dist": "TEST_TARGET=dist vitest run --config vitest.config.compiler.ts",
+    "test:package-types": "node tests/package-types/check.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc -p tsconfig.types.json && tsc -p tsconfig.bench.json && tsc -p demos/task-manager",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
