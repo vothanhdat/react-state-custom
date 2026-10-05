@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.7.0] - 2026-10-05
 ### Added
 - `shallowEqual(a, b)`, for the `isEqual` argument of `useStore(params, selector, isEqual)`: `Object.is` one level deep over arrays, plain objects, `Map`s and `Set`s, so a selector that returns a fresh array with the same items does not re-render its component. The docs used it without the library exporting one.
 
@@ -233,7 +235,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/vothanhdat/react-state-custom/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.4.0...v1.5.0
