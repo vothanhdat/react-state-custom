@@ -10,8 +10,8 @@ yarn demo:tasks   # http://localhost:5181 (the next free port if it is taken)
 
 The number at the start of each row counts its renders. Things to try:
 
-- **Delete a task** with "Row reads its task from: tasks store". The list crashes: the deleted row renders once more with its task `undefined`. Switch to "the list's own store" and delete again.
-- **Click a status** (sort by Title first, so the order stays) with each "Changing one task re-renders" option: every row, then one row with `React.memo`, then one row with the ids kept while equal.
+- **Delete a task** with "Row reads its task from: tasks store, no check". The list crashes: the deleted row renders once more with its task `undefined`. Switch to "checked before reading" (the default) or "the list's own store" and delete again.
+- **Click a status** (sort by Title first, so the order stays) with each "Changing one task re-renders" option: every row, then one row with `React.memo`, then one row with the list reading its ids with `shallowEqual`.
 - **Fail next save**, then change a status: it shows the new status at once and rolls back when the save fails.
 - **Remote edit (socket)** changes a task from "the server"; **Backend calls** shows one `socket+` per open project, and `socket-` when you switch to "No project".
 - **Edit a task**, type, close and reopen it: the draft is kept. Type quickly in **Search**: responses arrive out of order, the results match the last query.
@@ -37,10 +37,10 @@ The fake backend and socket at the top of `app.tsx` record every call in `calls`
 | File | What it shows |
 |---|---|
 | `app.tsx` | the stores and the components the scenarios render (`TaskRow`, `TaskList`, `Stats`, `Toolbar`, `Editor`) |
-| `main.tsx`, `index.html`, `page.css`, `vite.config.mjs` | the browser page: the same stores, a `list` store that computes ids and tasks together, and the two switches |
+| `main.tsx`, `index.html`, `page.css`, `vite.config.mjs` | the browser page: the same stores, a `list` store that computes ids and tasks together, three kinds of row and the two switches |
 | `scenarios.test.tsx` | A–K: load, edit one task, delete, failed edit and rollback, undo, socket, navigation, draft, search, login, actions on the first render |
 | `fixes.test.tsx` | the fixes: a stable `ids` array, rows read from the derived store, the keyed-collection shape |
-| `initial-state-types.tsx` | which keys `initialState` types as present, with the current signature and with a `const` type parameter |
+| `initial-state-types.tsx` | which keys `initialState` types as present |
 | `initial-state-runtime.test.tsx` | a key typed present by mistake, undefined on the first render |
 
 ## Run
@@ -49,16 +49,24 @@ The fake backend and socket at the top of `app.tsx` record every call in `calls`
 # the scenarios (jsdom)
 yarn vitest run --config demos/task-manager/vitest.config.mjs
 
-# the types: errors are expected, they are the findings
+# the types, with noUncheckedIndexedAccess (part of yarn typecheck)
 yarn tsc -p demos/task-manager
 ```
-
-The type check reports the 6 action calls in `app.tsx` that TypeScript sees as possibly `undefined`, and three errors in `initial-state-types.tsx`: two deliberate ones whose messages print the probe results (`"present"` / `"optional"` per key), and the function form `initialState: () => ({ status: 'loading' })`, which does not compile with the current signature.
 
 ## What it found (1.6.0, jsdom)
 
 - **Worked as plain React:** optimistic edit with rollback, undo, the out-of-order search, one socket subscription shared by every reader and closed when the project changes, filters kept across navigation while tasks reload, and the draft kept after the editor closes.
 - **Deleting a task crashed its row** (scenario C) when the row read `tasks` while the list read ids from `visible`: `tasks` publishes one commit before `visible`, so the deleted row renders once with `undefined`. The same happens when coming back to a project within 100 ms. Reading rows from the derived store gives 0 such renders (`fixes.test.tsx`); `React.memo` does not help.
-- **Editing one task re-rendered all 50 rows** (scenario B): `ids` is a new array whenever `tasks` changes, so the list re-renders and with it every row. `React.memo` on the row, or keeping the previous array while its contents are equal, brings it to 1 (the page shows both).
+- **Editing one task re-rendered all 50 rows** (scenario B): `ids` is a new array whenever `tasks` changes, so the list re-renders and with it every row. `React.memo` on the row, or keeping the previous array while its contents are equal, brings it to 1. The page shows `React.memo` and a list that reads its ids with `shallowEqual`.
 - **Actions are typed `T | undefined`** and are `undefined` on the first render (scenario K).
 - **`initialState` with a plain string literal** (`{ status: 'loading' }`, no `as const`) types every key as present, actions included (`initial-state-types.tsx`), and such a key can be `undefined` on the first render (`initial-state-runtime.test.tsx`).
+
+## What changed after 1.6.0
+
+The library keeps its model: values from different stores can disagree for one render, and readers check before they read. What changed:
+
+- **`initialState` types only the keys it holds**, and checks their values against the store's types: `{ status: 'loading' }` needs no `as const`, and `ids` stays optional (`initial-state-types.tsx`). The `as const` casts in `app.tsx` are gone.
+- **`shallowEqual` is exported**, for selectors that return a new array with the same items. The page's third re-render option uses it, in place of a store that kept the previous array in a ref.
+- **The demo type-checks with `noUncheckedIndexedAccess`**, so `tasks[id]` is `Task | undefined`. It flagged the row that crashed on delete, and a bug in `updateTask`: a task deleted while its save was in flight came back when the save or its rollback landed, half of it missing. `updateTask` now changes a task only while it exists. Action calls use `?.()`.
+- **The docs** teach this: Getting started "Before the data arrives", How it works "Stores as services" and "Data across stores", and the Collections section of Selectors.
+

@@ -1,47 +1,36 @@
+// What `initialState` types as present, checked by `yarn tsc -p demos/task-manager`.
+// Up to 1.6.0, `{ status: 'loading' }` (a string literal without `as const`) typed every key as
+// present, actions included, so `ids.length` compiled although `ids` is undefined on the first
+// render (initial-state-runtime.test.tsx). Now only the keys initialState holds are present.
 import { useState } from 'react'
-import { createStore, type StoreState } from '../../src'
+import { createStore } from '../../src'
+
 const hook = () => {
   const [status, setStatus] = useState<'loading' | 'ready'>('loading')
   const [ids, setIds] = useState<string[]>([])
   return { status, ids, setStatus, setIds }
 }
-// current signature
-const cur = createStore('d', hook, { initialState: { status: 'loading' } })
-export const Cur = () => { const { ids } = cur.useStore(); return ids.length }   // no error reported?
+type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
+const assert = <T extends true>() => { }
+type Present<R, K extends PropertyKey> = K extends keyof R ? {} extends Pick<R, K> ? 'optional' : 'present' : 'missing'
+type Keys<R> = [Present<R, 'status'>, Present<R, 'ids'>, Present<R, 'setIds'>]
 
-// candidate: a const type parameter
-declare function withConst<U, V extends object, const I extends Partial<V> = {}>(
-  name: string, useFn: (p: U, pre: Partial<V>) => V, o?: { initialState?: I | ((p: U) => I) }): { useStore(): StoreState<V, I> }
-type Present<R, K extends keyof R> = {} extends Pick<R, K> ? 'optional' : 'present'
-const cases = () => {
-  const a = withConst('a', hook, { initialState: { status: 'loading', ids: [] } }).useStore()
-  const b = withConst('b', hook, { initialState: { status: 'loading' } }).useStore()
-  const c = withConst('c', hook, { initialState: { status: 'loading' as const, ids: [] as string[] } }).useStore()
-  const d = withConst('d', hook, { initialState: () => ({ status: 'loading' }) }).useStore()
-  const e = withConst('e', hook).useStore()
-  const f = withConst('f', hook, { initialState: { ids: ['x'] } }).useStore()
-  return [a, b, c, d, e, f] as const
+const literal = createStore('seed-literal', hook, { initialState: { status: 'loading' } })
+const several = createStore('seed-several', hook, { initialState: { status: 'loading', ids: [] } })
+const byParams = createStore('seed-function', hook, { initialState: () => ({ status: 'loading' as const }) }) // a function still needs `as const`
+const unseeded = createStore('seed-none', hook)
+const states = () => [literal.useStore(), several.useStore(), byParams.useStore(), unseeded.useStore()] as const
+type S = ReturnType<typeof states>
+
+assert<Equals<Keys<S[0]>, ['present', 'optional', 'optional']>>()
+assert<Equals<Keys<S[1]>, ['present', 'present', 'optional']>>()
+assert<Equals<Keys<S[2]>, ['present', 'optional', 'optional']>>()
+assert<Equals<Keys<S[3]>, ['optional', 'optional', 'optional']>>()
+
+export const ReadsUnseeded = () => {
+  const { ids } = literal.useStore()
+  // @ts-expect-error `ids` is not seeded, so it is possibly undefined
+  return ids.length
 }
-type C = ReturnType<typeof cases>
-export const show: 0 = null as unknown as [
-  [Present<C[0], 'status'>, Present<C[0], 'ids'>, Present<C[0], 'setIds'>],
-  [Present<C[1], 'status'>, Present<C[1], 'ids'>, Present<C[1], 'setIds'>],
-  [Present<C[2], 'status'>, Present<C[2], 'ids'>, Present<C[2], 'setIds'>],
-  [Present<C[3], 'status'>, Present<C[3], 'ids'>, Present<C[3], 'setIds'>],
-  [Present<C[4], 'status'>, Present<C[4], 'ids'>, Present<C[4], 'setIds'>],
-  [Present<C[5], 'status'>, Present<C[5], 'ids'>, Present<C[5], 'setIds'>],
-]
-// current signature, same probes
-const curCases = () => [
-  createStore('a2', hook, { initialState: { status: 'loading', ids: [] } }).useStore(),
-  createStore('b2', hook, { initialState: { status: 'loading' } }).useStore(),
-  createStore('c2', hook, { initialState: { status: 'loading' as const, ids: [] as string[] } }).useStore(),
-  createStore('d2', hook, { initialState: () => ({ status: 'loading' }) }).useStore(),
-] as const
-type K = ReturnType<typeof curCases>
-export const showCur: 0 = null as unknown as [
-  [Present<K[0], 'status'>, Present<K[0], 'ids'>, Present<K[0], 'setIds'>],
-  [Present<K[1], 'status'>, Present<K[1], 'ids'>, Present<K[1], 'setIds'>],
-  [Present<K[2], 'status'>, Present<K[2], 'ids'>, Present<K[2], 'setIds'>],
-  [Present<K[3], 'status'>, Present<K[3], 'ids'>, Present<K[3], 'setIds'>],
-]
+// @ts-expect-error a value the hook never returns
+createStore('seed-wrong-value', hook, { initialState: { status: 'done' } })

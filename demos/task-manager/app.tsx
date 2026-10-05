@@ -18,7 +18,10 @@ export const api = {
   async updateTask(id: string, patch: Partial<Task>) {
     calls.push('update:' + id); await wait(control.delay)
     if (control.failNextUpdate) { control.failNextUpdate = false; throw new Error('409 conflict') }
-    db[id] = { ...db[id], ...patch, updatedAt: Date.now() }; return { ...db[id] }
+    const task = db[id]
+    if (!task) throw new Error('404 not found')
+    const saved = { ...task, ...patch, updatedAt: Date.now() }
+    db[id] = saved; return { ...saved }
   },
   async deleteTask(id: string) { calls.push('delete:' + id); await wait(control.delay); delete db[id] },
   async fetchComments(taskId: string) { calls.push('comments:' + taskId); await wait(control.delay); return [`first comment on ${taskId}`] },
@@ -64,15 +67,22 @@ export const { useStore: useTasks, getStore: getTasks } = createStore('tasks', (
   // live updates while anyone looks at this project
   useEffect(() => socket.subscribe(projectId, t => setTasks(s => ({ ...s, [t.id]: t }))), [projectId])
 
+  // Changes a task only while it exists. The first version wrote `{ ...s[id], ...patch }` and the
+  // saved or rolled-back task unconditionally: a task deleted during the save came back, half of it
+  // missing. noUncheckedIndexedAccess pointed at those lines.
+  const changeTask = (id: string, change: (task: Task) => Task) =>
+    setTasks(s => { const task = s[id]; return task ? { ...s, [id]: change(task) } : s })
+
   const updateTask = async (id: string, patch: Partial<Task>) => {
     const before = tasks[id]                       // latest render's value: the wrapper calls the latest closure
+    if (!before) return
     setUndoStack(u => [...u, tasks])
-    setTasks(s => ({ ...s, [id]: { ...s[id], ...patch } }))
+    changeTask(id, task => ({ ...task, ...patch }))
     try {
       const saved = await api.updateTask(id, patch)
-      setTasks(s => ({ ...s, [id]: saved }))
+      changeTask(id, () => saved)
     } catch (e) {
-      setTasks(s => ({ ...s, [id]: before }))      // roll back
+      changeTask(id, () => before)                 // roll back
       setError(String(e))
     }
   }
@@ -88,7 +98,7 @@ export const { useStore: useTasks, getStore: getTasks } = createStore('tasks', (
     setTasks(prev)
   }
   return { tasks, status, error, updateTask, deleteTask, undo, canUndo: undoStack.length > 0 }
-}, { initialState: { tasks: {}, status: 'loading' as const, canUndo: false } })
+}, { initialState: { tasks: {}, status: 'loading', canUndo: false } })
 
 // ---------- 3. filters of a project (UI state, kept 60 s after leaving) ----------
 export const { useStore: useFilters } = createStore('filters', ({ projectId }: { projectId: string }) => {
@@ -96,7 +106,7 @@ export const { useStore: useFilters } = createStore('filters', ({ projectId }: {
   const [mine, setMine] = useState(false)
   const [sort, setSort] = useState<'title' | 'updated'>('updated')
   return { status, mine, sort, setStatus, setMine, setSort }
-}, { initialState: { status: 'all' as const, mine: false, sort: 'updated' as const }, timeToClean: 60_000 })
+}, { initialState: { status: 'all', mine: false, sort: 'updated' }, timeToClean: 60_000 })
 
 // ---------- 4. derived: visible ids ----------
 export const visibleIds = (tasks: Record<string, Task>, status: Status | 'all', mine: boolean, sort: 'title' | 'updated', user: User | null) =>
@@ -112,9 +122,12 @@ export const { useStore: useVisible } = createStore('visible', ({ projectId }: {
   const ids = useMemo(() => visibleIds(tasks, status, mine, sort, user), [tasks, status, mine, sort, user])
   const { updateTask } = useTasks({ projectId })
   // a cross-store action lives in the store that already reads everything it needs
-  const assignVisibleToMe = () => { for (const id of ids) updateTask!(id, { assignee: user!.id }) }
+  const assignVisibleToMe = () => {
+    if (!user) return
+    for (const id of ids) updateTask?.(id, { assignee: user.id })
+  }
   return { ids, assignVisibleToMe }
-}, { initialState: { ids: [] as string[] } })
+}, { initialState: { ids: [] } })
 
 // ---------- 5. derived: stats ----------
 export const { useStore: useStats } = createStore('stats', ({ projectId }: { projectId: string }) => {
@@ -146,7 +159,7 @@ export const { useStore: useSearch } = createStore('search', ({ projectId }: { p
     return () => { alive = false }
   }, [projectId, query])
   return { query, setQuery, results }
-}, { initialState: { query: '', results: [] as string[] } })
+}, { initialState: { query: '', results: [] } })
 
 // ---------- 8. a draft that survives closing the editor ----------
 export const { useStore: useDraft } = createStore('draft', ({ taskId }: { taskId: string }) => {
@@ -183,9 +196,9 @@ export const Toolbar = ({ projectId }: { projectId: string }) => {
   const { setStatus, setMine } = useFilters({ projectId })
   const { undo, canUndo } = useTasks({ projectId })
   return <div>
-    <button onClick={() => setStatus('done')}>done</button>
-    <button onClick={() => setMine(true)}>mine</button>
-    <button disabled={!canUndo} onClick={() => undo()}>undo</button>
+    <button onClick={() => setStatus?.('done')}>done</button>
+    <button onClick={() => setMine?.(true)}>mine</button>
+    <button disabled={!canUndo} onClick={() => undo?.()}>undo</button>
   </div>
 }
 export const Editor = ({ projectId, taskId }: { projectId: string, taskId: string }) => {
@@ -193,7 +206,7 @@ export const Editor = ({ projectId, taskId }: { projectId: string, taskId: strin
   const { title, setTitle } = useDraft({ taskId })
   const { updateTask } = useTasks({ projectId })
   const value = title ?? task?.title ?? ''
-  return <form onSubmit={e => { e.preventDefault(); updateTask(taskId, { title: value }); setTitle(undefined) }}>
-    <input value={value} onChange={e => setTitle(e.target.value)} />
+  return <form onSubmit={e => { e.preventDefault(); updateTask?.(taskId, { title: value }); setTitle?.(undefined) }}>
+    <input value={value} onChange={e => setTitle?.(e.target.value)} />
   </form>
 }

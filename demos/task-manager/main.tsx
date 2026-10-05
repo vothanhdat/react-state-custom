@@ -2,7 +2,7 @@
 // It renders the stores of app.tsx and two switches that show what the scenarios found.
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { AutoRootCtx, createStore } from '../../src'
+import { AutoRootCtx, createStore, shallowEqual } from '../../src'
 import { DevToolContainer } from '../../src/dev-tool'
 import '../../src/dev-tool/DevTool.css'
 import './page.css'
@@ -22,31 +22,26 @@ const statuses: Status[] = ['todo', 'doing', 'done']
 for (const [projectId, list] of Object.entries(titles)) {
   list.forEach((title, i) => {
     const id = `${projectId}-t${String(i).padStart(2, '0')}`
-    db[id] = { id, title, projectId, status: statuses[i % 3], assignee: i % 4 === 0 ? 'u-dat' : undefined, updatedAt: i }
+    db[id] = { id, title, projectId, status: statuses[i % 3]!, assignee: i % 4 === 0 ? 'u-dat' : undefined, updatedAt: i }
   })
 }
 control.delay = 350   // slow enough to see loading, optimistic edits and rollbacks
 
 // ---------- the fixed list: ids and tasks from one store ----------
-const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i])
-
 // Computes the ids from `tasks` in the same render, so ids and tasks are published together.
-// With `stable`, it keeps the previous array while the ids are the same.
-const { useStore: useList } = createStore('list', ({ projectId, stable }: { projectId: string, stable: boolean }) => {
+const { useStore: useList } = createStore('list', ({ projectId }: { projectId: string }) => {
   const { tasks } = useTasks({ projectId })
   const { status, mine, sort } = useFilters({ projectId })
   const { user } = useSession()
-  const next = useMemo(() => visibleIds(tasks, status, mine, sort, user), [tasks, status, mine, sort, user])
-  const kept = useRef(next)
-  if (!stable || !sameIds(kept.current, next)) kept.current = next
-  return { ids: kept.current, tasks }
-}, { initialState: { ids: [] as string[], tasks: {} as Record<string, Task> } })
+  const ids = useMemo(() => visibleIds(tasks, status, mine, sort, user), [tasks, status, mine, sort, user])
+  return { ids, tasks }
+}, { initialState: { ids: [], tasks: {} } })
 
 // ---------- rows ----------
-type RowProps = { projectId: string, id: string, stable: boolean, selected: boolean, onOpen: (id: string) => void }
+type RowProps = { projectId: string, id: string, selected: boolean, onOpen: (id: string) => void }
 const next: Record<Status, Status> = { todo: 'doing', doing: 'done', done: 'todo' }
 
-const RowView = ({ task, projectId, selected, onOpen }: { task: Task } & Omit<RowProps, 'id' | 'stable'>) => {
+const RowView = ({ task, projectId, selected, onOpen }: { task: Task } & Omit<RowProps, 'id'>) => {
   const renders = useRef(0)
   renders.current++
   const { updateTask, deleteTask } = useTasks({ projectId })
@@ -59,35 +54,46 @@ const RowView = ({ task, projectId, selected, onOpen }: { task: Task } & Omit<Ro
   </li>
 }
 
-// As first written: the list reads ids from one store, the row reads its task from `tasks`.
-const RowFromTasks = (p: RowProps) => {
-  const task = useTasks({ projectId: p.projectId }, s => s.tasks[p.id])
+// As first written: the list reads its ids from the `list` store, the row reads its task from
+// `tasks` without a check. The `!` is what noUncheckedIndexedAccess makes you write to skip the
+// check; on delete the task is gone, and the row crashes.
+const RowUnchecked = (p: RowProps) => {
+  const task = useTasks({ projectId: p.projectId }, s => s.tasks[p.id]!)
   return <RowView task={task} {...p} />
 }
-// Fixed: the row reads its task from the store that gave the list its ids.
+// The same row, checking before it reads: a deleted task renders nothing for the one render
+// before the list drops its id.
+const RowChecked = (p: RowProps) => {
+  const task = useTasks({ projectId: p.projectId }, s => s.tasks[p.id])
+  if (!task) return null
+  return <RowView task={task} {...p} />
+}
+// The row reads its task from the store that gave the list its ids, so they always arrive together.
+// The type cannot know that, so the check stays.
 const RowFromList = (p: RowProps) => {
-  const task = useList({ projectId: p.projectId, stable: p.stable }, s => s.tasks[p.id])
+  const task = useList({ projectId: p.projectId }, s => s.tasks[p.id])
+  if (!task) return null
   return <RowView task={task} {...p} />
 }
 const rows = {
-  tasks: { plain: RowFromTasks, memo: memo(RowFromTasks) },
+  checked: { plain: RowChecked, memo: memo(RowChecked) },
+  unchecked: { plain: RowUnchecked, memo: memo(RowUnchecked) },
   list: { plain: RowFromList, memo: memo(RowFromList) },
 }
 
 type Source = keyof typeof rows
-type Rerender = 'none' | 'memo' | 'stable'
+type Rerender = 'none' | 'memo' | 'shallow'
 
 const TaskList = ({ projectId, source, rerender, selected, onOpen }: {
   projectId: string, source: Source, rerender: Rerender, selected?: string, onOpen: (id: string) => void
 }) => {
-  const stable = rerender === 'stable'
-  const { ids } = useList({ projectId, stable })
+  const ids = useList({ projectId }, s => s.ids, rerender === 'shallow' ? shallowEqual : undefined)
   const { status } = useTasks({ projectId })
   const Row = rows[source][rerender === 'memo' ? 'memo' : 'plain']
   if (status === 'loading') return <p className="muted">Loading…</p>
   if (!ids.length) return <p className="muted">No task matches the filters.</p>
   return <ul className="list">
-    {ids.map(id => <Row key={id} projectId={projectId} id={id} stable={stable} selected={id === selected} onOpen={onOpen} />)}
+    {ids.map(id => <Row key={id} projectId={projectId} id={id} selected={id === selected} onOpen={onOpen} />)}
   </ul>
 }
 
@@ -99,7 +105,8 @@ class ListBoundary extends React.Component<{ children: React.ReactNode }, { erro
     return <div className="crash">
       <strong>The list crashed:</strong> <code>{this.state.error.message}</code>
       <p>The deleted row rendered once more with its task <code>undefined</code>: <code>tasks</code> published the delete
-        one commit before the list store dropped the id. Switch “Row reads its task from” to the list store, then delete again.</p>
+        one commit before the list store dropped the id, and this row reads it without a check. Switch “Row reads its task
+        from” to a checked row or to the list store, then delete again.</p>
       <button onClick={() => this.setState({ error: undefined })}>Render the list again</button>
     </div>
   }
@@ -189,7 +196,7 @@ const CallLog = () => {
 // ---------- page ----------
 const App = () => {
   const [projectId, setProjectId] = useState<string | null>('p1')
-  const [source, setSource] = useState<Source>('tasks')
+  const [source, setSource] = useState<Source>('checked')
   const [rerender, setRerender] = useState<Rerender>('none')
   const [selected, setSelected] = useState<string>()
   const { user, login, logout } = useSession()
@@ -212,15 +219,16 @@ const App = () => {
     <div className="modes">
       <label>Row reads its task from
         <select value={source} onChange={e => setSource(e.target.value as Source)}>
-          <option value="tasks">tasks store (as first written: delete crashes)</option>
-          <option value="list">the list's own store (fixed)</option>
+          <option value="checked">tasks store, checked before reading</option>
+          <option value="unchecked">tasks store, no check (as first written: delete crashes)</option>
+          <option value="list">the list's own store</option>
         </select>
       </label>
       <label>Changing one task re-renders
         <select value={rerender} onChange={e => setRerender(e.target.value as Rerender)}>
           <option value="none">every row (new ids array)</option>
           <option value="memo">one row: React.memo on rows</option>
-          <option value="stable">one row: ids kept while equal</option>
+          <option value="shallow">one row: the list reads its ids with shallowEqual</option>
         </select>
       </label>
       <span className="muted">The number at the start of each row counts its renders. Click a status to change it; sort by Title to keep
