@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Fixed
+- `initialState` typed every key of the store as present, actions included, when it held a string literal without `as const` (`{ status: 'loading' }`): TypeScript widened `'loading'` to `string`, the object no longer matched the store's type, and the result fell back to "every key seeded". A consumer could then call an action or read `ids.length` with no check and crash on the first render. `createStore` and `createAutoCtx` now infer only the keys of `initialState` and check each value against the hook's type: `{ status: 'loading' }` needs no cast, only the keys it holds are typed as present, and a misspelled key or a value the hook never returns is a type error. Code that compiled only because of the old typing gets type errors at those reads, which were unchecked. As before, a string literal returned from the function form needs `as const`. A seed with keys the store's type lacks, such as a record spread next to named keys, needs the hook's return type to keep the record's index signature (see Collections under Selectors in the docs).
 
 ## [1.6.0] - 2026-10-04
 ### Performance

@@ -31,6 +31,8 @@ export const { useStore: useUserStore } = createStore('user', useUserState, {
 const { user, isLoading } = useUserStore({ userId }) // never undefined
 ```
 
+Only the keys it holds are typed as present; the others, actions included, stay optional. Each value is checked against the hook's type for that key, so `{ status: 'loading' }` needs no `as const`, and a misspelled key or a value the hook never returns is a type error.
+
 `initialState` can also be a function of the params:
 
 ```ts
@@ -38,6 +40,8 @@ createStore('todos', useTodoState, {
   initialState: ({ listId }) => ({ listId, items: [] }),
 })
 ```
+
+TypeScript widens a string literal returned from a function, so write `'loading' as const` in this form.
 
 It seeds the store's context once per instance, before the first consumer render. Three effects follow:
 

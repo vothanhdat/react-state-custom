@@ -38,12 +38,14 @@ type StoreStatus = {
 ## `StoreOptions`
 
 ```ts
-type StoreOptions<Params, State, Initial extends Partial<State> = {}> = {
+type StoreOptions<Params, State, Initial = {}> = {
   timeToClean?: number
   AttachedComponent?: React.ComponentType<Params>
   initialState?: Initial | ((params: Params) => Initial)
 }
 ```
+
+`createStore` passes `Pick<State, Seeded>` as `Initial`, with `Seeded` inferred from the keys of `initialState`.
 
 ## `StoreParams`
 

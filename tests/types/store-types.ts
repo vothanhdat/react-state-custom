@@ -108,3 +108,47 @@ createStore('types-object-param-interface', ({ user }: { user: User } & CounterP
 
 // The lower layers accept interfaces too
 export const lower = createAutoCtx(createRootCtx('types-lower', useCounter))
+
+// initialState: only the keys it holds are typed as present, and its values are checked against the
+// store's types, so a literal needs no `as const`
+type LoadStatus = 'loading' | 'ready' | 'error'
+const useLoad = (_: { id: string }) => ({
+  status: 'loading' as LoadStatus,
+  ids: [] as string[],
+  byId: {} as Record<string, number>,
+  user: null as { name: string } | null,
+  reload: () => { },
+})
+export const seededLiteral = createStore('types-seed-literal', useLoad, { initialState: { status: 'loading' } })
+export const seededSeveral = createStore('types-seed-several', useLoad, { initialState: { status: 'ready', ids: [], byId: {} } })
+export const seededByParams = createStore('types-seed-params', useLoad, {
+  initialState: ({ id }) => ({ status: id ? 'loading' as const : 'error' as const }),
+})
+export const SeedConsumer = () => {
+  const one = seededLiteral.useStore({ id: 'a' })
+  assert<Equals<typeof one.status, LoadStatus>>()
+  assert<Equals<typeof one.ids, string[] | undefined>>()            // not seeded: still optional
+  assert<Equals<typeof one.reload, (() => void) | undefined>>()     // actions are never seeded
+  const several = seededSeveral.useStore({ id: 'a' })
+  assert<Equals<typeof several.ids, string[]>>()
+  assert<Equals<typeof several.byId, Record<string, number>>>()
+  assert<Equals<typeof several.user, { name: string } | null | undefined>>()
+  const byParams = seededByParams.useStore({ id: 'a' })
+  assert<Equals<typeof byParams.status, LoadStatus>>()
+  assert<Equals<typeof byParams.ids, string[] | undefined>>()
+  const handle = seededLiteral.getStore({ id: 'a' }).get()
+  assert<Equals<typeof handle.status, LoadStatus>>()
+  assert<Equals<typeof handle.ids, string[] | undefined>>()
+  return null
+}
+// @ts-expect-error not a value of the store's type
+createStore('types-seed-wrong-value', useLoad, { initialState: { status: 'done' } })
+// @ts-expect-error not a key of the store
+createStore('types-seed-wrong-key', useLoad, { initialState: { stauts: 'loading' } })
+export const lowerSeeded = createAutoCtx(createRootCtx('types-lower-seeded', useLoad), { initialState: { status: 'loading' } })
+export const LowerSeedConsumer = () => {
+  const s = lowerSeeded.useStore({ id: 'a' })
+  assert<Equals<typeof s.status, LoadStatus>>()
+  assert<Equals<typeof s.ids, string[] | undefined>>()
+  return null
+}

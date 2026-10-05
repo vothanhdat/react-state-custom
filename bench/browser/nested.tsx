@@ -125,7 +125,8 @@ export const rscFlatRoot: NestedAdapter = {
     const counters = newCounters(), changes = changesFor(kind)
     const roots = seeds().map((seed, r) => createStore(`nested-flat-${worldId++}-${r}`, () => {
       const [fields, setFields] = useState(seed)
-      return { ...fields, bump: (list: number[]) => setFields(f => bump(f, list)) }
+      // the cast keeps the index signature that a spread next to a named key drops (see Collections in the docs)
+      return { ...fields, bump: (list: number[]) => setFields(f => bump(f, list)) } as Fields & { bump: (list: number[]) => void }
     }, { initialState: seed }))
     return {
       counters,

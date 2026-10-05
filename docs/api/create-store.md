@@ -3,7 +3,7 @@
 The main entry point. Converts a standard React hook into a shared, automatically managed store.
 
 ```ts
-function createStore<Params, State, Initial extends Partial<State> = {}>(
+function createStore<Params, State, Seeded extends keyof State = never>(
   name: string,
   useFn: (params: Params, preState: Partial<State>) => State,
   options?: number | StoreOptions<Params, State, Initial>
@@ -25,6 +25,8 @@ function createStore<Params, State, Initial extends Partial<State> = {}>(
 }
 ```
 
+`Initial` stands for `Pick<State, Seeded>`: TypeScript infers `Seeded` from the keys of `initialState` and checks each value against `State`, so only the keys it holds are typed as present.
+
 `params` is optional on every returned function when `Params` has no required keys.
 
 ## Arguments
@@ -44,7 +46,7 @@ An object, or a bare number treated as `timeToClean`.
 | option | type | default | description |
 |---|---|---|---|
 | `timeToClean` | `number` | `0` | Milliseconds to keep the instance alive after its last consumer or retainer leaves. |
-| `initialState` | `Initial \| (params) => Initial` | | Values consumers read before the hook has published. Keys listed here are typed as always present. |
+| `initialState` | `Initial \| (params) => Initial` | | Values consumers read before the hook has published. Keys listed here are typed as always present; values are checked against the hook's types. |
 | `AttachedComponent` | `ComponentType<Params>` | | Rendered next to each instance, inside its error boundary, with the store params as props. |
 
 See [Store options](/guide/store-options) for guidance.

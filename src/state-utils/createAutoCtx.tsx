@@ -495,7 +495,7 @@ const useSelectorModeCheck = (name: string, withSelector: boolean) => {
 }
 
 /** Options accepted by createStore / createAutoCtx (a bare number is still accepted as `timeToClean`). */
-export type StoreOptions<U extends StoreParamsShape<U>, V extends object, I extends Partial<V> = {}> = {
+export type StoreOptions<U extends StoreParamsShape<U>, V extends object, I = {}> = {
   /** Milliseconds to keep the store alive after its last consumer unmounts. Default 0. */
   timeToClean?: number
   /** Component rendered next to the store root, once per store instance (side effects, logging, ...). */
@@ -517,7 +517,14 @@ export type StoreState<V, I> = { [P in keyof V]?: V[P] | undefined } & { [P in k
 /** What `useStoreSuspense(params, keys)` returns: the keys it waited for hold a value, the others are as in `StoreState`. */
 export type StoreStateWith<V, I, K extends keyof V> = StoreState<V, I> & { [P in K]-?: Exclude<V[P], undefined> }
 
-const normalizeOptions = <U extends StoreParamsShape<U>, V extends object, I extends Partial<V>>(
+/**
+ * An `initialState` holding the keys `K`, each with the store's own type. `createStore` infers only
+ * the keys, so a literal such as `'loading'` is checked against the store's type instead of
+ * widening to `string`, and only the keys actually given are typed as present.
+ */
+type Seed<V, K extends keyof V> = { [P in K]: V[P] }
+
+const normalizeOptions = <U extends StoreParamsShape<U>, V extends object, I>(
   timeToCleanOrOptions: number | StoreOptions<U, V, I> | undefined,
   AttatchedComponent: React.ComponentType<U> | undefined
 ): Required<Pick<StoreOptions<U, V, I>, "timeToClean">> & Omit<StoreOptions<U, V, I>, "timeToClean"> => {
@@ -583,7 +590,13 @@ export type StoreStatus = {
  * ```
  * AutoRootCtx will subscribe/unsubscribe instances per unique params and render the appropriate Root under the hood.
  */
-export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, I extends Partial<V> = {}>(
+export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, K extends keyof V = never>(
+  rootCtx: ReturnType<typeof createRootCtx<U, V>>,
+  timeToCleanOrOptions: number | StoreOptions<U, V, Seed<V, K>> = 0,
+  AttatchedComponent: React.ComponentType<U> | undefined = undefined
+) => createAutoCtxWith<U, V, Seed<V, K>>(rootCtx, timeToCleanOrOptions, AttatchedComponent)
+
+const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
   { useRootState, getCtxName, name }: ReturnType<typeof createRootCtx<U, V>>,
   timeToCleanOrOptions: number | StoreOptions<U, V, I> = 0,
   AttatchedComponent: React.ComponentType<U> | undefined = undefined
@@ -594,7 +607,7 @@ export const createAutoCtx = <U extends StoreParamsShape<U>, V extends object, I
 
   const seedValues = (params: U): Partial<V> | undefined => {
     if (!initialState) return undefined
-    return (typeof initialState === "function" ? initialState(params) : initialState) as Partial<V>
+    return (typeof initialState === "function" ? (initialState as (params: U) => I)(params) : initialState) as Partial<V>
   }
 
   // Seed initialState once per Context instance, before anything subscribes, so the very
@@ -1022,13 +1035,13 @@ const waitUntilReady = <V, I>(
  * ```
  * The third argument may be a bare number (`timeToClean`) for backwards compatibility.
  */
-export const createStore = <U extends StoreParamsShape<U>, V extends object, I extends Partial<V> = {}>(
+export const createStore = <U extends StoreParamsShape<U>, V extends object, K extends keyof V = never>(
   name: string,
   useFn: (params: U, preState: Partial<V>) => V,
-  timeToCleanOrOptions: number | StoreOptions<U, V, I> = 0,
+  timeToCleanOrOptions: number | StoreOptions<U, V, Seed<V, K>> = 0,
   AttatchedComponent: React.ComponentType<U> | undefined = undefined
 ) => {
-  return createAutoCtx<U, V, I>(createRootCtx(name, useFn), timeToCleanOrOptions, AttatchedComponent)
+  return createAutoCtxWith<U, V, Seed<V, K>>(createRootCtx(name, useFn), timeToCleanOrOptions, AttatchedComponent)
 }
 
 /** Scopes created in this page so far, which numbers their ids. */

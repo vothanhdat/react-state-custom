@@ -21,7 +21,7 @@ export const MessageList = ({ roomId }: { roomId: string }) => {
             <ul className="list">
                 {messages.slice(-5).map(m => <li key={m.id}><b>{m.author}</b> {m.text}</li>)}
             </ul>
-            <form className="row" onSubmit={e => { e.preventDefault(); if (text) send(text); setText('') }}>
+            <form className="row" onSubmit={e => { e.preventDefault(); if (text) send?.(text); setText('') }}>
                 <input className="grow" value={text} onChange={e => setText(e.target.value)} placeholder="Message" />
                 <button type="submit">Send</button>
                 <button type="button" onClick={markRead} disabled={unread === 0}>Mark read</button>
