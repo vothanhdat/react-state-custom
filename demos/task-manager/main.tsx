@@ -2,7 +2,7 @@
 // It renders the stores of app.tsx and two switches that show what the scenarios found.
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { AutoRootCtx, createStore, shallowEqual } from '../../src'
+import { AutoRootCtx, createStore } from '../../src'
 import { DevToolContainer } from '../../src/dev-tool'
 import '../../src/dev-tool/DevTool.css'
 import './page.css'
@@ -58,20 +58,20 @@ const RowView = ({ task, projectId, selected, onOpen }: { task: Task } & Omit<Ro
 // `tasks` without a check. The `!` is what noUncheckedIndexedAccess makes you write to skip the
 // check; on delete the task is gone, and the row crashes.
 const RowUnchecked = (p: RowProps) => {
-  const task = useTasks({ projectId: p.projectId }, s => s.tasks[p.id]!)
+  const task = useTasks({ projectId: p.projectId }, { select: s => s.tasks[p.id]! })
   return <RowView task={task} {...p} />
 }
 // The same row, checking before it reads: a deleted task renders nothing for the one render
 // before the list drops its id.
 const RowChecked = (p: RowProps) => {
-  const task = useTasks({ projectId: p.projectId }, s => s.tasks[p.id])
+  const task = useTasks({ projectId: p.projectId }, { select: s => s.tasks[p.id] })
   if (!task) return null
   return <RowView task={task} {...p} />
 }
 // The row reads its task from the store that gave the list its ids, so they always arrive together.
 // The type cannot know that, so the check stays.
 const RowFromList = (p: RowProps) => {
-  const task = useList({ projectId: p.projectId }, s => s.tasks[p.id])
+  const task = useList({ projectId: p.projectId }, { select: s => s.tasks[p.id] })
   if (!task) return null
   return <RowView task={task} {...p} />
 }
@@ -87,7 +87,7 @@ type Rerender = 'none' | 'memo' | 'shallow'
 const TaskList = ({ projectId, source, rerender, selected, onOpen }: {
   projectId: string, source: Source, rerender: Rerender, selected?: string, onOpen: (id: string) => void
 }) => {
-  const ids = useList({ projectId }, s => s.ids, rerender === 'shallow' ? shallowEqual : undefined)
+  const ids = useList({ projectId }, { select: s => s.ids, isEqual: rerender === 'shallow' ? undefined : Object.is })
   const { status } = useTasks({ projectId })
   const Row = rows[source][rerender === 'memo' ? 'memo' : 'plain']
   if (status === 'loading') return <p className="muted">Loading…</p>
@@ -228,7 +228,7 @@ const App = () => {
         <select value={rerender} onChange={e => setRerender(e.target.value as Rerender)}>
           <option value="none">every row (new ids array)</option>
           <option value="memo">one row: React.memo on rows</option>
-          <option value="shallow">one row: the list reads its ids with shallowEqual</option>
+          <option value="shallow">one row: the list selects its ids, compared shallowly</option>
         </select>
       </label>
       <span className="muted">The number at the start of each row counts its renders. Click a status to change it; sort by Title to keep

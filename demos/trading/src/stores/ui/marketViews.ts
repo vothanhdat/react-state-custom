@@ -5,9 +5,10 @@
 // hundred SVG points nobody reads digit by digit) ten times a second.
 
 import { useMemo } from 'react'
-import { createStore, shallowEqual, throttle } from 'react-state-custom'
+import { createStore } from 'react-state-custom'
+import { throttle } from 'react-state-custom/schedulers'
 import { cumulate, groupLevels } from '../../domain/book'
-import { myOrderPrices, orderLines, sameLines } from '../../domain/orders'
+import { myOrderPrices, NO_ORDERS, orderLines, sameLines } from '../../domain/orders'
 import { decimalsOf } from '../../lib/num'
 import { useAccount } from '../core/account'
 import { useBook, useCandles, useTrades } from '../core/marketData'
@@ -22,7 +23,7 @@ const useLadderState = ({ symbol, grouping, depth }: { symbol: string; grouping:
   const sizeDecimals = useMarket(symbol)?.sizeDecimals ?? 8
   const { bids, asks, spread, mid, status, resyncs } = useBook({ symbol })
   const { lastPrice, direction } = useTrades({ symbol })
-  const mine = useAccount(s => myOrderPrices(s.orders, symbol, grouping), shallowEqual)
+  const mine = useAccount(undefined, { select: s => myOrderPrices(s.orders ?? NO_ORDERS, symbol, grouping) })
 
   const rows = useMemo(() => {
     const bidRows = groupLevels(bids, grouping, 'bid', depth, sizeDecimals, mine)
@@ -77,6 +78,6 @@ export const useDepth = (symbol: string, zoom: number) => {
 export const useChart = (symbol: string, interval: number) => {
   const { candles, loading, error, retry } = useCandles({ symbol, interval })
   const decimals = useMarket(symbol)?.priceDecimals ?? 2
-  const lines = useAccount(s => orderLines(s.orders, symbol), sameLines)
+  const lines = useAccount(undefined, { select: s => orderLines(s.orders ?? NO_ORDERS, symbol), isEqual: sameLines })
   return { candles, loading, error, retry, decimals, lines }
 }

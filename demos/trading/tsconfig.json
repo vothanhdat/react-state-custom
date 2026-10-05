@@ -13,6 +13,7 @@
     "paths": {
       "react-state-custom": ["../../src/index.ts"],
       "react-state-custom/testing": ["../../src/testing/index.ts"],
+      "react-state-custom/schedulers": ["../../src/schedulers/index.ts"],
       "react-state-custom/dev-tool": ["../../src/dev-tool/index.ts"]
     }
   },

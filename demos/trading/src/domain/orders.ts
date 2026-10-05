@@ -13,6 +13,9 @@ export type CancelResult = { ok: true; id: string } | { ok: false; id: string; e
 
 export type Orders = Record<string, Order | undefined>
 
+/** No orders: what a reader has before the account loads, one object so selections stay equal */
+export const NO_ORDERS: Orders = Object.freeze({})
+
 export const isOpen = (o: Order) => o.status === 'open' || o.status === 'partially_filled'
 
 export const omit = <T>(record: Record<string, T>, key: string): Record<string, T> => {

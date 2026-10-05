@@ -8,7 +8,7 @@ export function OrderTicket() {
   const { symbol } = useWorkspace()
   return (
     <section className="panel ticket">
-      <OrderForm symbol={symbol} />
+      {symbol && <OrderForm symbol={symbol} />}
     </section>
   )
 }

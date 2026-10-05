@@ -3,8 +3,9 @@
 // account store itself never needs to know about the UI.
 
 import { useMemo } from 'react'
-import { createStore, idle, shallowEqual, sync, throttle } from 'react-state-custom'
-import { closedOrderIds, openOrderIds, type CancelResult } from '../../domain/orders'
+import { createStore } from 'react-state-custom'
+import { idle, sync, throttle } from 'react-state-custom/schedulers'
+import { closedOrderIds, NO_ORDERS, openOrderIds, type CancelResult } from '../../domain/orders'
 import { valueHoldings } from '../../domain/portfolio'
 import { useAccount } from '../core/account'
 import { useMarket, useTickers } from '../core/markets'
@@ -22,7 +23,7 @@ export const { useStore: usePortfolio } = createStore('portfolio', () => {
 
 export const useAccountSummary = () => {
   const { status } = useAccount()
-  const openCount = useAccount(s => openOrderIds(s.orders).length)
+  const openCount = useAccount(undefined, { select: s => openOrderIds(s.orders ?? NO_ORDERS).length })
   return { status, openCount }
 }
 
@@ -31,19 +32,19 @@ export const useAccountSummary = () => {
  * every change; the history is a log, rendered when the browser has time (within half a second).
  */
 export const useOrderIds = (kind: 'open' | 'history', symbol?: string) =>
-  useAccount(s => (kind === 'open' ? openOrderIds(s.orders, symbol) : closedOrderIds(s.orders, symbol, 50)), {
-    isEqual: shallowEqual,
+  useAccount(undefined, {
+    select: s => (kind === 'open' ? openOrderIds(s.orders ?? NO_ORDERS, symbol) : closedOrderIds(s.orders ?? NO_ORDERS, symbol, 50)),
     schedule: kind === 'open' ? sync() : idle(500),
   })
 
 /** Orders sent but not yet acknowledged; entries keep their identity until they resolve */
 export const usePendingOrders = (symbol?: string) =>
-  useAccount(s => Object.values(s.pending).filter(p => !!p && (!symbol || p.symbol === symbol)), shallowEqual)
+  useAccount(undefined, { select: s => Object.values(s.pending ?? {}).filter(p => !!p && (!symbol || p.symbol === symbol)) })
 
 /** The fills log, rendered when the browser has time (within half a second) */
 export const useFills = (symbol?: string) => {
   const { fills } = useAccount(undefined, { schedule: idle(500) })
-  return useMemo(() => fills.filter(f => !symbol || f.symbol === symbol), [fills, symbol])
+  return useMemo(() => fills?.filter(f => !symbol || f.symbol === symbol) ?? [], [fills, symbol])
 }
 
 export const useOrderCommands = () => {
@@ -63,8 +64,8 @@ export const useOrderCommands = () => {
 }
 
 export const useOrderRow = (id: string) => {
-  const order = useAccount(s => s.orders[id])
-  const cancelling = useAccount(s => !!s.cancelling[id])
+  const order = useAccount(undefined, { select: s => s.orders?.[id] })
+  const cancelling = useAccount(undefined, { select: s => !!s.cancelling?.[id] })
   const market = useMarket(order?.symbol ?? '')
   const { cancel } = useOrderCommands()
   return { order, cancelling, priceDecimals: market?.priceDecimals ?? 2, sizeDecimals: market?.sizeDecimals ?? 4, cancel: () => cancel(id) }

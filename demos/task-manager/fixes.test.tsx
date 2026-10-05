@@ -14,7 +14,7 @@ const N = 50
 const seedTasks = () => Object.fromEntries(Array.from({ length: N }, (_, i) => ['t' + i, { id: 't' + i, title: 'task ' + i, done: false }]))
 
 // source + derived, as written first
-const { useStore: useTasks, getStore: getTasks } = createStore('fx-tasks', () => {
+const { useStore: useTasks, storeRef: tasksRef } = createStore('fx-tasks', () => {
   const [tasks, setTasks] = useState<Record<string, Task>>(seedTasks)
   const toggle = (id: string) => setTasks(s => ({ ...s, [id]: { ...s[id], done: !s[id].done } }))
   const remove = (id: string) => setTasks(s => { const { [id]: _, ...rest } = s; return rest })
@@ -37,13 +37,13 @@ const rows: Record<string, number> = {}
 let zombies = 0
 const RowFromSource = React.memo(({ id }: { id: string }) => {
   rows[id] = (rows[id] ?? 0) + 1
-  const t = useTasks(undefined, s => s.tasks[id])
+  const t = useTasks(undefined, { select: s => s.tasks[id] })
   if (!t) { zombies++; return null }
   return <li>{t.title}</li>
 })
 const RowFromDerived = ({ id }: { id: string }) => {
   rows[id] = (rows[id] ?? 0) + 1
-  const t = useVisible(undefined, s => s.tasks[id])
+  const t = useVisible(undefined, { select: s => s.tasks[id] })
   if (!t) { zombies++; return null }
   return <li>{t.title}</li>
 }
@@ -53,10 +53,10 @@ it('ids kept stable in the store, rows unchanged', async () => {
   render(<><AutoRootCtx /><List /></>)
   await flush()
   for (const k in rows) delete rows[k]
-  await act(async () => { getTasks().get().toggle!('t3') })
+  await act(async () => { tasksRef().get().toggle!('t3') })
   log('stable ids, rows read from derived: rows rendered on one toggle', Object.keys(rows).length)
   zombies = 0
-  await act(async () => { getTasks().get().remove!('t4') })
+  await act(async () => { tasksRef().get().remove!('t4') })
   await flush()
   log('rows read from derived: undefined renders on delete', zombies)
 })
@@ -66,13 +66,13 @@ it('rows read from the source, memoized', async () => {
   render(<><AutoRootCtx /><List /></>)
   await flush()
   zombies = 0
-  await act(async () => { getTasks().get().remove!('t4') })
+  await act(async () => { tasksRef().get().remove!('t4') })
   await flush()
   log('rows read from source (memo): undefined renders on delete', zombies)
 })
 
 // the docs' collection shape: one key per task
-const { useStore: useKeyed, getStore: getKeyed } = createStore('fx-keyed', () => {
+const { useStore: useKeyed, storeRef: keyedRef } = createStore('fx-keyed', () => {
   const [tasks, setTasks] = useState<Record<string, Task>>(seedTasks)
   const toggle = (id: string) => setTasks(s => ({ ...s, [id]: { ...s[id], done: !s[id].done } }))
   return { ...tasks, toggle } as Record<string, Task> & { toggle: typeof toggle }
@@ -83,6 +83,6 @@ it('keyed collection', async () => {
   render(<><AutoRootCtx /><List /></>)
   await flush()
   for (const k in rows) delete rows[k]
-  await act(async () => { getKeyed().get().toggle!('t3') })
+  await act(async () => { keyedRef().get().toggle!('t3') })
   log('keyed: rows rendered on one toggle', Object.keys(rows).length)
 })

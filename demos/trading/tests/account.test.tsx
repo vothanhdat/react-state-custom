@@ -75,7 +75,7 @@ describe('account store', () => {
     fake.api.placeOrder.mockReturnValueOnce(response.promise)
     let placed!: Promise<unknown>
     act(() => { placed = storeHandle(useAccount).get().placeOrder!({ symbol: 'BTC-USD', side: 'buy', type: 'limit', price: 100, size: 1 }) })
-    const clientId = Object.keys(storeHandle(useAccount).get().pending)[0]!
+    const clientId = Object.keys(storeHandle(useAccount).get().pending ?? {})[0]!
     expect(clientId).toBeDefined()
 
     // the engine fills the order and says so on the stream, then the REST response (version 1) lands
@@ -83,7 +83,7 @@ describe('account store', () => {
     expect(storeHandle(useAccount).get().pending).toEqual({})
     await act(async () => { response.resolve(order({ clientId })); await placed })
 
-    expect(storeHandle(useAccount).get().orders.o1?.status).toBe('filled')
+    expect(storeHandle(useAccount).get().orders?.o1?.status).toBe('filled')
     release()
   })
 
@@ -128,9 +128,9 @@ describe('fill toasts', () => {
     emit({ type: 'fill', seq: 6, fill: fill({ id: 2, size: 0.25 }) }) // newer than the snapshot
     await act(async () => snapshot.resolve({ seq: 5, balances: [], orders: [] }))
 
-    expect(storeHandle(useToasts).get().toasts.map(t => t.title)).toEqual(['Bought 0.25 BTC'])
+    expect(storeHandle(useToasts).get().toasts?.map(t => t.title)).toEqual(['Bought 0.25 BTC'])
     emit({ type: 'fill', seq: 7, fill: fill({ id: 3, side: 'sell', size: 0.1 }) })
-    expect(storeHandle(useToasts).get().toasts.map(t => t.title)).toEqual(['Bought 0.25 BTC', 'Sold 0.1 BTC'])
+    expect(storeHandle(useToasts).get().toasts?.map(t => t.title)).toEqual(['Bought 0.25 BTC', 'Sold 0.1 BTC'])
   })
 
   it('keeps the account running when the toasts store fails', async () => {
@@ -171,7 +171,7 @@ describe('cancelling', () => {
 
     fake.api.cancelOrder.mockRejectedValueOnce(new Error('Order is already filled'))
     await act(async () => { screen.getByRole('button', { name: 'cancel o1' }).click() })
-    expect(storeHandle(useToasts).get().toasts.map(t => [t.title, t.body])).toEqual([['Cancel failed', 'Order is already filled']])
+    expect(storeHandle(useToasts).get().toasts?.map(t => [t.title, t.body])).toEqual([['Cancel failed', 'Order is already filled']])
     release()
   })
 })

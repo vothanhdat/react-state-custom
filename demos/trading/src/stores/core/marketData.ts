@@ -4,7 +4,8 @@
 // once per frame, with `scheduled(publish, frame())`.
 
 import { useEffect, useState } from 'react'
-import { createStore, frame, scheduled } from 'react-state-custom'
+import { createStore } from 'react-state-custom'
+import { frame, scheduled } from 'react-state-custom/schedulers'
 import { applyLevels, sortLevels } from '../../domain/book'
 import { mergeTrades } from '../../domain/candles'
 import { api, socket } from '../../sim/exchange'
@@ -75,7 +76,7 @@ const useBookState = ({ symbol }: { symbol: string }) => {
 }
 
 // kept two seconds after the last reader leaves, so flipping between two symbols does not resubscribe
-export const { useStore: useBook, getStore: getBook } = createStore('book', useBookState, { timeToClean: 2000 })
+export const { useStore: useBook, storeRef: bookRef } = createStore('book', useBookState, { timeToClean: 2000 })
 
 // ---------------------------------------------------------------- trades
 
@@ -111,7 +112,7 @@ const useTradesState = ({ symbol }: { symbol: string }) => {
   }
 }
 
-export const { useStore: useTrades, getStore: getTrades } = createStore('trades', useTradesState, { timeToClean: 2000 })
+export const { useStore: useTrades, storeRef: tradesRef } = createStore('trades', useTradesState, { timeToClean: 2000 })
 
 // ---------------------------------------------------------------- candles
 
@@ -161,6 +162,5 @@ const useCandlesState = ({ symbol, interval }: { symbol: string; interval: numbe
 }
 
 export const { useStore: useCandles } = createStore('candles', useCandlesState, {
-  initialState: { loading: true },
   timeToClean: 30_000,
 })

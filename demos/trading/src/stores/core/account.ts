@@ -142,7 +142,4 @@ const useAccountState = () => {
   }
 }
 
-export const { useStore: useAccount } = createStore('account', useAccountState, {
-  initialState: { orders: {}, pending: {}, cancelling: {}, fills: [], status: 'loading' },
-  timeToClean: 10 * 60_000,
-})
+export const { useStore: useAccount } = createStore('account', useAccountState, { timeToClean: 10 * 60_000 })

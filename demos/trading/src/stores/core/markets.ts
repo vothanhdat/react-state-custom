@@ -1,7 +1,8 @@
 // Core: reference data (markets) and the all-markets ticker stream, one top-level key per symbol.
 
 import { useEffect, useMemo, useState } from 'react'
-import { createStore, useFrameState } from 'react-state-custom'
+import { createStore } from 'react-state-custom'
+import { useFrameState } from 'react-state-custom/schedulers'
 import { api, socket } from '../../sim/exchange'
 import type { Market, Ticker } from '../../sim/types'
 
@@ -26,7 +27,7 @@ export const { useStore: useMarkets } = createStore('markets', () => {
 }, { timeToClean: KEEP })
 
 /** One market's rules; re-renders only when that market changes */
-export const useMarket = (symbol: string) => useMarkets(s => s.markets?.[symbol])
+export const useMarket = (symbol: string) => useMarkets(undefined, { select: s => s.markets?.[symbol] })
 
 /** dir: how the last price moved since the previous update */
 export type TickerView = Ticker & { dir: 1 | 0 | -1 }

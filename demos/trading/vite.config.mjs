@@ -11,6 +11,7 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^react-state-custom\/testing$/, replacement: src + 'testing/index.ts' },
+      { find: /^react-state-custom\/schedulers$/, replacement: src + 'schedulers/index.ts' },
       { find: /^react-state-custom\/dev-tool$/, replacement: src + 'dev-tool/index.ts' },
       { find: /^react-state-custom\/style\.css$/, replacement: src + 'dev-tool/DevTool.css' },
       { find: /^react-state-custom$/, replacement: src + 'index.ts' },

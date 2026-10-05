@@ -16,7 +16,7 @@ export const { useStore: useToasts } = createStore('toasts', () => {
     setTimeout(() => dismiss(id), toast.kind === 'error' ? 6000 : 3500)
   }
   return { toasts, push, dismiss }
-}, { initialState: { toasts: [] }, timeToClean: 10 * 60_000 })
+}, { timeToClean: 10 * 60_000 })
 
 // Fill → toast. A store of its own: one instance however many components start it (one toast per
 // fill), and the account stream neither waits for the toasts store nor stops when it fails.

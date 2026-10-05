@@ -4,13 +4,13 @@
 // re-renders when "does this price cross the book" flips, not when the book moves.
 
 import { useEffect, useState } from 'react'
-import { createStore, shallowEqual } from 'react-state-custom'
+import { createStore } from 'react-state-custom'
 import { estimateFill } from '../../domain/book'
 import { checkOrder, reservedByPending } from '../../domain/orders'
 import { floorToStep, parseNum } from '../../lib/num'
 import type { OrderType, Side } from '../../sim/types'
 import { useAccount } from '../core/account'
-import { getBook, getTrades, useBook, useTrades } from '../core/marketData'
+import { bookRef, tradesRef, useBook, useTrades } from '../core/marketData'
 import { useMarket } from '../core/markets'
 import { useToasts } from './toasts'
 
@@ -37,9 +37,9 @@ const useOrderFormState = ({ symbol }: { symbol: string }) => {
   const base = market?.base ?? ''
   const quote = market?.quote ?? ''
   const feeRate = market?.feeRate ?? 0
-  const accountReady = useAccount(s => s.status === 'ready')
-  const baseAvailable = useAccount(s => (s.balances?.[base]?.free ?? 0) - reservedByPending(s.pending, base, feeRate))
-  const quoteAvailable = useAccount(s => (s.balances?.[quote]?.free ?? 0) - reservedByPending(s.pending, quote, feeRate))
+  const accountReady = useAccount(undefined, { select: s => s.status === 'ready' })
+  const baseAvailable = useAccount(undefined, { select: s => (s.balances?.[base]?.free ?? 0) - reservedByPending(s.pending ?? {}, base, feeRate) })
+  const quoteAvailable = useAccount(undefined, { select: s => (s.balances?.[quote]?.free ?? 0) - reservedByPending(s.pending ?? {}, quote, feeRate) })
 
   const limit = type === 'limit'
   const sizeFromTotal = limit && driver === 'total'
@@ -50,17 +50,19 @@ const useOrderFormState = ({ symbol }: { symbol: string }) => {
     : parseNum(sizeText)
 
   // live inputs, each reduced to what the rules need
-  const estimate = useBook({ symbol }, s => (!limit && size ? estimateFill(side === 'buy' ? s.asks : s.bids, size) : undefined), shallowEqual)
-  const crossesBook = useBook({ symbol }, s =>
-    limit && price !== undefined && (side === 'buy' ? s.bestAsk !== undefined && price >= s.bestAsk : s.bestBid !== undefined && price <= s.bestBid))
-  const outOfBand = useTrades({ symbol }, s =>
-    !!market && price !== undefined && s.lastPrice !== undefined && Math.abs(price / s.lastPrice - 1) > market.priceBand)
-  const hasLastPrice = useTrades({ symbol }, s => s.lastPrice !== undefined)
+  const estimate = useBook({ symbol }, { select: s => (!limit && size ? estimateFill(side === 'buy' ? s.asks : s.bids, size) : undefined) })
+  const crossesBook = useBook({ symbol }, {
+    select: s => limit && price !== undefined && (side === 'buy' ? s.bestAsk !== undefined && price >= s.bestAsk : s.bestBid !== undefined && price <= s.bestBid),
+  })
+  const outOfBand = useTrades({ symbol }, {
+    select: s => !!market && price !== undefined && s.lastPrice !== undefined && Math.abs(price / s.lastPrice - 1) > market.priceBand,
+  })
+  const hasLastPrice = useTrades({ symbol }, { select: s => s.lastPrice !== undefined })
 
   // start the ticket at the last price once there is one
   useEffect(() => {
     if (!hasLastPrice || !market) return
-    setPriceText(text => text || fmtInput(getTrades({ symbol }).get().lastPrice, market.priceDecimals))
+    setPriceText(text => text || fmtInput(tradesRef({ symbol }).get().lastPrice, market.priceDecimals))
   }, [hasLastPrice, market, symbol])
 
   const notional = limit ? (price !== undefined && size !== undefined ? price * size : undefined) : estimate?.cost
@@ -92,15 +94,15 @@ const useOrderFormState = ({ symbol }: { symbol: string }) => {
   const fillLastPrice = () => {
     if (!market) return
     edit()
-    setPriceText(fmtInput(getTrades({ symbol }).get().lastPrice, market.priceDecimals))
+    setPriceText(fmtInput(tradesRef({ symbol }).get().lastPrice, market.priceDecimals))
   }
 
   /** A share of what is available, at the entered price (limit) or the best price (market) */
   const setPercent = (share: number) => {
     if (!market) return
     edit()
-    const book = getBook({ symbol }).get()
-    const ref = price ?? (side === 'buy' ? book.bestAsk : book.bestBid) ?? getTrades({ symbol }).get().lastPrice
+    const book = bookRef({ symbol }).get()
+    const ref = price ?? (side === 'buy' ? book.bestAsk : book.bestBid) ?? tradesRef({ symbol }).get().lastPrice
     if (!ref) return
     const amount = side === 'buy' ? (quoteAvailable * share) / (ref * (1 + feeRate)) : baseAvailable * share
     setDriver('size')

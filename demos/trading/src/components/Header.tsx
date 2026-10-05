@@ -9,7 +9,7 @@ export function Header() {
   return (
     <header className="header">
       <div className="brand">◆ Terminal</div>
-      <SymbolSummary symbol={symbol} />
+      {symbol && <SymbolSummary symbol={symbol} />}
       <div className="spacer" />
       <Equity />
       <Connection />

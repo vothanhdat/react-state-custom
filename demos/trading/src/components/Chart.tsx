@@ -22,7 +22,7 @@ export function ChartPanel() {
         <span className="hint">scroll to zoom · drag to pan · double-click to reset</span>
       </div>
       {/* zoom and pan belong to one chart: a new symbol or interval starts from the default view */}
-      <CandleChart key={`${symbol}:${chartInterval}`} symbol={symbol} interval={chartInterval} />
+      {symbol && chartInterval && <CandleChart key={`${symbol}:${chartInterval}`} symbol={symbol} interval={chartInterval} />}
     </section>
   )
 }

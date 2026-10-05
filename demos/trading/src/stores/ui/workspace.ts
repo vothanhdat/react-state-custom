@@ -26,7 +26,7 @@ export const { useStore: useWorkspace } = createStore('workspace', () => {
   }, [])
 
   return { symbol, setSymbol, chartInterval, setChartInterval }
-}, { initialState: () => ({ symbol: readHash() ?? 'BTC-USD', chartInterval: 5 }), timeToClean: KEEP })
+}, { timeToClean: KEEP })
 
 const FAVORITES_KEY = 'trading-demo:favorites'
 const loadFavorites = (): string[] => {
@@ -46,4 +46,4 @@ export const { useStore: useFavorites } = createStore('favorites', () => {
   const toggle = (symbol: string) =>
     setFavorites(list => (list.includes(symbol) ? list.filter(s => s !== symbol) : [...list, symbol]))
   return { favorites, toggle }
-}, { initialState: () => ({ favorites: loadFavorites() }), timeToClean: KEEP })
+}, { timeToClean: KEEP })

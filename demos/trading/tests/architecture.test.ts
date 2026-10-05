@@ -38,14 +38,15 @@ const allowed: Record<Layer, Layer[]> = {
 }
 
 // packages each layer may use; the views reach stores only through stores/ui, so only the app shell imports the library
+const library = (pkg: string) => pkg === 'react-state-custom' || pkg === 'react-state-custom/schedulers'
 const packages: Record<Layer, (pkg: string, file: string) => boolean> = {
   lib: () => false,
   types: () => false,
   asset: () => false,
   sim: () => false,
   domain: () => false,
-  core: pkg => pkg === 'react' || pkg === 'react-state-custom',
-  ui: pkg => pkg === 'react' || pkg === 'react-state-custom',
+  core: pkg => pkg === 'react' || library(pkg),
+  ui: pkg => pkg === 'react' || library(pkg),
   view: (pkg, file) => pkg === 'react' || pkg === 'react-dom/client' || (path.basename(file) === 'App.tsx' && pkg.startsWith('react-state-custom')),
 }
 

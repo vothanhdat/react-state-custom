@@ -8,8 +8,13 @@ const W = 300
 const H = 150
 
 export function DepthChart() {
-  useCommitCounter('depth chart')
   const { symbol } = useWorkspace()
+  // the workspace publishes its symbol once it runs, before the first paint
+  return symbol ? <Depth symbol={symbol} /> : <section className="panel depth" />
+}
+
+function Depth({ symbol }: { symbol: string }) {
+  useCommitCounter('depth chart')
   // how much of the book to show, around the mid
   const [zoom, setZoom] = useState(0.5)
   const { view, mid, decimals } = useDepth(symbol, zoom)

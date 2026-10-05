@@ -44,7 +44,7 @@ it('waits for the real tasks store, and drives the search store from the test', 
   expect(Object.keys(tasks)).toEqual(['a'])
   expect(screen.getByText('task a [todo]')).toBeTruthy()
 
-  // useSearch is exported without getStore
+  // useSearch is exported without storeRef
   const Search = () => <p>{A.useSearch({ projectId: 'p1' }).results.join(',')}</p>
   render(<><AutoRootCtx /><Search /></>)
   const search = storeHandle(A.useSearch, { projectId: 'p1' })

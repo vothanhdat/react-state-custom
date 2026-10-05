@@ -36,7 +36,7 @@ it('A. load, one update, one delete', async () => {
 
   // B. edit one task (optimistic, then the saved copy with a new updatedAt)
   reset()
-  await act(async () => { A.getTasks({ projectId: 'p1' }).get().updateTask!('p1-t10', { status: 'doing' }) })
+  await act(async () => { A.tasksRef({ projectId: 'p1' }).get().updateTask!('p1-t10', { status: 'doing' }) })
   const rowsOptimistic = Object.keys(A.renders).filter(k => k.startsWith('row:')).length
   const commitsOptimistic = commits
   await flush()
@@ -50,7 +50,7 @@ it('A. load, one update, one delete', async () => {
   const origError = console.error
   console.error = (...a: unknown[]) => { errors.push(String(a[0]).slice(0, 120)) }
   try {
-    await act(async () => { A.getTasks({ projectId: 'p1' }).get().deleteTask!('p1-t20') })
+    await act(async () => { A.tasksRef({ projectId: 'p1' }).get().deleteTask!('p1-t20') })
     await flush()
   } catch (e) { setErr = e } finally { console.error = origError }
   log('C zombies', A.zombies.splice(0))
@@ -60,14 +60,14 @@ it('A. load, one update, one delete', async () => {
 it('C2. delete with a guarded row', async () => {
   seed('p1', 5)
   const Row = ({ id }: { id: string }) => {
-    const task = A.useTasks({ projectId: 'p1' }, s => s.tasks[id])
+    const task = A.useTasks({ projectId: 'p1' }, { select: s => s.tasks[id] })
     A.renders['zombie:' + id] = (A.renders['zombie:' + id] ?? 0) + (task ? 0 : 1)
     return task ? <li>{task.title}</li> : null
   }
   const List = () => <ul>{A.useVisible({ projectId: 'p1' }).ids.map(id => <Row key={id} id={id} />)}</ul>
   render(<><AutoRootCtx /><List /></>)
   await flush()
-  await act(async () => { A.getTasks({ projectId: 'p1' }).get().deleteTask!('p1-t02') })
+  await act(async () => { A.tasksRef({ projectId: 'p1' }).get().deleteTask!('p1-t02') })
   await flush()
   log('C2 renders of a deleted row with task undefined:', A.renders['zombie:p1-t02'] ?? 0)
 })
@@ -77,12 +77,12 @@ it('D. failed update rolls back; E. undo; F. one socket for five readers', async
   const { container, rerender } = render(<><AutoRootCtx /><Page projectId="p1" /></>)
   await flush()
   A.control.failNextUpdate = true
-  await act(async () => { A.getTasks({ projectId: 'p1' }).get().updateTask!('p1-t01', { title: 'renamed' }) })
+  await act(async () => { A.tasksRef({ projectId: 'p1' }).get().updateTask!('p1-t01', { title: 'renamed' }) })
   const optimistic = container.textContent!.includes('renamed')
   await flush()
-  log('D failed update: optimistic shown', optimistic, '→ rolled back', !container.textContent!.includes('renamed'), '| error', A.getTasks({ projectId: 'p1' }).get().error)
+  log('D failed update: optimistic shown', optimistic, '→ rolled back', !container.textContent!.includes('renamed'), '| error', A.tasksRef({ projectId: 'p1' }).get().error)
 
-  await act(async () => { A.getTasks({ projectId: 'p1' }).get().deleteTask!('p1-t00') })
+  await act(async () => { A.tasksRef({ projectId: 'p1' }).get().deleteTask!('p1-t00') })
   await flush()
   const before = container.querySelectorAll('li').length
   await act(async () => { (container.querySelectorAll('button')[2] as HTMLButtonElement).click() })
@@ -153,6 +153,6 @@ it('J. login recomputes the derived list; K. a click before the store ran', asyn
   const { container } = render(<><AutoRootCtx /><Mine /></>)
   await flush()
   log('K typeof setMine per render:', (globalThis as any).firstRender.join(' '))
-  await act(async () => { A.getSession().get().login!('dat') })
+  await act(async () => { A.sessionRef().get().login!('dat') })
   log('J login → visible', container.querySelector('p')!.firstChild?.textContent)
 })

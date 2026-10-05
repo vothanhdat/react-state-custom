@@ -11,7 +11,7 @@ const ROWS = 12
 
 export function OrderBook() {
   const { symbol } = useWorkspace()
-  const market = useMarketInfo(symbol)
+  const market = useMarketInfo(symbol ?? '')
   return (
     <section className="panel book">
       <div className="panel-head"><span className="panel-title">Order book</span></div>
@@ -99,7 +99,7 @@ export function Trades() {
     <section className="panel trades">
       <div className="panel-head"><span className="panel-title">Trades</span></div>
       <div className="trade-row book-head"><span>Price</span><span>Size</span><span>Time</span></div>
-      <TradeList symbol={symbol} />
+      {symbol && <TradeList symbol={symbol} />}
     </section>
   )
 }

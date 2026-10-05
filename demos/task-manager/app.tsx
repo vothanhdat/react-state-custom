@@ -42,7 +42,7 @@ export const socket = {
 }
 
 // ---------- 1. session (global) ----------
-export const { useStore: useSession, getStore: getSession } = createStore('session', () => {
+export const { useStore: useSession, storeRef: sessionRef } = createStore('session', () => {
   const [user, setUser] = useState<User | null>(null)
   const login = (name: string) => setUser({ id: 'u-' + name, name })
   const logout = () => setUser(null)
@@ -51,7 +51,7 @@ export const { useStore: useSession, getStore: getSession } = createStore('sessi
 
 // ---------- 2. tasks of a project ----------
 const byId = (list: Task[]) => Object.fromEntries(list.map(t => [t.id, t]))
-export const { useStore: useTasks, getStore: getTasks } = createStore('tasks', ({ projectId }: { projectId: string }) => {
+export const { useStore: useTasks, storeRef: tasksRef } = createStore('tasks', ({ projectId }: { projectId: string }) => {
   const [tasks, setTasks] = useState<Record<string, Task>>({})
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState<string>()
@@ -142,7 +142,7 @@ export const { useStore: useStats } = createStore('stats', ({ projectId }: { pro
 
 // ---------- 6. task detail: one instance per task ----------
 export const { useStore: useTaskDetail } = createStore('task-detail', ({ projectId, taskId }: { projectId: string, taskId: string }) => {
-  const task = useTasks({ projectId }, s => s.tasks[taskId])
+  const task = useTasks({ projectId }, { select: s => s.tasks[taskId] })
   const [comments, setComments] = useState<string[]>()
   useEffect(() => { let alive = true; api.fetchComments(taskId).then(c => alive && setComments(c)); return () => { alive = false } }, [taskId])
   return { task, comments }
@@ -175,7 +175,7 @@ const count = (k: string) => { renders[k] = (renders[k] ?? 0) + 1 }
 
 export const TaskRow = ({ projectId, id }: { projectId: string, id: string }) => {
   count('row:' + id)
-  const task = useTasks({ projectId }, s => s.tasks[id])
+  const task = useTasks({ projectId }, { select: s => s.tasks[id] })
   // The first version had no check and crashed on delete: `tasks` publishes one commit before
   // `visible` drops the id, so this row renders once more with `task` undefined.
   if (!task) { zombies.push(`${step.name}: ${id}`); return null }
