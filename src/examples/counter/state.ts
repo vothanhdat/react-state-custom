@@ -18,6 +18,5 @@ const useCounterState = () => {
 
 
 export const { useStore: useCounterStore } = createStore('counter', useCounterState, {
-    initialState: { count: 0 }, // consumers never see `undefined`
-    timeToClean: 50000,        // keep the store alive 50s after its last consumer unmounts
+    timeToClean: 50000, // keep the store alive 50s after its last consumer unmounts
 })

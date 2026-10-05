@@ -3,14 +3,16 @@ import { useUserStore } from './state'
 
 export const UserCard = ({ userId }: { userId: string }) => {
     const { user, error, isLoading, reload } = useUserStore({ userId })
+    // every key is undefined until the store has run once: that is loading too
+    const loading = isLoading !== false
 
     return (
         <div className="card">
             <h3>User <small>{userId}</small></h3>
-            {isLoading && <p>Loading…</p>}
+            {loading && <p>Loading…</p>}
             {error && <p className="error">{error}</p>}
             {user && <p>{user.name} · {user.role} · {user.email}</p>}
-            <button onClick={reload} disabled={isLoading}>Reload</button>
+            <button onClick={reload} disabled={loading}>Reload</button>
         </div>
     )
 }
@@ -18,7 +20,7 @@ export const UserCard = ({ userId }: { userId: string }) => {
 // A second consumer of the same store: shares the request and the data.
 export const UserBadge = ({ userId }: { userId: string }) => {
     const { user, isLoading } = useUserStore({ userId })
-    return <strong>{isLoading ? '…' : user?.name ?? 'unknown'}</strong>
+    return <strong>{isLoading !== false ? '…' : user?.name ?? 'unknown'}</strong>
 }
 
 // Unmount the card and remount within 10s: data is still there, no new request.

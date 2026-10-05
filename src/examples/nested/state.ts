@@ -22,17 +22,13 @@ const usePlayerState = () => {
     return { player, addPoint, rename, move, resend }
 }
 
-export const { useStore: usePlayerStore } = createStore('player', usePlayerState, {
-    initialState: { player: first },
-})
+export const { useStore: usePlayerStore } = createStore('player', usePlayerState)
 
 // One shared store spreads the player into top-level keys and derives the tier once per message.
 // It costs one more store render per message; each reader then subscribes to one key.
 const usePlayerFieldsState = () => {
     const { player } = usePlayerStore()
-    return { ...player, tier: tierOf(player.score) }
+    return { ...player, tier: player ? tierOf(player.score) : undefined }
 }
 
-export const { useStore: usePlayerFields } = createStore('player-fields', usePlayerFieldsState, {
-    initialState: { ...first, tier: tierOf(first.score) },
-})
+export const { useStore: usePlayerFields } = createStore('player-fields', usePlayerFieldsState)

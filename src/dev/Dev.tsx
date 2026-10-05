@@ -9,7 +9,7 @@ import TimerApp from '../examples/timer/app'
 import OutsideApp from '../examples/outside/app'
 import AsyncApp from '../examples/async/app'
 import ComposeApp from '../examples/compose/app'
-import ScopeApp from '../examples/scope/app'
+import MultipleApp from '../examples/multiple/app'
 
 
 // Example configurations
@@ -26,7 +26,7 @@ const examples = {
   },
   selectors: {
     title: '🎯 Selectors',
-    description: 'useStore(params, selector) re-renders only when the selected value changes; useStoreSuspense drops the loading branch.',
+    description: 'useStore(params, { select }) re-renders only when the selected value changes.',
     component: <SelectorsApp />,
   },
   timer: {
@@ -36,12 +36,12 @@ const examples = {
   },
   outside: {
     title: '🔌 Outside React',
-    description: 'getStore(): a feed written as plain module code retains the store and pushes updates; subscribe() logs every change.',
+    description: 'storeRef(): a feed written as plain module code retains the store and pushes updates; subscribe() logs every change.',
     component: <OutsideApp />,
   },
   async: {
     title: '🌐 Async Data',
-    description: 'Fetch inside the store hook; consumers share one request, initialState covers the first render, timeToClean caches the result.',
+    description: 'Fetch inside the store hook; consumers share one request, keys still undefined count as loading, timeToClean caches the result.',
     component: <AsyncApp />,
   },
   compose: {
@@ -49,10 +49,10 @@ const examples = {
     description: 'Settings → invoice → summary: each store reads the one below it from inside its own hook.',
     component: <ComposeApp />,
   },
-  scope: {
-    title: '🎭 Scoped State',
-    description: 'StateScopeProvider gives a subtree its own isolated store instances.',
-    component: <ScopeApp />,
+  multiple: {
+    title: '🧮 Many Instances',
+    description: 'useMultipleStore reads one instance per id of a list, or a value over all of them with select.',
+    component: <MultipleApp />,
   },
 } as const
 

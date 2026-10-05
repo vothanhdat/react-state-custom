@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
-import { connectFeed, getPricesStore, usePricesStore } from './state'
+import { connectFeed, pricesRef, usePricesStore } from './state'
 
 // An ordinary consumer.
 export const PriceTable = () => {
     const { prices, updates } = usePricesStore()
     return (
         <div className="card">
-            <h3>Prices <small>{updates} updates</small></h3>
+            <h3>Prices <small>{updates ?? 0} updates</small></h3>
             <ul className="list">
-                {Object.entries(prices).map(([symbol, price]) => (
+                {Object.entries(prices ?? {}).map(([symbol, price]) => (
                     <li key={symbol}><span className="grow">{symbol}</span>${price.toLocaleString()}</li>
                 ))}
             </ul>
@@ -28,14 +28,14 @@ export const FeedControls = () => {
     )
 }
 
-// getStore().get() in a handler: a plain snapshot, no subscription.
-const logSnapshot = () => console.log('prices snapshot', getPricesStore().get().prices)
+// storeRef().get() in a handler: a plain snapshot, no subscription.
+const logSnapshot = () => console.log('prices snapshot', pricesRef().get().prices)
 
-// getStore().subscribe(): every change with its key, outside the proxy.
+// storeRef().subscribe(): every change with its key, outside the proxy.
 export const ChangeLog = () => {
     const [lines, setLines] = useState<string[]>([])
     useEffect(
-        () => getPricesStore().subscribe((state, key) => {
+        () => pricesRef().subscribe((state, key) => {
             if (key !== 'prices') return
             setLines(l => [`${new Date().toLocaleTimeString()} ${JSON.stringify(state.prices)}`, ...l].slice(0, 5))
         }),

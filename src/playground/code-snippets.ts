@@ -17,14 +17,13 @@ const useCounterState = ({ initial = 0 }: { initial?: number }) => {
 };
 
 // 2. Turn it into a store. One line.
-const { useStore: useCounterStore } = createStore('counter', useCounterState, {
-  initialState: { count: 0 }, // what consumers see before the hook runs
-});
+const { useStore: useCounterStore } = createStore('counter', useCounterState);
 
 // 3. Read it anywhere. Re-renders only when \`count\` changes.
+//    Every key is undefined until the store has run once: default at the read.
 function Counter() {
   const { count, increment } = useCounterStore({ initial: 10 });
-  return <button onClick={increment}>{count}</button>;
+  return <button onClick={increment}>{count ?? 0}</button>;
 }
 
 // 4. Mount AutoRootCtx once. It runs every store hook for you.
@@ -52,7 +51,6 @@ const useTodoState = ({ listId }: { listId: string }) => {
 };
 
 const { useStore: useTodoStore } = createStore('todoList', useTodoState, {
-  initialState: { todos: [] },
   timeToClean: 5000, // keep a list alive 5s after its last consumer unmounts
 });
 
@@ -61,7 +59,7 @@ function TodoList({ listId }: { listId: string }) {
   return (
     <div>
       <h2>List {listId}</h2>
-      {todos.map(todo => <div key={todo.id}>{todo.text}</div>)}
+      {todos?.map(todo => <div key={todo.id}>{todo.text}</div>)}
       <button onClick={() => addTodo('New task')}>Add</button>
     </div>
   );
@@ -86,44 +84,35 @@ const useSettingsState = () => {
   const [taxRate, setTaxRate] = useState(0.1);
   return { taxRate, setTaxRate };
 };
-export const { useStore: useSettingsStore } = createStore('settings', useSettingsState, {
-  initialState: { taxRate: 0.1 },
-});
+export const { useStore: useSettingsStore } = createStore('settings', useSettingsState);
 
 // A store is just a hook, so it can call another store's hook.
 // Every invoice re-renders when taxRate changes, nothing else does.
 const useInvoiceState = ({ invoiceId }: { invoiceId: string }) => {
-  const { taxRate } = useSettingsStore();
+  const { taxRate = 0 } = useSettingsStore(); // undefined until settings has run once
   const [subtotal, setSubtotal] = useState(100);
   return { subtotal, setSubtotal, total: subtotal * (1 + taxRate) };
 };
-export const { useStore: useInvoiceStore } = createStore('invoice', useInvoiceState, {
-  initialState: { subtotal: 0, total: 0 },
-});`
+export const { useStore: useInvoiceStore } = createStore('invoice', useInvoiceState);`
 
-// Selectors, Suspense and access from outside React
-export const ADVANCED_CODE = `import { Suspense } from 'react';
-import { useUserStore, useUserStoreSuspense, getUserStore } from './userStore';
+// Selectors, many instances and access from outside React
+export const ADVANCED_CODE = `import { useMultipleStore } from 'react-state-custom';
+import { useUserStore, userRef } from './userStore';
 
 // Selector: re-render only when the selected (deep or derived) value changes
 function UserName({ userId }: { userId: string }) {
-  const name = useUserStore({ userId }, s => s.user?.name);
-  return <span>{name}</span>;
+  const name = useUserStore({ userId }, { select: s => s.user?.name });
+  return <span>{name ?? '…'}</span>;
 }
 
-// Suspense: wait until the store is ready, then everything is typed as present
-function Profile({ userId }: { userId: string }) {
-  const { user } = useUserStoreSuspense({ userId }, s => !s.isLoading);
-  return <h1>{user.name}</h1>;
+// Many instances in one call, for a list of any length
+function Team({ ids }: { ids: string[] }) {
+  const users = useMultipleStore(ids.map(userId => userRef({ userId })));
+  return <ul>{users.map((u, i) => <li key={ids[i]}>{u.user?.name ?? '…'}</li>)}</ul>;
 }
-const page = (
-  <Suspense fallback={<p>Loading…</p>}>
-    <Profile userId="42" />
-  </Suspense>
-);
 
 // Outside React: sockets, routers, tests, or a handler that needs the latest value
-const user = getUserStore({ userId: '42' });
+const user = userRef({ userId: '42' });
 user.get().user;                                  // plain snapshot, safe anywhere
 user.get().reload?.();                            // actions are part of the state
 const stop = user.subscribe((state, key) => console.log(key, state));
@@ -145,35 +134,14 @@ function App() {
 }`
 
 // Error handling
-export const ERROR_WRAPPER_CODE = `import { AutoRootCtx } from 'react-state-custom';
-import { ErrorBoundary } from 'react-error-boundary';
+export const ERROR_CODE = `import { createRoot } from 'react-dom/client';
 
-// By default AutoRootCtx wraps each store in StoreErrorBoundary:
-// a store hook that throws is disabled and logged, other stores keep running.
-// Pass your own Wrapper to render something or report the error.
-const StoreWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <ErrorBoundary
-    fallbackRender={({ error, resetErrorBoundary }) => (
-      <div role="alert" style={{ padding: '2em' }}>
-        <h2>A store crashed:</h2>
-        <pre style={{ color: 'red' }}>{error.message}</pre>
-        <button onClick={resetErrorBoundary}>Try again</button>
-      </div>
-    )}
-    onError={error => reportToSentry(error)}
-  >
-    {children}
-  </ErrorBoundary>
-);
-
-function App() {
-  return (
-    <>
-      <AutoRootCtx Wrapper={StoreWrapper} />
-      <YourApp />
-    </>
-  );
-}`
+// Each store runs inside its own error boundary: a store hook that throws is
+// disabled and logged, and every other store keeps running.
+// React 19 hands every error a boundary caught to the root's onCaughtError.
+createRoot(document.getElementById('root')!, {
+  onCaughtError: (error, info) => reportToSentry(error, info.componentStack),
+}).render(<App />);`
 
 export type CodeExample = {
   id: string
@@ -185,7 +153,7 @@ export const CODE_EXAMPLES: CodeExample[] = [
   { id: 'basic', label: 'Basic Usage', code: BASIC_USAGE_CODE },
   { id: 'params', label: 'Parameterized Stores', code: PARAMS_CODE },
   { id: 'compose', label: 'Composing Stores', code: COMPOSE_CODE },
-  { id: 'advanced', label: 'Selectors & Suspense', code: ADVANCED_CODE },
+  { id: 'advanced', label: 'Selectors & Many Instances', code: ADVANCED_CODE },
   { id: 'devtools', label: 'DevTools', code: DEVTOOLS_CODE },
-  { id: 'error', label: 'Error Handling', code: ERROR_WRAPPER_CODE },
+  { id: 'error', label: 'Error Handling', code: ERROR_CODE },
 ]

@@ -8,7 +8,7 @@ import TimerApp from '../examples/timer/app'
 import OutsideApp from '../examples/outside/app'
 import AsyncApp from '../examples/async/app'
 import ComposeApp from '../examples/compose/app'
-import ScopeApp from '../examples/scope/app'
+import MultipleApp from '../examples/multiple/app'
 import RoomsApp from '../examples/rooms/app'
 import NestedApp from '../examples/nested/app'
 
@@ -34,9 +34,9 @@ import asyncApp from "../examples/async/app.tsx?raw"
 import composeState from "../examples/compose/state.ts?raw"
 import composeView from "../examples/compose/view.tsx?raw"
 import composeApp from "../examples/compose/app.tsx?raw"
-import scopeState from "../examples/scope/state.ts?raw"
-import scopeView from "../examples/scope/view.tsx?raw"
-import scopeApp from "../examples/scope/app.tsx?raw"
+import multipleState from "../examples/multiple/state.ts?raw"
+import multipleView from "../examples/multiple/view.tsx?raw"
+import multipleApp from "../examples/multiple/app.tsx?raw"
 import roomsState from "../examples/rooms/state.ts?raw"
 import roomsView from "../examples/rooms/view.tsx?raw"
 import roomsApp from "../examples/rooms/app.tsx?raw"
@@ -59,8 +59,6 @@ export interface Example {
     state: string
     view: string
     app: string
-    /** Run in the global scope (needed by getStore) instead of an isolated StateScopeProvider. */
-    global?: boolean
 }
 
 export const examples = {
@@ -68,7 +66,7 @@ export const examples = {
         App: CounterApp,
         label: '🔢 Counter',
         title: 'Counter',
-        description: 'A single global store with initialState. Increment, decrement and reset from anywhere; every consumer sees the same count.',
+        description: 'A single global store. Increment, decrement and reset from anywhere; every consumer sees the same count. Its keys are undefined until the store has run once, so the view reads count ?? 0.',
         state: updateImport(counterState),
         view: updateImport(counterView),
         app: updateImport(counterApp),
@@ -103,8 +101,8 @@ export const examples = {
     selectors: {
         App: SelectorsApp,
         label: '🎯 Selectors',
-        title: 'Selectors and Suspense',
-        description: 'Every action replaces the whole profile object. useStore(params, selector) re-renders a component only when its selected value changes (with a custom isEqual for arrays), and useStoreSuspense drops the loading branch in favour of a Suspense boundary. Watch the render counters.',
+        title: 'Selectors',
+        description: 'Every action replaces the whole profile object. useStore(params, { select }) re-renders a component only when its selected value changes, comparing arrays item by item, so a fresh array with the same tags is no change. Watch the render counters.',
         state: updateImport(selectorsState),
         view: updateImport(selectorsView),
         app: updateImport(selectorsApp),
@@ -122,7 +120,7 @@ export const examples = {
         App: AsyncApp,
         label: '🌐 Async Data',
         title: 'Async Data',
-        description: 'Fetch inside the store hook with a plain useEffect. Several consumers share one request, initialState provides the loading state on first render, and timeToClean caches the result after the last consumer unmounts.',
+        description: 'Fetch inside the store hook with a plain useEffect. Several consumers share one request, keys that are still undefined count as loading, and timeToClean caches the result after the last consumer unmounts.',
         state: updateImport(asyncState),
         view: updateImport(asyncView),
         app: updateImport(asyncApp),
@@ -140,20 +138,19 @@ export const examples = {
         App: OutsideApp,
         label: '🔌 Outside React',
         title: 'Outside React',
-        description: 'getStore() is the imperative handle: a price feed written as plain module code keeps the store alive with retain() and pushes updates through get().setPrice, while subscribe() delivers every change with its key. Open the console for get() snapshots.',
+        description: 'storeRef() is one instance outside React: a price feed written as plain module code keeps the store alive with retain() and pushes updates through get().setPrice, while subscribe() delivers every change with its key. Open the console for get() snapshots.',
         state: updateImport(outsideState),
         view: updateImport(outsideView),
         app: updateImport(outsideApp),
-        global: true,
     },
-    scope: {
-        App: ScopeApp,
-        label: '🎭 Scoped State',
-        title: 'Scoped State',
-        description: 'StateScopeProvider gives a subtree its own isolated store instances. The same store definition yields shared state globally and independent state inside each provider.',
-        state: updateImport(scopeState),
-        view: updateImport(scopeView),
-        app: updateImport(scopeApp),
+    multiple: {
+        App: MultipleApp,
+        label: '🧮 Many Instances',
+        title: 'Many Instances',
+        description: 'One store definition, one instance per id. useMultipleStore reads every instance of a list in one call, however long the list: a proxy per instance, or one value over all of them with select, which renders only when the total changes. Add a counter and its instance starts; remove it and it stops.',
+        state: updateImport(multipleState),
+        view: updateImport(multipleView),
+        app: updateImport(multipleApp),
     },
 } as const
 

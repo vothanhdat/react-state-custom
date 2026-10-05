@@ -28,19 +28,19 @@ const Cell = ({ id, field, value }: { id: string, field: Field, value: string | 
 // Reads the whole `player` key: every cell renders on every message.
 const NestedCell = ({ field }: { field: Field }) => {
     const { player } = usePlayerStore()
-    return <Cell id={`nested:${field}`} field={field} value={valueOf(player, field)} />
+    return <Cell id={`nested:${field}`} field={field} value={player ? valueOf(player, field) : ''} />
 }
 
 // A selector per cell: a cell renders when its value changes, and every selector runs on every message.
 const SelectorCell = ({ field }: { field: Field }) => {
-    const value = usePlayerStore(undefined, s => valueOf(s.player, field))
+    const value = usePlayerStore(undefined, { select: s => s.player ? valueOf(s.player, field) : '' })
     return <Cell id={`selector:${field}`} field={field} value={value} />
 }
 
 // The flat store: each cell reads one top-level key.
 const FlatCell = ({ field }: { field: Field }) => {
     const fields = usePlayerFields()
-    return <Cell id={`flat:${field}`} field={field} value={fields[field]} />
+    return <Cell id={`flat:${field}`} field={field} value={fields[field] ?? ''} />
 }
 
 // How many cells of a column rendered in the last update. Its own component, so that showing

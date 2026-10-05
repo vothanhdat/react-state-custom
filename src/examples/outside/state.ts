@@ -16,19 +16,17 @@ const usePricesState = () => {
     return { prices, updates, setPrice }
 }
 
-export const { useStore: usePricesStore, getStore: getPricesStore } = createStore('prices', usePricesState, {
-    initialState: { prices: START, updates: 0 },
-})
+export const { useStore: usePricesStore, storeRef: pricesRef } = createStore('prices', usePricesState)
 
 // Plain module code, no React. retain() keeps the store running even when no component
-// reads it, and the interval pushes updates through the imperative handle.
+// reads it, and the interval pushes updates through the store's ref.
 export const connectFeed = () => {
-    const store = getPricesStore()
+    const store = pricesRef()
     const release = store.retain()
     const timer = setInterval(() => {
         const symbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]!
         const { prices, setPrice } = store.get()
-        const price = prices[symbol]
+        const price = prices?.[symbol]
         if (price !== undefined) setPrice?.(symbol, Math.round(price * (1 + (Math.random() - 0.5) * 0.02)))
     }, 500)
     return () => {

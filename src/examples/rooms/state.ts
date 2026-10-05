@@ -23,9 +23,7 @@ const useSocketLogState = () => {
     const add = (entry: string) => setEntries(list => [`${new Date().toLocaleTimeString()}  ${entry}`, ...list].slice(0, 8))
     return { entries, add }
 }
-export const { useStore: useSocketLog } = createStore('socket-log', useSocketLogState, {
-    initialState: { entries: [] },
-})
+export const { useStore: useSocketLog } = createStore('socket-log', useSocketLogState)
 
 // The values of a room: no effects, kept 30 s after the room closes.
 const useRoomHistoryState = ({ roomId: _ }: { roomId: string }) => {
@@ -34,7 +32,6 @@ const useRoomHistoryState = ({ roomId: _ }: { roomId: string }) => {
     return { messages, setMessages, unread: messages.length - read, markRead: () => setRead(messages.length) }
 }
 export const { useStore: useRoomHistory } = createStore('room-history', useRoomHistoryState, {
-    initialState: { messages: [], unread: 0 },
     timeToClean: 30_000,
 })
 
@@ -59,6 +56,4 @@ const useRoomState = ({ roomId }: { roomId: string }) => {
     const send = (text: string) => setMessages?.(list => [...list, { id: nextId++, author: 'You', text }])
     return { status, messages, unread, markRead, send }
 }
-export const { useStore: useRoom } = createStore('room', useRoomState, {
-    initialState: { status: 'connecting', messages: [], unread: 0 },
-})
+export const { useStore: useRoom } = createStore('room', useRoomState)

@@ -64,13 +64,13 @@ export const DocumentationSection = () => {
             <div className="info-section">
                 <h3>Key Concepts</h3>
                 <ul>
-                    <li><code>createStore(name, useFn, options?)</code> - Turns any custom hook into a shared store</li>
-                    <li><code>useStore(params?)</code> - Reads a store; re-renders only for the keys you access during render</li>
+                    <li><code>createStore(name, useFn, options?)</code> - Turns any custom hook into a shared store; returns <code>useStore</code> and <code>storeRef</code></li>
+                    <li><code>useStore(params?, options?)</code> - Reads a store; re-renders only for the keys you access during render, or for <code>{'{ select }'}</code></li>
+                    <li><code>storeRef(params?)</code> - One instance outside React: <code>get()</code>, <code>subscribe()</code>, <code>retain()</code></li>
+                    <li><code>useMultipleStore(refs, options?)</code> - Several instances in one call, for a list of any length</li>
                     <li><code>AutoRootCtx</code> - Mount once; runs every store hook in a headless component and cleans up unused stores</li>
-                    <li><code>initialState</code> - What consumers see before the hook runs (and on the server)</li>
-                    <li><code>StateScopeProvider</code> - Gives a subtree its own isolated set of store instances</li>
+                    <li>Every key is <code>undefined</code> until the store has run once: default at the read (<code>count ?? 0</code>)</li>
                     <li>Same store, same params = one shared instance; different params = independent instances</li>
-                    <li>Low-level primitives (<code>createRootCtx</code>, <code>useDataSubscribe</code>, ...) are documented in the API reference</li>
                 </ul>
             </div>
         </>

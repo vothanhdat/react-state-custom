@@ -5,7 +5,7 @@ import { useRoom, useSocketLog } from './state'
 
 export const UnreadBadge = ({ roomId }: { roomId: string }) => {
     const { unread } = useRoom({ roomId })
-    return <span>#{roomId}{unread > 0 && <strong> ({unread})</strong>}</span>
+    return <span>#{roomId}{!!unread && <strong> ({unread})</strong>}</span>
 }
 
 export const ConnectionStatus = ({ roomId }: { roomId: string }) => {
@@ -19,12 +19,12 @@ export const MessageList = ({ roomId }: { roomId: string }) => {
     return (
         <>
             <ul className="list">
-                {messages.slice(-5).map(m => <li key={m.id}><b>{m.author}</b> {m.text}</li>)}
+                {messages?.slice(-5).map(m => <li key={m.id}><b>{m.author}</b> {m.text}</li>)}
             </ul>
             <form className="row" onSubmit={e => { e.preventDefault(); if (text) send?.(text); setText('') }}>
                 <input className="grow" value={text} onChange={e => setText(e.target.value)} placeholder="Message" />
                 <button type="submit">Send</button>
-                <button type="button" onClick={markRead} disabled={unread === 0}>Mark read</button>
+                <button type="button" onClick={markRead} disabled={!unread}>Mark read</button>
             </form>
         </>
     )
@@ -45,7 +45,7 @@ export const SocketLog = () => {
     return (
         <div className="card">
             <h3>Connections</h3>
-            <pre className="log">{entries.join('\n') || 'Open a room.'}</pre>
+            <pre className="log">{entries?.join('\n') || 'Open a room.'}</pre>
         </div>
     )
 }

@@ -1,7 +1,7 @@
 import sdk from '@stackblitz/sdk'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
-import { AutoRootCtx, StateScopeProvider } from '../index'
+import { AutoRootCtx } from '../index'
 import '../examples/examples.css'
 import { DevToolContainer } from '../dev-tool'
 import { ObjectDataView } from '../dev-tool/obj-view'
@@ -51,8 +51,6 @@ const openInStackBlitz = (example: Example) =>
         { newWindow: true, openFile: 'src/state.ts,src/view.tsx' }
     )
 
-const Scope = ({ global, children }: { global?: boolean; children: React.ReactNode }) =>
-    global ? <><AutoRootCtx />{children}</> : <StateScopeProvider>{children}</StateScopeProvider>
 
 const PreviewError = ({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) => (
     <div role="alert" className="preview-error">
@@ -112,9 +110,10 @@ export const ExamplePreview = ({ exampleKey, example, devTools }: ExamplePreview
                         Reset state
                     </button>
                 </div>
-                {/* Each example (and each reset) gets its own set of stores: an isolated scope, or a
-                    fresh global root for examples that use getStore(). */}
-                <Scope key={`${exampleKey}-${runId}`} global={example.global}>
+                {/* Each example (and each reset) gets its own set of stores: a fresh root runs them,
+                    and unmounting the previous one stopped every instance it ran. */}
+                <Fragment key={`${exampleKey}-${runId}`}>
+                    <AutoRootCtx />
                     <ErrorBoundary FallbackComponent={PreviewError}>
                         <div className="preview-canvas">
                             <App />
@@ -125,7 +124,7 @@ export const ExamplePreview = ({ exampleKey, example, devTools }: ExamplePreview
                             Inspect stores
                         </DevToolContainer>
                     )}
-                </Scope>
+                </Fragment>
             </div>
         </div>
     )

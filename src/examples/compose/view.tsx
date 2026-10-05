@@ -2,6 +2,8 @@ import { INVOICES, useInvoiceStore, useSettingsStore, useSummaryStore } from './
 
 export const SettingsPanel = () => {
     const { taxRate, setTaxRate, currency, setCurrency } = useSettingsStore()
+    // nothing to edit until the store has run once
+    if (taxRate === undefined) return null
     return (
         <div className="card">
             <h3>Settings <small>global store</small></h3>
@@ -26,6 +28,7 @@ export const SettingsPanel = () => {
 
 export const Invoice = ({ invoiceId }: { invoiceId: string }) => {
     const { lines, addLine, removeLine, subtotal, tax, total, taxPercent } = useInvoiceStore({ invoiceId })
+    if (!lines) return null
 
     return (
         <div className="card">
@@ -47,6 +50,7 @@ export const Invoice = ({ invoiceId }: { invoiceId: string }) => {
 
 export const InvoiceSummary = () => {
     const { lineCount, grandTotal } = useSummaryStore()
+    if (grandTotal === undefined) return null
     return (
         <div className="card">
             <h3>Summary <small>store reading {INVOICES.length} invoice stores</small></h3>

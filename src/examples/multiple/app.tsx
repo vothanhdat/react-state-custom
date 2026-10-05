@@ -1,26 +1,26 @@
-import { StateScopeProvider } from '../../index'
-import { Counter, Panel } from './view'
+import { useState } from 'react'
+import { Board, Counter, Panel, Total } from './view'
 
-// One store definition. Each StateScopeProvider gets its own instance of it.
+const NAMES = ['A', 'B', 'C', 'D', 'E', 'F']
+
+// Add a counter: its instance starts. Remove one: its instance stops, and comes back from 0.
 export default function App() {
+    const [ids, setIds] = useState(['A', 'B'])
+    const add = () => setIds(list => [...list, NAMES.find(name => !list.includes(name))!])
+    const remove = () => setIds(list => list.slice(0, -1))
     return (
         <>
-            <Panel title="Global scope: both buttons share one store">
-                <Counter label="A" />
-                <Counter label="B" />
+            <Panel title="One instance per id">
+                {ids.map(id => <Counter key={id} id={id} />)}
+                <button onClick={add} disabled={ids.length === NAMES.length}>Add</button>
+                <button onClick={remove} disabled={ids.length === 0}>Remove</button>
             </Panel>
-            <StateScopeProvider>
-                <Panel title="Scope 1: its own instance of the same store">
-                    <Counter label="A" />
-                    <Counter label="B" />
-                </Panel>
-            </StateScopeProvider>
-            <StateScopeProvider>
-                <Panel title="Scope 2: another independent instance">
-                    <Counter label="A" />
-                    <Counter label="B" />
-                </Panel>
-            </StateScopeProvider>
+            <Panel title="useMultipleStore: all of them in one call">
+                <Board ids={ids} />
+            </Panel>
+            <Panel title="useMultipleStore with select">
+                <Total ids={ids} />
+            </Panel>
         </>
     )
 }

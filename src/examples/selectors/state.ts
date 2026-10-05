@@ -31,7 +31,4 @@ const useProfileState = ({ userId }: { userId: string }) => {
     return { profile, isLoading: !profile, like, rename, addTag }
 }
 
-export const { useStore: useProfileStore, useStoreSuspense: useProfileStoreSuspense } =
-    createStore('profile', useProfileState, {
-        initialState: { profile: null, isLoading: true },
-    })
+export const { useStore: useProfileStore } = createStore('profile', useProfileState)

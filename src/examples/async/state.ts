@@ -46,8 +46,6 @@ const useUserState = ({ userId }: { userId: string }) => {
 }
 
 export const { useStore: useUserStore } = createStore('user', useUserState, {
-    // Shown on the very first render (and in server-rendered HTML).
-    initialState: { user: null, error: null, isLoading: true },
     // Keep fetched data 10s after the last consumer unmounts: remount within
     // that window and there is no refetch.
     timeToClean: 10000,

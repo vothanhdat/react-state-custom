@@ -6,7 +6,7 @@ export const TimerExample = ({ timerId }: { timerId: string }) => {
     return (
         <div className="card">
             <h3>Timer <small>{timerId}</small></h3>
-            <div className="clock">{formattedTime}</div>
+            <div className="clock">{formattedTime ?? '00:00.00'}</div>
             <div className="row">
                 {isRunning ? <button onClick={pause}>Pause</button> : <button onClick={start}>Start</button>}
                 <button onClick={reset}>Reset</button>

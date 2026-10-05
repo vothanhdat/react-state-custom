@@ -8,7 +8,8 @@ export const CounterExample = () => {
             <h3>Counter</h3>
             <div className="row">
                 <button onClick={decrement}>-</button>
-                <strong>{count}</strong>
+                {/* undefined until the store has run once */}
+                <strong>{count ?? 0}</strong>
                 <button onClick={increment}>+</button>
                 <button onClick={reset}>Reset</button>
             </div>
