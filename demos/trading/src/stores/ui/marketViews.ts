@@ -5,7 +5,7 @@
 // hundred SVG points nobody reads digit by digit) ten times a second.
 
 import { useMemo } from 'react'
-import { createStore, shallowEqual } from 'react-state-custom'
+import { createStore, shallowEqual, throttle } from 'react-state-custom'
 import { cumulate, groupLevels } from '../../domain/book'
 import { myOrderPrices, orderLines, sameLines } from '../../domain/orders'
 import { decimalsOf } from '../../lib/num'
@@ -58,7 +58,7 @@ export const useTradeTape = (symbol: string) => {
 /** Cumulative depth around the mid; `zoom` is the share of the book's price range to show */
 export const useDepth = (symbol: string, zoom: number) => {
   const decimals = useMarket(symbol)?.priceDecimals ?? 2
-  const { bids, asks, mid } = useBook({ symbol }, { schedule: { throttle: 100 } })
+  const { bids, asks, mid } = useBook({ symbol }, { schedule: throttle(100) })
   const view = useMemo(() => {
     if (!mid) return undefined
     const deepest = Math.max(mid - (bids?.at(-1)?.[0] ?? mid), (asks?.at(-1)?.[0] ?? mid) - mid)

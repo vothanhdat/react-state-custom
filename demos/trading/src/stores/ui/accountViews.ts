@@ -3,7 +3,7 @@
 // account store itself never needs to know about the UI.
 
 import { useMemo } from 'react'
-import { createStore, shallowEqual } from 'react-state-custom'
+import { createStore, idle, shallowEqual, sync, throttle } from 'react-state-custom'
 import { closedOrderIds, openOrderIds, type CancelResult } from '../../domain/orders'
 import { valueHoldings } from '../../domain/portfolio'
 import { useAccount } from '../core/account'
@@ -18,7 +18,7 @@ export const { useStore: usePortfolio } = createStore('portfolio', () => {
   // reads one ticker per held asset, so it re-runs when the price of something held changes
   const valuation = balances ? valueHoldings(balances, asset => tickers[`${asset}-USD`]) : undefined
   return { holdings: valuation?.holdings, equity: valuation?.equity, change24h: valuation?.change24h }
-}, { schedule: { throttle: 250 } })
+}, { schedule: throttle(250) })
 
 export const useAccountSummary = () => {
   const { status } = useAccount()
@@ -33,7 +33,7 @@ export const useAccountSummary = () => {
 export const useOrderIds = (kind: 'open' | 'history', symbol?: string) =>
   useAccount(s => (kind === 'open' ? openOrderIds(s.orders, symbol) : closedOrderIds(s.orders, symbol, 50)), {
     isEqual: shallowEqual,
-    schedule: kind === 'open' ? 'sync' : { idle: 500 },
+    schedule: kind === 'open' ? sync() : idle(500),
   })
 
 /** Orders sent but not yet acknowledged; entries keep their identity until they resolve */
@@ -42,7 +42,7 @@ export const usePendingOrders = (symbol?: string) =>
 
 /** The fills log, rendered when the browser has time (within half a second) */
 export const useFills = (symbol?: string) => {
-  const { fills } = useAccount(undefined, { schedule: { idle: 500 } })
+  const { fills } = useAccount(undefined, { schedule: idle(500) })
   return useMemo(() => fills.filter(f => !symbol || f.symbol === symbol), [fills, symbol])
 }
 

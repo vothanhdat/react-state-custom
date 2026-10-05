@@ -1,10 +1,10 @@
 // Core: live market data for one symbol. Each store owns its socket subscription; the socket client
 // shares channels between them. Market data arrives in bursts of tens or hundreds of messages a
 // second, and the screen changes once per frame: messages are kept in plain objects and published
-// once per frame, with `scheduled(publish, 'frame')`.
+// once per frame, with `scheduled(publish, frame())`.
 
 import { useEffect, useState } from 'react'
-import { createStore, scheduled } from 'react-state-custom'
+import { createStore, frame, scheduled } from 'react-state-custom'
 import { applyLevels, sortLevels } from '../../domain/book'
 import { mergeTrades } from '../../domain/candles'
 import { api, socket } from '../../sim/exchange'
@@ -28,7 +28,7 @@ const useBookState = ({ symbol }: { symbol: string }) => {
     const asks = new Map<number, number>()
     let seq: number | undefined
     let broken = false
-    const publish = scheduled(() => setBook({ bids: sortLevels(bids, true), asks: sortLevels(asks, false) }), 'frame')
+    const publish = scheduled(() => setBook({ bids: sortLevels(bids, true), asks: sortLevels(asks, false) }), frame())
 
     const unsubscribe = socket.subscribe('book', symbol, msg => {
       if (broken) return
@@ -90,7 +90,7 @@ const useTradesState = ({ symbol }: { symbol: string }) => {
       const fresh = buffer.reverse()
       buffer = []
       setTrades(prev => [...fresh, ...prev].slice(0, MAX_TRADES))
-    }, 'frame')
+    }, frame())
     const unsubscribe = socket.subscribe('trades', symbol, batch => {
       buffer.push(...batch)
       if (buffer.length > MAX_TRADES) buffer = buffer.slice(-MAX_TRADES)
@@ -133,7 +133,7 @@ const useCandlesState = ({ symbol, interval }: { symbol: string; interval: numbe
       const trades = pending
       pending = []
       setCandles(prev => (prev ? mergeTrades(prev, trades, interval) : prev))
-    }, 'frame')
+    }, frame())
     const unsubscribe = socket.subscribe('trades', symbol, batch => {
       pending.push(...batch)
       if (lastTradeId !== undefined) publish()

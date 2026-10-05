@@ -28,20 +28,20 @@ npx tsc -p demos/trading                                 # types
   | layer | store or hook | params | notes |
   |---|---|---|---|
   | core | `connection`, `markets`, `tickers`, `feed` | none | tickers publishes one key per symbol, once per frame (`useFrameState`); feed is the simulator's knobs |
-  | core | `book` | `symbol` | snapshot + deltas in plain maps, published once per frame (`scheduled(publish, 'frame')`); resyncs on a sequence gap |
+  | core | `book` | `symbol` | snapshot + deltas in plain maps, published once per frame (`scheduled(publish, frame())`); resyncs on a sequence gap |
   | core | `trades`, `candles` | `symbol` (+ `interval`) | candles merge REST history with live trades by trade id; refetched after a reconnect |
   | core | `account` | none | balances, orders, fills; snapshot + sequenced events; optimistic orders reconciled by version. Commands return their outcome, fills go out through `onFill(listener)` |
   | ui | `workspace`, `favorites`, `toasts` | none | what the user looks at, preferences, notifications |
   | ui | `fill-toasts` | none | fill → toast; a store so there is one listener however many places start it |
   | ui | `order-form` | `symbol` | the draft; the rules are `checkOrder()` in domain, fed by selectors over core |
   | ui | `ladder` | `symbol, grouping, depth` | ladder rows, spread, last trade and the user's price levels from one store |
-  | ui | `portfolio` | none | balances valued at live prices (header and balances table); its readers render at most 4 times a second (`schedule: { throttle: 250 }`) |
+  | ui | `portfolio` | none | balances valued at live prices (header and balances table); its readers render at most 4 times a second (`schedule: throttle(250)`) |
   | ui | hooks: `useChart`, `useDepth`, `useTradeTape`, `useWatchlist`, `useOrderRow`, ... | | one reader each, so a hook rather than a store: no extra commit |
 
 - **Update cadence**: core stores publish at most once per frame, whatever the message rate. The
   UI layer decides how often each view follows: the ladder, trades and last price every frame; the
-  depth chart `{ throttle: 100 }`; equity `{ throttle: 250 }`; order history and fills
-  `{ idle: 500 }`. Against the demo before these schedules and the per-frame tickers (headless
+  depth chart `throttle(100)`; equity `throttle(250)`; order history and fills
+  `idle(500)`. Against the demo before these schedules and the per-frame tickers (headless
   Chrome, production builds, three alternating runs): script time per second 134/142/139 ms → 132/130/129 ms at 20×,
   201/198/197 ms → 190/190/190 ms at 50×; the depth chart 60 → 10 commits/s; 60 fps and no long
   frames either way. The ladder (24 rows, ~1,400 commits/s) is most of the work, and it stays on
