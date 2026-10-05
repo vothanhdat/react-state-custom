@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
-import { simControls } from '../sim/exchange'
+import { useFeedStats } from '../stores/ui/header'
 
 // Commits per panel, counted in a layout effect so StrictMode's double render does not count twice.
 const commits = new Map<string, number>()
@@ -14,8 +14,6 @@ type Sample = {
   fps: number
   longFrames: number
   worstFrame: number
-  messages: number
-  simMs: number
   commits: [string, number][]
 }
 
@@ -43,13 +41,10 @@ const useSamples = () => {
       const rates: [string, number][] = []
       for (const [panel, count] of commits) rates.push([panel, Math.round((count - (previous.get(panel) ?? 0)) / seconds)])
       previous = new Map(commits)
-      const stats = simControls.stats()
       setSample({
         fps: Math.round(frames / seconds),
         longFrames,
         worstFrame: Math.round(worst),
-        messages: stats.messagesPerSecond,
-        simMs: stats.simMsPerSecond,
         commits: rates.sort((a, b) => b[1] - a[1]),
       })
       frames = 0
@@ -66,6 +61,7 @@ const useSamples = () => {
 
 export function PerfHud() {
   const sample = useSamples()
+  const { messagesPerSecond, simMsPerSecond } = useFeedStats()
   const [open, setOpen] = useState(false)
   if (!sample) return null
   const totalCommits = sample.commits.reduce((sum, [, n]) => sum + n, 0)
@@ -73,13 +69,13 @@ export function PerfHud() {
     <div className="perf">
       <button className="perf-summary" onClick={() => setOpen(o => !o)} title="Commits per second by panel">
         <b className={sample.fps < 50 ? 'neg' : ''}>{sample.fps}</b> fps
-        <span>{sample.messages}</span> msg/s
+        <span>{messagesPerSecond}</span> msg/s
         <span>{totalCommits}</span> commits/s
         <span className={sample.longFrames ? 'neg' : ''}>{sample.longFrames}</span> long
       </button>
       {open && (
         <div className="perf-panel">
-          <div>worst frame {sample.worstFrame} ms · simulator {sample.simMs.toFixed(0)} ms/s</div>
+          <div>worst frame {sample.worstFrame} ms · simulator {simMsPerSecond?.toFixed(0)} ms/s</div>
           <table>
             <tbody>
               {sample.commits.map(([panel, n]) => (

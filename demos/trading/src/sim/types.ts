@@ -13,6 +13,10 @@ export type Market = {
   minNotional: number
   priceDecimals: number
   sizeDecimals: number
+  /** taker and maker fee, as a share of the order value */
+  feeRate: number
+  /** limit orders further than this share from the last price are rejected */
+  priceBand: number
 }
 
 export type Ticker = {

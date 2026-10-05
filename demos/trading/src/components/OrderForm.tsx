@@ -1,7 +1,7 @@
 import { fmt, fmtUsd } from '../lib/format'
-import { useWorkspace } from '../stores/app'
-import { useOrderForm } from '../stores/orderForm'
-import { useTrades } from '../stores/market'
+import { useLastTrade } from '../stores/ui/header'
+import { useOrderForm } from '../stores/ui/orderForm'
+import { useWorkspace } from '../stores/ui/workspace'
 import { useCommitCounter } from './Perf'
 
 export function OrderTicket() {
@@ -122,6 +122,6 @@ function Field({ label, unit, error, children }: { label: string; unit: string; 
 
 /** Reads the last price at trade speed, so the rest of the form does not */
 function LastPrice({ symbol, decimals }: { symbol: string; decimals: number }) {
-  const { lastPrice } = useTrades({ symbol })
+  const { lastPrice } = useLastTrade(symbol)
   return <>{fmt(lastPrice, decimals)}</>
 }

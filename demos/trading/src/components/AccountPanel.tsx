@@ -1,10 +1,8 @@
 import { memo, useState } from 'react'
-import { shallowEqual } from 'react-state-custom'
 import { fmt, fmtPct, fmtTime, fmtUsd } from '../lib/format'
-import type { Order } from '../sim/types'
-import { isOpen, useAccount, useOpenOrderIds } from '../stores/account'
-import { useMarket, useWorkspace } from '../stores/app'
-import { usePortfolio } from '../stores/portfolio'
+import { isOpen } from '../domain/orders'
+import { useAccountSummary, useFills, useOrderCommands, useOrderIds, useOrderRow, usePendingOrders, usePortfolio } from '../stores/ui/accountViews'
+import { useWorkspace } from '../stores/ui/workspace'
 import { useCommitCounter } from './Perf'
 
 type Tab = 'open' | 'history' | 'fills' | 'balances'
@@ -13,8 +11,9 @@ export function AccountPanel() {
   const [tab, setTab] = useState<Tab>('open')
   const [onlyThis, setOnlyThis] = useState(false)
   const { symbol } = useWorkspace()
-  const openCount = useOpenOrderIds().length
-  const { status, cancelAll } = useAccount()
+  const { status, openCount } = useAccountSummary()
+  const { cancelAll } = useOrderCommands()
+  const filter = onlyThis ? symbol : undefined
 
   return (
     <section className="panel account">
@@ -27,15 +26,15 @@ export function AccountPanel() {
         </div>
         <span className="spacer" />
         {status !== 'ready' && <span className={`badge badge-${status}`}>{status === 'stale' ? 'offline' : 'syncing'}</span>}
-        {(tab === 'open' || tab === 'history' || tab === 'fills') && (
+        {tab !== 'balances' && (
           <label className="check"><input type="checkbox" checked={onlyThis} onChange={e => setOnlyThis(e.target.checked)} /> {symbol} only</label>
         )}
-        {tab === 'open' && <button className="link" disabled={!openCount} onClick={() => cancelAll?.(onlyThis ? symbol : undefined)}>Cancel all</button>}
+        {tab === 'open' && <button className="link" disabled={!openCount} onClick={() => void cancelAll(filter)}>Cancel all</button>}
       </div>
       <div className="scroll">
-        {tab === 'open' && <OpenOrders symbol={onlyThis ? symbol : undefined} />}
-        {tab === 'history' && <History symbol={onlyThis ? symbol : undefined} />}
-        {tab === 'fills' && <Fills symbol={onlyThis ? symbol : undefined} />}
+        {tab === 'open' && <OpenOrders symbol={filter} />}
+        {tab === 'history' && <History symbol={filter} />}
+        {tab === 'fills' && <Fills symbol={filter} />}
         {tab === 'balances' && <Balances />}
       </div>
     </section>
@@ -50,9 +49,8 @@ const OrderHead = () => (
 
 function OpenOrders({ symbol }: { symbol?: string }) {
   useCommitCounter('open orders')
-  const ids = useOpenOrderIds(symbol)
-  // in flight: not yet acknowledged by the engine; the entries keep their identity until they resolve
-  const pending = useAccount(undefined, s => Object.values(s.pending).filter(p => !!p && (!symbol || p.symbol === symbol)), shallowEqual)
+  const ids = useOrderIds('open', symbol)
+  const pending = usePendingOrders(symbol)
   if (!ids.length && !pending.length) return <div className="empty">No open orders</div>
   return (
     <>
@@ -76,29 +74,24 @@ function OpenOrders({ symbol }: { symbol?: string }) {
 
 const OrderRow = memo(function OrderRow({ id }: { id: string }) {
   useCommitCounter('order rows')
-  const order = useAccount(undefined, s => s.orders[id])
-  const cancelling = useAccount(undefined, s => !!s.cancelling[id])
-  const { cancelOrder } = useAccount()
-  const market = useMarket(order?.symbol ?? '')
+  const { order, cancelling, priceDecimals, sizeDecimals, cancel } = useOrderRow(id)
   // the list that gave this id can be one commit behind the order itself
   if (!order) return null
-  const pd = market?.priceDecimals ?? 2
-  const sd = market?.sizeDecimals ?? 4
   return (
     <div className="order-row">
       <span className="num muted">{fmtTime(order.createdAt)}</span>
       <span>{order.symbol}</span>
       <span className={order.side === 'buy' ? 'pos' : 'neg'}>{order.side}</span>
       <span>{order.type}</span>
-      <span className="num">{order.price === null ? 'market' : fmt(order.price, pd)}</span>
+      <span className="num">{order.price === null ? 'market' : fmt(order.price, priceDecimals)}</span>
       <span className="num">
         <span className="fill-bar" style={{ '--filled': order.filled / order.size } as React.CSSProperties} />
-        {fmt(order.filled, sd)} / {fmt(order.size, sd)}
+        {fmt(order.filled, sizeDecimals)} / {fmt(order.size, sizeDecimals)}
       </span>
       <span>{order.status.replace('_', ' ')}</span>
       <span>
         {isOpen(order) && (
-          <button className="link" disabled={cancelling} onClick={() => cancelOrder?.(id)}>{cancelling ? 'cancelling…' : 'cancel'}</button>
+          <button className="link" disabled={cancelling} onClick={() => void cancel()}>{cancelling ? 'cancelling…' : 'cancel'}</button>
         )}
       </span>
     </div>
@@ -107,25 +100,18 @@ const OrderRow = memo(function OrderRow({ id }: { id: string }) {
 
 function History({ symbol }: { symbol?: string }) {
   useCommitCounter('history')
-  const ids = useAccount(undefined, s =>
-    Object.values(s.orders)
-      .filter((o): o is Order => !!o && !isOpen(o) && (!symbol || o.symbol === symbol))
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, 50)
-      .map(o => o.id),
-  shallowEqual)
+  const ids = useOrderIds('history', symbol)
   if (!ids.length) return <div className="empty">No closed orders yet</div>
   return <><OrderHead />{ids.map(id => <OrderRow key={id} id={id} />)}</>
 }
 
 function Fills({ symbol }: { symbol?: string }) {
-  const { fills } = useAccount()
-  const list = fills.filter(f => !symbol || f.symbol === symbol)
-  if (!list.length) return <div className="empty">No fills yet</div>
+  const fills = useFills(symbol)
+  if (!fills.length) return <div className="empty">No fills yet</div>
   return (
     <>
       <div className="fill-row head"><span>Time</span><span>Market</span><span>Side</span><span>Price</span><span>Size</span><span>Fee (USD)</span><span>Role</span></div>
-      {list.map(f => (
+      {fills.map(f => (
         <div key={f.id} className="fill-row">
           <span className="num muted">{fmtTime(f.ts)}</span>
           <span>{f.symbol}</span>

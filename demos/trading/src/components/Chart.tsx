@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { fmt, fmtCompact } from '../lib/format'
-import type { Candle, Order, Side } from '../sim/types'
-import { isOpen, useAccount } from '../stores/account'
-import { INTERVALS, useMarket, useWorkspace } from '../stores/app'
-import { useCandles } from '../stores/market'
+import type { OrderLine } from '../domain/orders'
+import type { Candle } from '../sim/types'
+import { useChart } from '../stores/ui/marketViews'
+import { INTERVALS, useWorkspace } from '../stores/ui/workspace'
 import { useCommitCounter } from './Perf'
 
 const intervalLabel = (s: number) => (s < 60 ? `${s}s` : `${s / 60}m`)
@@ -27,24 +27,12 @@ export function ChartPanel() {
   )
 }
 
-type Line = { id: string; side: Side; price: number; size: number }
-
-const orderLines = (orders: Record<string, Order | undefined>, symbol: string): Line[] =>
-  Object.values(orders)
-    .filter((o): o is Order => !!o && o.symbol === symbol && o.type === 'limit' && isOpen(o))
-    .map(o => ({ id: o.id, side: o.side, price: o.price ?? 0, size: o.size - o.filled }))
-
-const sameLines = (a: Line[], b: Line[]) =>
-  a.length === b.length && a.every((l, i) => l.id === b[i]?.id && l.price === b[i]?.price && l.size === b[i]?.size)
-
 type View = { count: number; offset: number }
 const DEFAULT_VIEW: View = { count: 90, offset: 0 }
 
 function CandleChart({ symbol, interval }: { symbol: string; interval: number }) {
   useCommitCounter('chart')
-  const { candles, loading, error, retry } = useCandles({ symbol, interval })
-  const decimals = useMarket(symbol)?.priceDecimals ?? 2
-  const lines = useAccount(undefined, s => orderLines(s.orders, symbol), sameLines)
+  const { candles, loading, error, retry, decimals, lines } = useChart(symbol, interval)
 
   const boxRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -139,7 +127,7 @@ function paint(
   size: { width: number; height: number },
   candles: Candle[],
   view: View,
-  lines: Line[],
+  lines: OrderLine[],
   decimals: number,
   interval: number,
   pointer: { x: number; y: number } | null,

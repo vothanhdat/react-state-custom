@@ -104,6 +104,8 @@ const createSim = (spec: Spec, major: boolean): Sim => {
     minNotional: 5,
     priceDecimals: decimalsOf(tickSize),
     sizeDecimals: decimalsOf(spec.stepSize),
+    feeRate: FEE_RATE,
+    priceBand: PRICE_BAND,
   }
   const open = roundTo(spec.price * Math.exp(gauss() * 0.03), market.priceDecimals)
   const t = nowSec()

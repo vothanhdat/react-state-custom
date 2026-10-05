@@ -1,41 +1,23 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { fmt } from '../lib/format'
-import type { Level } from '../sim/types'
-import { useMarket, useWorkspace } from '../stores/app'
-import { useBook } from '../stores/market'
+import { useDepth } from '../stores/ui/marketViews'
+import { useWorkspace } from '../stores/ui/workspace'
 import { useCommitCounter } from './Perf'
 
 const W = 300
 const H = 150
 
-/** Cumulative size from the best price outwards: [price, total][] */
-const cumulate = (levels: readonly Level[] | undefined, limit: number, inside: (price: number) => boolean) => {
-  const out: [number, number][] = []
-  let total = 0
-  for (const [price, size] of levels ?? []) {
-    if (out.length >= limit || !inside(price)) break
-    total += size
-    out.push([price, total])
-  }
-  return out
-}
-
 export function DepthChart() {
   useCommitCounter('depth chart')
   const { symbol } = useWorkspace()
-  const decimals = useMarket(symbol)?.priceDecimals ?? 2
-  const { bids, asks, mid } = useBook({ symbol })
   // how much of the book to show, around the mid
   const [zoom, setZoom] = useState(0.5)
+  const { view, mid, decimals } = useDepth(symbol, zoom)
 
-  const chart = useMemo(() => {
-    const deepest = Math.max(mid !== undefined ? mid - (bids?.at(-1)?.[0] ?? mid) : 0, mid !== undefined ? (asks?.at(-1)?.[0] ?? mid) - mid : 0)
-    if (!mid || !deepest) return undefined
-    const lo = mid - deepest * zoom
-    const hi = mid + deepest * zoom
-    const b = cumulate(bids, 400, p => p >= lo)
-    const a = cumulate(asks, 400, p => p <= hi)
-    const max = Math.max(b.at(-1)?.[1] ?? 0, a.at(-1)?.[1] ?? 0) || 1
+  // geometry belongs to the view: the view-model gives prices and totals, this maps them to the SVG
+  const chart = (() => {
+    if (!view) return undefined
+    const { lo, hi, max } = view
     const x = (p: number) => ((p - lo) / (hi - lo)) * W
     const y = (v: number) => H - (v / max) * (H - 10)
     // a step line: flat until the next price, then up by its size
@@ -46,8 +28,8 @@ export function DepthChart() {
       for (const [p, v] of points) d += `L${x(p)},${y(prev)}L${x(p)},${y(v)}`, prev = v
       return `${d}L${x(edge)},${y(prev)}L${x(edge)},${H}Z`
     }
-    return { bidPath: path(b, lo), askPath: path(a, hi), lo, hi, max }
-  }, [bids, asks, mid, zoom])
+    return { bidPath: path(view.bidPoints, lo), askPath: path(view.askPoints, hi), lo, hi }
+  })()
 
   return (
     <section className="panel depth">

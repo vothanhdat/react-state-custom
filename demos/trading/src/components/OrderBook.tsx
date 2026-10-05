@@ -1,19 +1,17 @@
 import { memo, useMemo, useState } from 'react'
-import { shallowEqual } from 'react-state-custom'
 import { fmt, fmtTime } from '../lib/format'
-import { decimalsOf, roundTo } from '../lib/num'
-import type { Market, Order } from '../sim/types'
-import { isOpen, useAccount } from '../stores/account'
-import { useMarket, useWorkspace } from '../stores/app'
-import { useBook, useBookView, useTrades } from '../stores/market'
-import { useOrderForm } from '../stores/orderForm'
+import { roundTo } from '../lib/num'
+import type { Market } from '../sim/types'
+import { useLadder, useMarketInfo, useTradeTape } from '../stores/ui/marketViews'
+import { useOrderForm } from '../stores/ui/orderForm'
+import { useWorkspace } from '../stores/ui/workspace'
 import { useCommitCounter } from './Perf'
 
 const ROWS = 12
 
 export function OrderBook() {
   const { symbol } = useWorkspace()
-  const market = useMarket(symbol)
+  const market = useMarketInfo(symbol)
   return (
     <section className="panel book">
       <div className="panel-head"><span className="panel-title">Order book</span></div>
@@ -22,32 +20,23 @@ export function OrderBook() {
   )
 }
 
-/** Prices of the user's open orders, grouped like the ladder rows */
-const myPrices = (orders: Record<string, Order | undefined>, symbol: string, grouping: number) => {
-  const decimals = decimalsOf(grouping)
-  const prices: number[] = []
-  for (const o of Object.values(orders)) {
-    if (!o || o.symbol !== symbol || o.price === null || !isOpen(o)) continue
-    const steps = o.price / grouping
-    prices.push(roundTo((o.side === 'buy' ? Math.floor(steps + 1e-9) : Math.ceil(steps - 1e-9)) * grouping, decimals))
-  }
-  return prices.sort((a, b) => a - b)
-}
-
 function Ladder({ market }: { market: Market }) {
   useCommitCounter('order book')
   const { symbol } = market
   const groupings = useMemo(() => [1, 10, 100, 1000].map(m => roundTo(market.tickSize * m, 10)), [market])
   const [grouping, setGrouping] = useState(groupings[1] ?? market.tickSize)
-  const { askRows, bidRows, maxTotal, spread, mid, status } = useBookView({ symbol, grouping, depth: ROWS })
-  const { resyncs } = useBook({ symbol })
+  const {
+    askRows, bidRows, maxTotal, spread, spreadBps, status, resyncs, lastPrice, direction, priceDecimals, sizeDecimals,
+  } = useLadder({ symbol, grouping, depth: ROWS })
   const { pickPrice } = useOrderForm({ symbol })
-  const mine = useAccount(undefined, s => myPrices(s.orders, symbol, grouping), shallowEqual)
-  const priceDecimals = decimalsOf(grouping)
 
   // asks are drawn top-down from the highest, so the best ask sits right above the spread
   const asks = askRows ? [...askRows].reverse() : []
   const pad = (n: number) => Array.from({ length: Math.max(0, ROWS - n) }, (_, i) => <div key={`pad${i}`} className="book-row" />)
+  const row = (side: 'bid' | 'ask') => (r: { price: number; size: number; total: number; mine: boolean }) => (
+    <BookRow key={r.price} side={side} price={r.price} size={r.size} total={r.total} maxTotal={maxTotal ?? 1}
+      priceDecimals={priceDecimals ?? 2} sizeDecimals={sizeDecimals ?? 4} mine={r.mine} onPick={pickPrice} />
+  )
 
   return (
     <>
@@ -60,32 +49,22 @@ function Ladder({ market }: { market: Market }) {
       <div className="book-row book-head"><span>Price</span><span>Size</span><span>Total</span></div>
       <div className="book-side">
         {pad(asks.length)}
-        {asks.map(r => (
-          <BookRow key={r.price} side="ask" price={r.price} size={r.size} total={r.total} maxTotal={maxTotal ?? 1}
-            priceDecimals={priceDecimals} sizeDecimals={market.sizeDecimals} mine={mine.includes(r.price)} onPick={pickPrice} />
-        ))}
+        {asks.map(row('ask'))}
       </div>
       <div className="book-spread">
-        <LastTrade symbol={symbol} decimals={market.priceDecimals} />
+        <b className={`book-last ${direction === 'up' ? 'pos' : direction === 'down' ? 'neg' : ''}`}>
+          {fmt(lastPrice, market.priceDecimals)} {direction === 'up' ? '↑' : direction === 'down' ? '↓' : ''}
+        </b>
         <span className="muted">
-          spread {fmt(spread, market.priceDecimals)}
-          {spread !== undefined && mid ? ` (${((spread / mid) * 10_000).toFixed(1)} bps)` : ''}
+          spread {fmt(spread, market.priceDecimals)}{spreadBps !== undefined ? ` (${spreadBps.toFixed(1)} bps)` : ''}
         </span>
       </div>
       <div className="book-side">
-        {(bidRows ?? []).map(r => (
-          <BookRow key={r.price} side="bid" price={r.price} size={r.size} total={r.total} maxTotal={maxTotal ?? 1}
-            priceDecimals={priceDecimals} sizeDecimals={market.sizeDecimals} mine={mine.includes(r.price)} onPick={pickPrice} />
-        ))}
+        {(bidRows ?? []).map(row('bid'))}
         {pad(bidRows?.length ?? 0)}
       </div>
     </>
   )
-}
-
-function LastTrade({ symbol, decimals }: { symbol: string; decimals: number }) {
-  const { lastPrice, direction } = useTrades({ symbol })
-  return <b className={`book-last ${direction === 'up' ? 'pos' : direction === 'down' ? 'neg' : ''}`}>{fmt(lastPrice, decimals)} {direction === 'up' ? '↑' : direction === 'down' ? '↓' : ''}</b>
 }
 
 type RowProps = {
@@ -116,33 +95,32 @@ const BookRow = memo(function BookRow({ side, price, size, total, maxTotal, pric
 
 export function Trades() {
   const { symbol } = useWorkspace()
-  const market = useMarket(symbol)
   return (
     <section className="panel trades">
       <div className="panel-head"><span className="panel-title">Trades</span></div>
       <div className="trade-row book-head"><span>Price</span><span>Size</span><span>Time</span></div>
-      {market && <TradeList symbol={symbol} market={market} />}
+      <TradeList symbol={symbol} />
     </section>
   )
 }
 
-function TradeList({ symbol, market }: { symbol: string; market: Market }) {
+function TradeList({ symbol }: { symbol: string }) {
   useCommitCounter('trades')
-  const { trades } = useTrades({ symbol })
+  const { trades, priceDecimals, sizeDecimals } = useTradeTape(symbol)
   return (
     <div className="scroll">
       {trades?.map(t => (
-        <TradeRow key={t.id} side={t.side} price={t.price} size={t.size} ts={t.ts} market={market} />
+        <TradeRow key={t.id} side={t.side} price={t.price} size={t.size} ts={t.ts} priceDecimals={priceDecimals} sizeDecimals={sizeDecimals} />
       ))}
     </div>
   )
 }
 
-const TradeRow = memo(function TradeRow({ side, price, size, ts, market }: { side: string; price: number; size: number; ts: number; market: Market }) {
+const TradeRow = memo(function TradeRow({ side, price, size, ts, priceDecimals, sizeDecimals }: { side: string; price: number; size: number; ts: number; priceDecimals: number; sizeDecimals: number }) {
   return (
     <div className="trade-row">
-      <span className={`num ${side === 'buy' ? 'pos' : 'neg'}`}>{fmt(price, market.priceDecimals)}</span>
-      <span className="num">{fmt(size, market.sizeDecimals)}</span>
+      <span className={`num ${side === 'buy' ? 'pos' : 'neg'}`}>{fmt(price, priceDecimals)}</span>
+      <span className="num">{fmt(size, sizeDecimals)}</span>
       <span className="num muted">{fmtTime(ts)}</span>
     </div>
   )

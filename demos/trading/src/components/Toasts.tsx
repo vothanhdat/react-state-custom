@@ -1,5 +1,4 @@
-import { useToasts } from '../stores/app'
-import { useFillToasts } from '../stores/notifications'
+import { useFillToasts, useToasts } from '../stores/ui/toasts'
 
 export function Toasts() {
   useFillToasts()

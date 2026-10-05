@@ -1,27 +1,18 @@
-// Market data for one symbol: order book, grouped book, trades, candles.
-// Each store owns its socket subscription; the socket client shares channels between them.
+// Core: live market data for one symbol. Each store owns its socket subscription; the socket client
+// shares channels between them. Messages are kept in plain objects and published once per frame.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createStore } from 'react-state-custom'
-import { frameScheduler } from '../lib/frame'
-import { decimalsOf, roundTo } from '../lib/num'
-import { api, socket } from '../sim/exchange'
-import type { Candle, Level, Trade } from '../sim/types'
-import { useConnection, useMarket } from './app'
+import { applyLevels, sortLevels } from '../../domain/book'
+import { mergeTrades } from '../../domain/candles'
+import { frameScheduler } from '../../lib/frame'
+import { api, socket } from '../../sim/exchange'
+import type { Candle, Level, Trade } from '../../sim/types'
+import { useConnection } from './connection'
 
 // ---------------------------------------------------------------- order book
 
 export type BookStatus = 'loading' | 'live' | 'resyncing' | 'stale'
-
-const sortLevels = (side: Map<number, number>, descending: boolean): Level[] =>
-  [...side].sort((a, b) => (descending ? b[0] - a[0] : a[0] - b[0]))
-
-const applyLevels = (side: Map<number, number>, levels: readonly Level[]) => {
-  for (const [price, size] of levels) {
-    if (size > 0) side.set(price, size)
-    else side.delete(price)
-  }
-}
 
 const useBookState = ({ symbol }: { symbol: string }) => {
   const { online } = useConnection()
@@ -32,7 +23,6 @@ const useBookState = ({ symbol }: { symbol: string }) => {
   const [resyncs, setResyncs] = useState(0)
 
   useEffect(() => {
-    // the book is kept in plain maps and published once per frame
     const bids = new Map<number, number>()
     const asks = new Map<number, number>()
     let seq: number | undefined
@@ -86,45 +76,6 @@ const useBookState = ({ symbol }: { symbol: string }) => {
 // kept two seconds after the last reader leaves, so flipping between two symbols does not resubscribe
 export const { useStore: useBook, getStore: getBook } = createStore('book', useBookState, { timeToClean: 2000 })
 
-// ---------------------------------------------------------------- grouped book for the ladder
-
-export type BookRow = { price: number; size: number; total: number }
-
-const groupLevels = (levels: readonly Level[] | undefined, grouping: number, side: 'bid' | 'ask', depth: number, sizeDecimals: number): BookRow[] => {
-  const rows: BookRow[] = []
-  if (!levels) return rows
-  const decimals = decimalsOf(grouping)
-  let total = 0
-  for (const [price, size] of levels) {
-    const steps = price / grouping
-    const bucket = roundTo((side === 'bid' ? Math.floor(steps + 1e-9) : Math.ceil(steps - 1e-9)) * grouping, decimals)
-    total += size
-    const last = rows[rows.length - 1]
-    if (last && last.price === bucket) {
-      last.size = roundTo(last.size + size, sizeDecimals)
-      last.total = roundTo(total, sizeDecimals)
-      continue
-    }
-    if (rows.length === depth) break
-    rows.push({ price: bucket, size, total: roundTo(total, sizeDecimals) })
-  }
-  return rows
-}
-
-const useBookViewState = ({ symbol, grouping, depth }: { symbol: string; grouping: number; depth: number }) => {
-  const { bids, asks, bestBid, bestAsk, spread, mid, status } = useBook({ symbol })
-  const sizeDecimals = useMarket(symbol)?.sizeDecimals ?? 8
-  const view = useMemo(() => {
-    const bidRows = groupLevels(bids, grouping, 'bid', depth, sizeDecimals)
-    const askRows = groupLevels(asks, grouping, 'ask', depth, sizeDecimals)
-    return { bidRows, askRows, maxTotal: Math.max(bidRows.at(-1)?.total ?? 0, askRows.at(-1)?.total ?? 0) }
-  }, [bids, asks, grouping, depth, sizeDecimals])
-  // the ladder reads everything from this store, so the rows and the spread always come from the same book
-  return { ...view, bestBid, bestAsk, spread, mid, status }
-}
-
-export const { useStore: useBookView } = createStore('book-view', useBookViewState)
-
 // ---------------------------------------------------------------- trades
 
 const MAX_TRADES = 60
@@ -162,21 +113,6 @@ const useTradesState = ({ symbol }: { symbol: string }) => {
 export const { useStore: useTrades, getStore: getTrades } = createStore('trades', useTradesState, { timeToClean: 2000 })
 
 // ---------------------------------------------------------------- candles
-
-const mergeTrades = (candles: Candle[], trades: readonly Trade[], interval: number): Candle[] => {
-  if (!trades.length) return candles
-  const out = candles.slice()
-  for (const trade of trades) {
-    const t = Math.floor(trade.ts / 1000 / interval) * interval
-    const last = out[out.length - 1]
-    if (last && last.t === t) {
-      out[out.length - 1] = { ...last, h: Math.max(last.h, trade.price), l: Math.min(last.l, trade.price), c: trade.price, v: last.v + trade.size }
-    } else if (!last || t > last.t) {
-      out.push({ t, o: trade.price, h: trade.price, l: trade.price, c: trade.price, v: trade.size })
-    }
-  }
-  return out.length > 600 ? out.slice(-600) : out
-}
 
 const useCandlesState = ({ symbol, interval }: { symbol: string; interval: number }) => {
   const { online } = useConnection()

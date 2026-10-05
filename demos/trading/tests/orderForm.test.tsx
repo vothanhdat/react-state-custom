@@ -3,14 +3,16 @@ import { AutoRootCtx } from 'react-state-custom'
 import { mockStore, storeHandle } from 'react-state-custom/testing'
 import { describe, expect, it, vi } from 'vitest'
 import { OrderTicket } from '../src/components/OrderForm'
+import type { PlaceResult } from '../src/domain/orders'
 import type { Market, Order } from '../src/sim/types'
-import { useAccount, type PlaceResult } from '../src/stores/account'
-import { useMarkets } from '../src/stores/app'
-import { useBook, useTrades } from '../src/stores/market'
-import { useOrderForm } from '../src/stores/orderForm'
+import { useAccount } from '../src/stores/core/account'
+import { useBook, useTrades } from '../src/stores/core/marketData'
+import { useMarkets } from '../src/stores/core/markets'
+import { useOrderForm } from '../src/stores/ui/orderForm'
 
 const market: Market = {
   symbol: 'BTC-USD', base: 'BTC', quote: 'USD', tickSize: 0.1, stepSize: 0.001, minNotional: 5, priceDecimals: 1, sizeDecimals: 3,
+  feeRate: 0.001, priceBand: 0.1,
 }
 
 // every store the ticket reads, except the form itself, is a mock: no simulator, no timers

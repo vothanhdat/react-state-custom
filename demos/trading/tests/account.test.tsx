@@ -1,11 +1,11 @@
-import { act, render } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { AutoRootCtx } from 'react-state-custom'
 import { mockStore, storeHandle, waitForStore } from 'react-state-custom/testing'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AccountMessage, AccountSnapshot, Fill, Order } from '../src/sim/types'
-import { useAccount } from '../src/stores/account'
-import { useToasts } from '../src/stores/app'
-import { useFillToasts } from '../src/stores/notifications'
+import { useAccount } from '../src/stores/core/account'
+import { useOrderCommands } from '../src/stores/ui/accountViews'
+import { useFillToasts, useToasts } from '../src/stores/ui/toasts'
 
 // a scripted exchange: the test decides when each response and each event arrives
 const fake = vi.hoisted(() => {
@@ -144,5 +144,34 @@ describe('fill toasts', () => {
     expect(state.fills).toHaveLength(1)
     expect(state.balances?.USD?.free).toBe(10)
     quiet.mockRestore()
+  })
+})
+
+describe('cancelling', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  // core returns the outcome; the UI layer decides that a failure is a toast
+  const CancelButton = ({ id }: { id: string }) => {
+    const { cancel } = useOrderCommands()
+    return <button onClick={() => void cancel(id)}>cancel {id}</button>
+  }
+
+  it('returns the outcome from the account store and shows a failure as a toast in the UI layer', async () => {
+    const snapshot = fake.deferred<AccountSnapshot>()
+    fake.api.getAccount.mockReturnValueOnce(snapshot.promise)
+    render(<><AutoRootCtx /><CancelButton id="o1" /></>)
+    const release = storeHandle(useAccount).retain()
+    await act(async () => snapshot.resolve({ seq: 1, balances: [], orders: [order({})] }))
+
+    fake.api.cancelOrder.mockRejectedValueOnce(new Error('Order is already filled'))
+    let result: unknown
+    await act(async () => { result = await storeHandle(useAccount).get().cancelOrder!('o1') })
+    expect(result).toEqual({ ok: false, id: 'o1', error: 'Order is already filled' })
+    expect(storeHandle(useToasts).get().toasts).toEqual([]) // the account store showed nothing
+
+    fake.api.cancelOrder.mockRejectedValueOnce(new Error('Order is already filled'))
+    await act(async () => { screen.getByRole('button', { name: 'cancel o1' }).click() })
+    expect(storeHandle(useToasts).get().toasts.map(t => [t.title, t.body])).toEqual([['Cancel failed', 'Order is already filled']])
+    release()
   })
 })
