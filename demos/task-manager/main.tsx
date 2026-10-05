@@ -7,7 +7,7 @@ import { DevToolContainer } from '../../src/dev-tool'
 import '../../src/dev-tool/DevTool.css'
 import './page.css'
 import {
-  calls, control, db, socket, visibleIds, type Status, type Task,
+  calls, control, db, socket, visibleIds, NO_IDS, NO_TASKS, type Status, type Task,
   useDraft, useFilters, useSearch, useSession, useStats, useTaskDetail, useTasks, useVisible,
 } from './app'
 
@@ -30,12 +30,12 @@ control.delay = 350   // slow enough to see loading, optimistic edits and rollba
 // ---------- the fixed list: ids and tasks from one store ----------
 // Computes the ids from `tasks` in the same render, so ids and tasks are published together.
 const { useStore: useList } = createStore('list', ({ projectId }: { projectId: string }) => {
-  const { tasks } = useTasks({ projectId })
-  const { status, mine, sort } = useFilters({ projectId })
-  const { user } = useSession()
+  const { tasks = NO_TASKS } = useTasks({ projectId })
+  const { status = 'all', mine = false, sort = 'updated' } = useFilters({ projectId })
+  const { user = null } = useSession()
   const ids = useMemo(() => visibleIds(tasks, status, mine, sort, user), [tasks, status, mine, sort, user])
   return { ids, tasks }
-}, { initialState: { ids: [], tasks: {} } })
+})
 
 // ---------- rows ----------
 type RowProps = { projectId: string, id: string, selected: boolean, onOpen: (id: string) => void }
@@ -58,20 +58,20 @@ const RowView = ({ task, projectId, selected, onOpen }: { task: Task } & Omit<Ro
 // `tasks` without a check. The `!` is what noUncheckedIndexedAccess makes you write to skip the
 // check; on delete the task is gone, and the row crashes.
 const RowUnchecked = (p: RowProps) => {
-  const task = useTasks({ projectId: p.projectId }, { select: s => s.tasks[p.id]! })
+  const task = useTasks({ projectId: p.projectId }, { select: s => s.tasks?.[p.id]! })
   return <RowView task={task} {...p} />
 }
 // The same row, checking before it reads: a deleted task renders nothing for the one render
 // before the list drops its id.
 const RowChecked = (p: RowProps) => {
-  const task = useTasks({ projectId: p.projectId }, { select: s => s.tasks[p.id] })
+  const task = useTasks({ projectId: p.projectId }, { select: s => s.tasks?.[p.id] })
   if (!task) return null
   return <RowView task={task} {...p} />
 }
 // The row reads its task from the store that gave the list its ids, so they always arrive together.
 // The type cannot know that, so the check stays.
 const RowFromList = (p: RowProps) => {
-  const task = useList({ projectId: p.projectId }, { select: s => s.tasks[p.id] })
+  const task = useList({ projectId: p.projectId }, { select: s => s.tasks?.[p.id] })
   if (!task) return null
   return <RowView task={task} {...p} />
 }
@@ -87,8 +87,8 @@ type Rerender = 'none' | 'memo' | 'shallow'
 const TaskList = ({ projectId, source, rerender, selected, onOpen }: {
   projectId: string, source: Source, rerender: Rerender, selected?: string, onOpen: (id: string) => void
 }) => {
-  const ids = useList({ projectId }, { select: s => s.ids, isEqual: rerender === 'shallow' ? undefined : Object.is })
-  const { status } = useTasks({ projectId })
+  const ids = useList({ projectId }, { select: s => s.ids ?? NO_IDS, isEqual: rerender === 'shallow' ? undefined : Object.is })
+  const { status = 'loading' } = useTasks({ projectId })
   const Row = rows[source][rerender === 'memo' ? 'memo' : 'plain']
   if (status === 'loading') return <p className="muted">Loading…</p>
   if (!ids.length) return <p className="muted">No task matches the filters.</p>
@@ -114,7 +114,7 @@ class ListBoundary extends React.Component<{ children: React.ReactNode }, { erro
 
 // ---------- panels ----------
 const Toolbar = ({ projectId }: { projectId: string }) => {
-  const { status, mine, sort, setStatus, setMine, setSort } = useFilters({ projectId })
+  const { status = 'all', mine = false, sort = 'updated', setStatus, setMine, setSort } = useFilters({ projectId })
   const { undo, canUndo, error } = useTasks({ projectId })
   const { assignVisibleToMe } = useVisible({ projectId })
   const { user } = useSession()
@@ -145,7 +145,7 @@ const remoteEdit = (projectId: string) => {
 }
 
 const Stats = ({ projectId }: { projectId: string }) => {
-  const { todo, doing, done } = useStats({ projectId })
+  const { todo = 0, doing = 0, done = 0 } = useStats({ projectId })
   return <p className="stats"><span className="status todo">todo {todo}</span> <span className="status doing">doing {doing}</span> <span className="status done">done {done}</span></p>
 }
 
@@ -168,7 +168,7 @@ const Editor = ({ projectId, taskId, onClose }: { projectId: string, taskId: str
 }
 
 const Search = ({ projectId }: { projectId: string }) => {
-  const { query, setQuery, results } = useSearch({ projectId })
+  const { query = '', setQuery, results = NO_IDS } = useSearch({ projectId })
   const sent = calls.filter(c => c.startsWith('search:')).length
   return <section className="panel">
     <h3>Search</h3>

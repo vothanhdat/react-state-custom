@@ -99,9 +99,9 @@ const viewsOf = <T,>(counters: NestedCounters, read: (root: number, view: View) 
   }
 }
 
-/** Sum a view's picks from per-root field records. */
+/** Sum a view's picks from per-root field records; a store that has not run yet reads as zeros. */
 const sumOf = (term: (v: number) => number) => (view: View, values: (Partial<Fields> | undefined)[]) =>
-  view.picks.reduce((sum, p) => sum + p.weight * term(values[p.root]![key(p.field)]!), view.id)
+  view.picks.reduce((sum, p) => sum + p.weight * term(values[p.root]?.[key(p.field)] ?? 0), view.id)
 
 /** Per view and root: a selector summing the view's picks in that root. Stable, so subscriptions keep them. */
 const selectorsOf = (counters: NestedCounters, term: (v: number) => number) => views.map(view =>
@@ -109,7 +109,7 @@ const selectorsOf = (counters: NestedCounters, term: (v: number) => number) => v
     const picks = view.picks.filter(p => p.root === root)
     return (s: { fields?: Fields }) => {
       counters.selectorCalls++
-      return picks.reduce((sum, p) => sum + p.weight * term(s.fields![key(p.field)]), 0)
+      return picks.reduce((sum, p) => sum + p.weight * term(s.fields?.[key(p.field)] ?? 0), 0)
     }
   }))
 const sumOfPartials = (view: View, partials: (number | undefined)[]) => partials.reduce<number>((sum, part) => sum + (part ?? 0), view.id)
@@ -127,12 +127,12 @@ export const rscFlatRoot: NestedAdapter = {
       const [fields, setFields] = useState(seed)
       // the cast keeps the index signature that a spread next to a named key drops (see Collections in the docs)
       return { ...fields, bump: (list: number[]) => setFields(f => bump(f, list)) } as Fields & { bump: (list: number[]) => void }
-    }, { initialState: seed }))
+    }))
     return {
       counters,
       Providers: rscProviders,
       Consumer: viewsOf(counters, r => roots[r].useStore(), sumOf(termFor(kind))),
-      update: () => changes.forEach((list, r) => list.length && roots[r].getStore().get().bump!(list)),
+      update: () => changes.forEach((list, r) => list.length && roots[r].storeRef().get().bump!(list)),
     }
   },
 }
@@ -146,8 +146,8 @@ export const rscNestedRoot: NestedAdapter = {
     return {
       counters,
       Providers: rscProviders,
-      Consumer: viewsOf(counters, r => roots[r].useStore().fields, sumOf(termFor(kind))),
-      update: () => changes.forEach((list, r) => list.length && roots[r].getStore().get().bump!(list)),
+      Consumer: viewsOf<Partial<Fields> | undefined>(counters, r => roots[r].useStore().fields, sumOf(termFor(kind))),
+      update: () => changes.forEach((list, r) => list.length && roots[r].storeRef().get().bump!(list)),
     }
   },
 }
@@ -155,7 +155,7 @@ export const rscNestedRoot: NestedAdapter = {
 const nestedRscRoots = () => seeds().map((seed, r) => createStore(`nested-root-${worldId++}-${r}`, () => {
   const [fields, setFields] = useState(seed)
   return { fields, bump: (list: number[]) => setFields(f => bump(f, list)) }
-}, { initialState: { fields: seed } }))
+}))
 
 /** The nested roots, flattened once per root by a shared store (Composing stores, "Flatten a nested source"). */
 export const rscFlattened: NestedAdapter = {
@@ -167,12 +167,12 @@ export const rscFlattened: NestedAdapter = {
       counters.derives++
       const { fields } = roots[r].useStore()
       return { ...fields }
-    }, { initialState: seed }))
+    }))
     return {
       counters,
       Providers: rscProviders,
       Consumer: viewsOf(counters, r => flat[r].useStore(), sumOf(termFor(kind))),
-      update: () => changes.forEach((list, r) => list.length && roots[r].getStore().get().bump!(list)),
+      update: () => changes.forEach((list, r) => list.length && roots[r].storeRef().get().bump!(list)),
     }
   },
 }
@@ -187,8 +187,8 @@ export const rscSelectors: NestedAdapter = {
     return {
       counters,
       Providers: rscProviders,
-      Consumer: viewsOf(counters, (r, view) => roots[r].useStore(undefined, selectors[view.id][r]), sumOfPartials),
-      update: () => changes.forEach((list, r) => list.length && roots[r].getStore().get().bump!(list)),
+      Consumer: viewsOf(counters, (r, view) => roots[r].useStore(undefined, { select: selectors[view.id][r] }), sumOfPartials),
+      update: () => changes.forEach((list, r) => list.length && roots[r].storeRef().get().bump!(list)),
     }
   },
 }

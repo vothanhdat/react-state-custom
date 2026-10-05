@@ -44,7 +44,7 @@ export const reactStateCustom: TopologyAdapter = {
       counters,
       Providers: ({ children }) => <><AutoRootCtx />{children}</>,
       Consumer: ({ k }) => { counters.renders++; return <i>{mid.useStore({ i: k }).value}</i> },
-      update: (kind, tick) => { const s = root.getStore().get(); s.patch!(patchFor(kind, tick, s)) },
+      update: (kind, tick) => { const s = root.storeRef().get(); s.patch!(patchFor(kind, tick, s)) },
     }
   },
 }

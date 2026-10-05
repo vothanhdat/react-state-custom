@@ -68,11 +68,11 @@ export const reactStateCustom: ShopAdapter = {
   create() {
     const counters = { renders: 0, derives: 0 }
     const calc = calcFor(counters)
-    const { useStore: useConfig, getStore: getConfig } = createStore(`shop-config-${worldId++}`, () => {
+    const { useStore: useConfig, storeRef: getConfig } = createStore(`shop-config-${worldId++}`, () => {
       const [state, setState] = useState(initialConfig)
       return { ...state, patch: (p: Partial<Config>) => setState(c => ({ ...c, ...p })) }
     })
-    const { useStore: useItems, getStore: getItems } = createStore(`shop-items-${worldId++}`, () => {
+    const { useStore: useItems, storeRef: getItems } = createStore(`shop-items-${worldId++}`, () => {
       const [state, setState] = useState(initialItems)
       const setQty = (id: string, qty: number) => setState(it => ({ ...it, [id]: { ...it[id], qty } }))
       return { ...state, setQty } as Items & { setQty: typeof setQty }

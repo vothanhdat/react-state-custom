@@ -19,7 +19,7 @@ let storeId = 0
 
 /** A keyed collection where one `setTick` changes every item. */
 const collection = () => {
-  const { useStore: useItems, getStore: getItems } = createStore(`scale-items-${storeId++}`, () => {
+  const { useStore: useItems, storeRef: getItems } = createStore(`scale-items-${storeId++}`, () => {
     const [tick, setTick] = useState(0)
     const items: Record<string, number> = {}
     for (const id of ids) items[id] = tick
@@ -71,7 +71,7 @@ describe(`scale: ${KEYS} keys in one store, every key changes in one update`, ()
     const stop = render(<><AutoRootCtx /><Total /></>)
     return { step: tick => getItems().get().setTick?.(tick), stop }
   })
-  updateBench('one getStore().subscribe listener', () => {
+  updateBench('one storeRef().subscribe listener', () => {
     const { getItems } = collection()
     const release = getItems().retain()
     const unsubscribe = getItems().subscribe(() => { })

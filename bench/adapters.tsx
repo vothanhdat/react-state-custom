@@ -23,7 +23,7 @@ export const reactStateCustom: Adapter = {
   create(keys) {
     const counters = { renders: 0, derives: 0 }
     const init = initial(keys)
-    const { useStore, getStore } = createStore(`bench-${worldId++}`, () => {
+    const { useStore, storeRef } = createStore(`bench-${worldId++}`, () => {
       const [state, setState] = useState(init)
       const set = (k: string, v: number) => setState(s => ({ ...s, [k]: v }))
       return { ...state, set } as Record<string, number> & { set: typeof set }
@@ -32,7 +32,7 @@ export const reactStateCustom: Adapter = {
       counters,
       Providers: ({ children }) => <><AutoRootCtx />{children}</>,
       Consumer: ({ k }) => { counters.renders++; return <i>{useStore()[keyName(k)]}</i> },
-      update: (k, v) => getStore().get().set!(keyName(k), v),
+      update: (k, v) => storeRef().get().set!(keyName(k), v),
     }
   },
 }

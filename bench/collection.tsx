@@ -34,7 +34,7 @@ export const reactStateCustom: CollectionAdapter = {
       counters,
       Providers: ({ children }) => <><AutoRootCtx />{children}</>,
       Consumer: ({ k }) => { counters.renders++; return <i>{items.useStore()[itemId(k)]}</i> },
-      update: tick => items.getStore().get().set!(itemId(tick % ITEMS), tick),
+      update: tick => items.storeRef().get().set!(itemId(tick % ITEMS), tick),
     }
   },
 }
@@ -52,7 +52,7 @@ export const reactStateCustomArray: CollectionAdapter = {
       counters,
       Providers: ({ children }) => <><AutoRootCtx />{children}</>,
       Consumer: ({ k }) => { counters.renders++; return <i>{list.useStore().items?.[k]}</i> },
-      update: tick => list.getStore().get().set!(tick % ITEMS, tick),
+      update: tick => list.storeRef().get().set!(tick % ITEMS, tick),
     }
   },
 }

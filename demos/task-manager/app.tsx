@@ -41,13 +41,18 @@ export const socket = {
   emit(t: Task) { db[t.id] = t; socketListeners.get(t.projectId)?.forEach(fn => fn(t)) },
 }
 
+// What readers default to before a store has run: stores are lazy, so every key is undefined until
+// the first result. One constant each, so an empty list keeps its identity between renders.
+export const NO_TASKS: Record<string, Task> = {}
+export const NO_IDS: string[] = []
+
 // ---------- 1. session (global) ----------
 export const { useStore: useSession, storeRef: sessionRef } = createStore('session', () => {
   const [user, setUser] = useState<User | null>(null)
   const login = (name: string) => setUser({ id: 'u-' + name, name })
   const logout = () => setUser(null)
   return { user, login, logout }
-}, { initialState: { user: null } })
+})
 
 // ---------- 2. tasks of a project ----------
 const byId = (list: Task[]) => Object.fromEntries(list.map(t => [t.id, t]))
@@ -98,7 +103,7 @@ export const { useStore: useTasks, storeRef: tasksRef } = createStore('tasks', (
     setTasks(prev)
   }
   return { tasks, status, error, updateTask, deleteTask, undo, canUndo: undoStack.length > 0 }
-}, { initialState: { tasks: {}, status: 'loading', canUndo: false } })
+})
 
 // ---------- 3. filters of a project (UI state, kept 60 s after leaving) ----------
 export const { useStore: useFilters } = createStore('filters', ({ projectId }: { projectId: string }) => {
@@ -106,7 +111,7 @@ export const { useStore: useFilters } = createStore('filters', ({ projectId }: {
   const [mine, setMine] = useState(false)
   const [sort, setSort] = useState<'title' | 'updated'>('updated')
   return { status, mine, sort, setStatus, setMine, setSort }
-}, { initialState: { status: 'all', mine: false, sort: 'updated' }, timeToClean: 60_000 })
+}, { timeToClean: 60_000 })
 
 // ---------- 4. derived: visible ids ----------
 export const visibleIds = (tasks: Record<string, Task>, status: Status | 'all', mine: boolean, sort: 'title' | 'updated', user: User | null) =>
@@ -116,9 +121,9 @@ export const visibleIds = (tasks: Record<string, Task>, status: Status | 'all', 
     .map(t => t.id)
 
 export const { useStore: useVisible } = createStore('visible', ({ projectId }: { projectId: string }) => {
-  const { tasks } = useTasks({ projectId })
-  const { status, mine, sort } = useFilters({ projectId })
-  const { user } = useSession()
+  const { tasks = NO_TASKS } = useTasks({ projectId })
+  const { status = 'all', mine = false, sort = 'updated' } = useFilters({ projectId })
+  const { user = null } = useSession()
   const ids = useMemo(() => visibleIds(tasks, status, mine, sort, user), [tasks, status, mine, sort, user])
   const { updateTask } = useTasks({ projectId })
   // a cross-store action lives in the store that already reads everything it needs
@@ -127,22 +132,22 @@ export const { useStore: useVisible } = createStore('visible', ({ projectId }: {
     for (const id of ids) updateTask?.(id, { assignee: user.id })
   }
   return { ids, assignVisibleToMe }
-}, { initialState: { ids: [] } })
+})
 
 // ---------- 5. derived: stats ----------
 export const { useStore: useStats } = createStore('stats', ({ projectId }: { projectId: string }) => {
-  const { tasks } = useTasks({ projectId })
+  const { tasks = NO_TASKS } = useTasks({ projectId })
   const all = Object.values(tasks)
   return {
     todo: all.filter(t => t.status === 'todo').length,
     doing: all.filter(t => t.status === 'doing').length,
     done: all.filter(t => t.status === 'done').length,
   }
-}, { initialState: { todo: 0, doing: 0, done: 0 } })
+})
 
 // ---------- 6. task detail: one instance per task ----------
 export const { useStore: useTaskDetail } = createStore('task-detail', ({ projectId, taskId }: { projectId: string, taskId: string }) => {
-  const task = useTasks({ projectId }, { select: s => s.tasks[taskId] })
+  const task = useTasks({ projectId }, { select: s => s.tasks?.[taskId] })
   const [comments, setComments] = useState<string[]>()
   useEffect(() => { let alive = true; api.fetchComments(taskId).then(c => alive && setComments(c)); return () => { alive = false } }, [taskId])
   return { task, comments }
@@ -159,7 +164,7 @@ export const { useStore: useSearch } = createStore('search', ({ projectId }: { p
     return () => { alive = false }
   }, [projectId, query])
   return { query, setQuery, results }
-}, { initialState: { query: '', results: [] } })
+})
 
 // ---------- 8. a draft that survives closing the editor ----------
 export const { useStore: useDraft } = createStore('draft', ({ taskId }: { taskId: string }) => {
@@ -175,7 +180,7 @@ const count = (k: string) => { renders[k] = (renders[k] ?? 0) + 1 }
 
 export const TaskRow = ({ projectId, id }: { projectId: string, id: string }) => {
   count('row:' + id)
-  const task = useTasks({ projectId }, { select: s => s.tasks[id] })
+  const task = useTasks({ projectId }, { select: s => s.tasks?.[id] })
   // The first version had no check and crashed on delete: `tasks` publishes one commit before
   // `visible` drops the id, so this row renders once more with `task` undefined.
   if (!task) { zombies.push(`${step.name}: ${id}`); return null }
@@ -183,12 +188,12 @@ export const TaskRow = ({ projectId, id }: { projectId: string, id: string }) =>
 }
 export const TaskList = ({ projectId }: { projectId: string }) => {
   count('list')
-  const { ids } = useVisible({ projectId })
+  const { ids = NO_IDS } = useVisible({ projectId })
   return <ul>{ids.map(id => <TaskRow key={id} projectId={projectId} id={id} />)}</ul>
 }
 export const Stats = ({ projectId }: { projectId: string }) => {
   count('stats')
-  const { todo, doing, done } = useStats({ projectId })
+  const { todo = 0, doing = 0, done = 0 } = useStats({ projectId })
   return <p>{todo}/{doing}/{done}</p>
 }
 export const Toolbar = ({ projectId }: { projectId: string }) => {

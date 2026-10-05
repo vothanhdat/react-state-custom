@@ -43,7 +43,7 @@ export const reactStateCustom: DerivedAdapter = {
       counters,
       Providers: ({ children }) => <><AutoRootCtx />{children}</>,
       Consumer: () => { counters.renders++; return <i>{summary.useStore().sum}</i> },
-      update: (kind, tick) => { const s = base.getStore().get(); s.patch!(patchFor(kind, tick, s)) },
+      update: (kind, tick) => { const s = base.storeRef().get(); s.patch!(patchFor(kind, tick, s)) },
     }
   },
 }

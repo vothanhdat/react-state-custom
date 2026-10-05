@@ -40,8 +40,6 @@ The fake backend and socket at the top of `app.tsx` record every call in `calls`
 | `main.tsx`, `index.html`, `page.css`, `vite.config.mjs` | the browser page: the same stores, a `list` store that computes ids and tasks together, three kinds of row and the two switches |
 | `scenarios.test.tsx` | A–K: load, edit one task, delete, failed edit and rollback, undo, socket, navigation, draft, search, login, actions on the first render |
 | `fixes.test.tsx` | the fixes: a stable `ids` array, rows read from the derived store, the keyed-collection shape |
-| `initial-state-types.tsx` | which keys `initialState` types as present |
-| `initial-state-runtime.test.tsx` | a key typed present by mistake, undefined on the first render |
 | `testing.test.tsx` | component tests with `react-state-custom/testing`, which assert: mocked stores in place of the api and the socket, a mocked action, a real derived store on a mocked one, waiting for the real tasks store |
 
 ## Run
@@ -60,13 +58,13 @@ yarn tsc -p demos/task-manager
 - **Deleting a task crashed its row** (scenario C) when the row read `tasks` while the list read ids from `visible`: `tasks` publishes one commit before `visible`, so the deleted row renders once with `undefined`. The same happens when coming back to a project within 100 ms. Reading rows from the derived store gives 0 such renders (`fixes.test.tsx`); `React.memo` does not help.
 - **Editing one task re-rendered all 50 rows** (scenario B): `ids` is a new array whenever `tasks` changes, so the list re-renders and with it every row. `React.memo` on the row, or keeping the previous array while its contents are equal, brings it to 1. The page shows `React.memo` and a list that reads its ids with `shallowEqual`.
 - **Actions are typed `T | undefined`** and are `undefined` on the first render (scenario K).
-- **`initialState` with a plain string literal** (`{ status: 'loading' }`, no `as const`) types every key as present, actions included (`initial-state-types.tsx`), and such a key can be `undefined` on the first render (`initial-state-runtime.test.tsx`).
+- **`initialState` with a plain string literal** (`{ status: 'loading' }`, no `as const`) typed every key as present, actions included, and such a key could be `undefined` on the first render.
 
 ## What changed after 1.6.0
 
 The library keeps its model: values from different stores can disagree for one render, and readers check before they read. What changed:
 
-- **`initialState` types only the keys it holds**, and checks their values against the store's types: `{ status: 'loading' }` needs no `as const`, and `ids` stays optional (`initial-state-types.tsx`). The `as const` casts in `app.tsx` are gone.
+- **`initialState` types only the keys it holds**, and checks their values against the store's types: `{ status: 'loading' }` needs no `as const`, and `ids` stays optional. The `as const` casts in `app.tsx` are gone.
 - **`shallowEqual` is exported**, for selectors that return a new array with the same items. The page's third re-render option uses it, in place of a store that kept the previous array in a ref.
 - **The demo type-checks with `noUncheckedIndexedAccess`**, so `tasks[id]` is `Task | undefined`. It flagged the row that crashed on delete, and a bug in `updateTask`: a task deleted while its save was in flight came back when the save or its rollback landed, half of it missing. `updateTask` now changes a task only while it exists. Action calls use `?.()`.
 - **A torn-down store leaves nothing behind.** Its context used to stay cached for 100 ms, so coming back to a project right away mixed the old `visible` ids with a fresh `tasks` store and rendered a row whose task was `undefined` (scenario G). The context is now dropped with the instance: `G zombies []`.
@@ -75,3 +73,7 @@ The library keeps its model: values from different stores can disagree for one r
 ## After 1.7.0
 
 - **Tests have helpers** in `react-state-custom/testing` (`testing.test.tsx`). `mockStore(A.useTasks, { tasks })` renders `TaskList`, `Toolbar` or `Stats` without the fake api, and `set()` changes what the mock publishes; `waitForStore(A.useTasks, params, s => s.status === 'ready')` waits for the real store. The scenarios reach the search store with `storeHandle(A.useSearch, params)` instead of its internal instance name `'search?projectId=p1'`, and clear state between tests with `resetStores()` instead of `getContext.cache.clear()`.
+
+## 2.0
+
+- **No `initialState`.** Every key is `undefined` until a store has run, and each reader defaults where it reads: `const { ids = NO_IDS } = useVisible(params)`, `const { status = 'all' } = useFilters(params)`, `select: s => s.tasks?.[id]`. `NO_TASKS` and `NO_IDS` are module constants, so an empty list keeps its identity between renders. The stores themselves are unchanged.

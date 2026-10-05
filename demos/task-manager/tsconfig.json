@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "files": ["app.tsx", "main.tsx", "initial-state-types.tsx"]
+  "files": ["app.tsx", "main.tsx"]
 }

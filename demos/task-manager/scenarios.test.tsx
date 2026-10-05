@@ -60,11 +60,11 @@ it('A. load, one update, one delete', async () => {
 it('C2. delete with a guarded row', async () => {
   seed('p1', 5)
   const Row = ({ id }: { id: string }) => {
-    const task = A.useTasks({ projectId: 'p1' }, { select: s => s.tasks[id] })
+    const task = A.useTasks({ projectId: 'p1' }, { select: s => s.tasks?.[id] })
     A.renders['zombie:' + id] = (A.renders['zombie:' + id] ?? 0) + (task ? 0 : 1)
     return task ? <li>{task.title}</li> : null
   }
-  const List = () => <ul>{A.useVisible({ projectId: 'p1' }).ids.map(id => <Row key={id} id={id} />)}</ul>
+  const List = () => <ul>{(A.useVisible({ projectId: 'p1' }).ids ?? A.NO_IDS).map(id => <Row key={id} id={id} />)}</ul>
   render(<><AutoRootCtx /><List /></>)
   await flush()
   await act(async () => { A.tasksRef({ projectId: 'p1' }).get().deleteTask!('p1-t02') })
@@ -129,7 +129,7 @@ it('G. filters survive a round trip, tasks refetch; I. draft survives closing th
 
 it('H. search: the slow early response does not overwrite the later one', async () => {
   seed('p1', 5)
-  const Search = () => { const { query, results } = A.useSearch({ projectId: 'p1' }); return <p>{query}:{results.join(',')}</p> }
+  const Search = () => { const { query = '', results = A.NO_IDS } = A.useSearch({ projectId: 'p1' }); return <p>{query}:{results.join(',')}</p> }
   const { container } = render(<><AutoRootCtx /><Search /></>)
   await flush()
   A.control.searchDelays = [40, 5]
@@ -145,7 +145,7 @@ it('J. login recomputes the derived list; K. a click before the store ran', asyn
   A.db['p1-t00'].assignee = 'u-dat'
   const Mine = () => {
     const { setMine } = A.useFilters({ projectId: 'p1' })
-    const { ids } = A.useVisible({ projectId: 'p1' })
+    const { ids = A.NO_IDS } = A.useVisible({ projectId: 'p1' })
     const { login } = A.useSession()
     ;((globalThis as any).firstRender ??= []).push(typeof setMine)
     return <p>{ids.join(',')}<button onClick={() => login?.('dat')}>login</button></p>

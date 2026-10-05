@@ -19,7 +19,9 @@ const { useStore: useTasks, storeRef: tasksRef } = createStore('fx-tasks', () =>
   const toggle = (id: string) => setTasks(s => ({ ...s, [id]: { ...s[id], done: !s[id].done } }))
   const remove = (id: string) => setTasks(s => { const { [id]: _, ...rest } = s; return rest })
   return { tasks, toggle, remove }
-}, { initialState: { tasks: {} } })
+})
+const NO_TASKS: Record<string, Task> = {}
+const NO_IDS: string[] = []
 
 // variant 1: the derived store keeps the previous array while its content is the same
 const useStableArray = <T,>(next: T[]) => {
@@ -28,28 +30,28 @@ const useStableArray = <T,>(next: T[]) => {
   return ref.current
 }
 const { useStore: useVisible } = createStore('fx-visible', () => {
-  const { tasks } = useTasks()
+  const { tasks = NO_TASKS } = useTasks()
   const ids = useStableArray(useMemo(() => Object.keys(tasks), [tasks]))
   return { ids, tasks }                       // variant 2: re-export the source the rows read
-}, { initialState: { ids: [] as string[], tasks: {} as Record<string, Task> } })
+})
 
 const rows: Record<string, number> = {}
 let zombies = 0
 const RowFromSource = React.memo(({ id }: { id: string }) => {
   rows[id] = (rows[id] ?? 0) + 1
-  const t = useTasks(undefined, { select: s => s.tasks[id] })
+  const t = useTasks(undefined, { select: s => s.tasks?.[id] })
   if (!t) { zombies++; return null }
   return <li>{t.title}</li>
 })
 const RowFromDerived = ({ id }: { id: string }) => {
   rows[id] = (rows[id] ?? 0) + 1
-  const t = useVisible(undefined, { select: s => s.tasks[id] })
+  const t = useVisible(undefined, { select: s => s.tasks?.[id] })
   if (!t) { zombies++; return null }
   return <li>{t.title}</li>
 }
 
 it('ids kept stable in the store, rows unchanged', async () => {
-  const List = () => <ul>{useVisible().ids.map(id => <RowFromDerived key={id} id={id} />)}</ul>
+  const List = () => <ul>{(useVisible().ids ?? NO_IDS).map(id => <RowFromDerived key={id} id={id} />)}</ul>
   render(<><AutoRootCtx /><List /></>)
   await flush()
   for (const k in rows) delete rows[k]
@@ -62,7 +64,7 @@ it('ids kept stable in the store, rows unchanged', async () => {
 })
 
 it('rows read from the source, memoized', async () => {
-  const List = () => <ul>{useVisible().ids.map(id => <RowFromSource key={id} id={id} />)}</ul>
+  const List = () => <ul>{(useVisible().ids ?? NO_IDS).map(id => <RowFromSource key={id} id={id} />)}</ul>
   render(<><AutoRootCtx /><List /></>)
   await flush()
   zombies = 0
