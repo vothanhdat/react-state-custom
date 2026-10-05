@@ -99,14 +99,17 @@ export const { useStore: useFilters } = createStore('filters', ({ projectId }: {
 }, { initialState: { status: 'all' as const, mine: false, sort: 'updated' as const }, timeToClean: 60_000 })
 
 // ---------- 4. derived: visible ids ----------
+export const visibleIds = (tasks: Record<string, Task>, status: Status | 'all', mine: boolean, sort: 'title' | 'updated', user: User | null) =>
+  Object.values(tasks)
+    .filter(t => (status === 'all' || t.status === status) && (!mine || t.assignee === user?.id))
+    .sort((a, b) => sort === 'title' ? a.title.localeCompare(b.title) : b.updatedAt - a.updatedAt)
+    .map(t => t.id)
+
 export const { useStore: useVisible } = createStore('visible', ({ projectId }: { projectId: string }) => {
   const { tasks } = useTasks({ projectId })
   const { status, mine, sort } = useFilters({ projectId })
   const { user } = useSession()
-  const ids = useMemo(() => Object.values(tasks)
-    .filter(t => (status === 'all' || t.status === status) && (!mine || t.assignee === user?.id))
-    .sort((a, b) => sort === 'title' ? a.title.localeCompare(b.title) : b.updatedAt - a.updatedAt)
-    .map(t => t.id), [tasks, status, mine, sort, user])
+  const ids = useMemo(() => visibleIds(tasks, status, mine, sort, user), [tasks, status, mine, sort, user])
   const { updateTask } = useTasks({ projectId })
   // a cross-store action lives in the store that already reads everything it needs
   const assignVisibleToMe = () => { for (const id of ids) updateTask!(id, { assignee: user!.id }) }

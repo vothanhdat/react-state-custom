@@ -56,6 +56,7 @@
     "build:demo": "vite build --config vite.config.dev.ts",
     "dev": "vite",
     "dev:playground": "vite --config vite.config.dev.ts",
+    "demo:tasks": "vite --config demos/task-manager/vite.config.mjs",
     "test": "vitest run --config vitest.config.test.ts",
     "test:watch": "vitest --config vitest.config.test.ts",
     "test:ui": "vitest --ui --config vitest.config.test.ts",
