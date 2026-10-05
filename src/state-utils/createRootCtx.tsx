@@ -67,6 +67,14 @@ const usePublish = (ctx: Context<any>, state: Record<string, unknown>) => {
     if (changed || removed) ctx.publishMany(changed ?? [], removed)
     if (touched) ctx.touch(touched)
   })
+
+  // Once this hook is unmounted (the instance torn down, disabled by an error or restarted), its
+  // actions do nothing instead of running closures that can still fetch or subscribe. StrictMode
+  // runs the cleanup and the effect again at once, which brings them back.
+  useEffect(() => {
+    for (const entry of wrappers.values()) entry.dead = false
+    return () => { for (const entry of wrappers.values()) entry.dead = true }
+  }, [wrappers])
 }
 
 const createStableFn = (key: string, value: Function, wrappers: Map<string, StableFn>) => {
@@ -74,6 +82,9 @@ const createStableFn = (key: string, value: Function, wrappers: Map<string, Stab
     latest: value,
     calledInRender: false,
     stable: function (this: unknown, ...args: unknown[]) {
+      // Like an action that does not exist yet. No warning: a component inside an <Activity> shown
+      // again calls it from its effects once, before the next instance publishes its own.
+      if (created.dead) return undefined
       if (selectorScope.depth > 0) created.calledInRender = true
       return created.latest.apply(this, args)
     },

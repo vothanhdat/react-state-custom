@@ -362,15 +362,22 @@ const StoreInstance = memo(named("StoreInstance", function StoreInstance({ name,
   debugging: boolean | StateDebugRenderer,
 }) {
   const ctx = useDataContext<any>(name)
-  // A failed instance stays failed until it is torn down; the next one starts clean. This component
-  // sits outside Wrapper, so it unmounts with the instance and not when Wrapper shows its fallback.
-  // StrictMode runs the cleanup and the effect again at once on mount: only a real unmount recovers.
+  // A failed instance stays failed until it is torn down; the next one starts clean, and nothing of the
+  // torn-down one runs anymore (see Context.retire). This component sits outside Wrapper, so it
+  // unmounts with the instance and not when Wrapper shows its fallback.
+  // StrictMode runs the cleanup and the effect again at once on mount: only a real unmount retires.
   const mounted = useRef(false)
   useEffect(() => {
     mounted.current = true
+    ctx.instances += 1
     return () => {
       mounted.current = false
-      queueMicrotask(() => { if (!mounted.current) ctx.recover() })
+      ctx.instances -= 1
+      queueMicrotask(() => {
+        if (mounted.current) return
+        ctx.recover()
+        if (ctx.instances === 0) ctx.retire()
+      })
     }
   }, [ctx])
   const Runner = runnerFor(storeName)
@@ -614,7 +621,8 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
   // Seed initialState once per Context instance, before anything subscribes, so the very
   // first render already sees values instead of undefined. No event is dispatched.
   const seedContext = (ctx: Context<V>, params: U) => {
-    if (!initialState || seededContexts.has(ctx)) return
+    // a retired context lost the dead instance's actions: put back the ones initialState holds
+    if (!initialState || (seededContexts.has(ctx) && !ctx.retired)) return
     seededContexts.add(ctx)
     const seed = seedValues(params)!
     for (const key of Object.keys(seed) as (keyof V)[]) {

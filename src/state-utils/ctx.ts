@@ -17,7 +17,7 @@ export const StateScopeContext = createContext<string | null>(null)
  * `calledInRender` turns true once a consumer calls the function while rendering (a getter, a selector,
  * a component), from then on a new implementation is announced with `Context.touch`.
  */
-export type FunctionSource = { latest: Function, calledInRender: boolean }
+export type FunctionSource = { latest: Function, calledInRender: boolean, dead?: boolean }
 
 /** Stable wrapper -> its source. Filled by createRootCtx, read by the subscribe hooks. */
 export const functionSources = new WeakMap<Function, FunctionSource>()
@@ -29,7 +29,10 @@ export const latestOf = (value: unknown) =>
 /** Depth of selector calls in progress: a store function called inside one is a render-time call. */
 export const selectorScope = { depth: 0 }
 
-/** How long an unused Context stays in the cache before being evicted. */
+/**
+ * How long an unused Context stays in the cache before being evicted. A retired one (its store
+ * instance was torn down) leaves at once: `timeToClean` already kept the instance as long as wanted.
+ */
 const CACHE_EVICT_DELAY = 100
 
 /** How long a Context created during a render stays cached if no user of it commits. */
@@ -94,6 +97,7 @@ export class Context<D> extends EventTarget {
 
   /** Mark the context as ready (first publish from a root happened) and notify `onReady` listeners once. */
   public markReady() {
+    this.retired = false
     if (this.ready) return
     this.ready = true
     const listeners = [...this.readyListeners]
@@ -136,7 +140,34 @@ export class Context<D> extends EventTarget {
     notify(this.statusListeners, listener => listener())
   }
 
-  /** Run `listener` when the context fails or recovers. Stable, so it can be passed to useSyncExternalStore. */
+  /** Store instances running on this context (internal: one, unless several AutoRootCtx share a scope). */
+  public instances = 0
+
+  /**
+   * True after the store instance publishing here was torn down, until another one is ready.
+   * Its values stay for whoever still holds this context (a component that rendered with it, a
+   * subscriber) and warm-start the next instance through `preState`, but its actions are gone.
+   */
+  public retired = false
+
+  /**
+   * The store instance was torn down. Its actions leave `data`: a component that mounts before the
+   * next instance publishes (one restoring this context, as one inside an `<Activity>` shown again
+   * does) reads them as `undefined`, as before any instance ran. The context is no longer ready, and
+   * it leaves the cache as soon as nothing holds it, instead of after `CACHE_EVICT_DELAY`.
+   */
+  public retire() {
+    const dead = Object.keys(this.data).filter(key => functionSources.get(this.data[key as keyof D] as Function)?.dead)
+    this.publishMany([], dead as (keyof D)[])
+    this.retired = true
+    if (this.ready) {
+      this.ready = false
+      notify(this.statusListeners, listener => listener())
+    }
+    scheduleEvict(this.name, this)
+  }
+
+  /** Run `listener` when the context fails, recovers or retires. Stable, so it can be passed to useSyncExternalStore. */
   public onStatus = (listener: () => void) => {
     this.statusListeners.add(listener)
     return () => { this.statusListeners.delete(listener) }
@@ -261,17 +292,19 @@ export const getContext = memoize((name: string) => new Context<any>(name))
 
 /**
  * Evict `live` from the cache shortly after its last user leaves, unless it was picked up again
- * (or replaced by a fresh instance) in the meantime.
+ * (or replaced by a fresh instance) in the meantime. A retired context is evicted at once.
  */
 const scheduleEvict = (name: string, live: Context<any>, delay = CACHE_EVICT_DELAY) => {
   if (live.useCounter > 0) return
   const cacheKey = getContext.keyFor(name)
-  setTimeout(() => {
+  const evict = () => {
     if (live.useCounter <= 0 && getContext.cache.get(cacheKey) === live) {
       getContext.cache.delete(cacheKey)
       DependencyTracker.remove(name)
     }
-  }, delay)
+  }
+  if (live.retired) evict()
+  else setTimeout(evict, delay)
 }
 
 /**

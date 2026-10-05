@@ -59,10 +59,31 @@ describe('what a store publishes', () => {
     act(() => getStore().get().setN!(5))
     await tick()
     expect(new Set(seen).size).toBe(1)             // the same object on every render of the instance
+    const stop = getStore().subscribe(() => { })   // something holds the context with no component reading it
     r.rerender(<AutoRootCtx />)                    // last consumer leaves: the instance is torn down
-    await tick(10)                                 // the context stays cached for a moment
+    await tick(10)
+    expect(getStore().get().n).toBe(5)             // its values stay
+    expect(getStore().get().setN).toBeUndefined()  // its actions are gone
     r.rerender(<><AutoRootCtx /><View /></>)       // a new instance warm-starts from it
     await tick()
     expect(getStore().get().n).toBe(5)
+    stop()
+  })
+
+  it('a torn-down instance whose context nothing holds leaves nothing behind: the next one starts fresh', async () => {
+    const { useStore, getStore } = createStore('publish-fresh', (_: {}, preState: Partial<{ n: number }>) => {
+      const [n, setN] = useState(preState.n ?? 0)
+      return { n, setN }
+    }, { timeToClean: 0 })
+    const View = () => { const { n } = useStore(); return <span>{n}</span> }
+    const r = render(<><AutoRootCtx /><View /></>)
+    await tick()
+    act(() => getStore().get().setN!(5))
+    await tick()
+    r.rerender(<AutoRootCtx />)                    // the instance is torn down, and its context evicted at once
+    await tick(10)                                 // up to 1.6, the context stayed cached for 100 ms
+    r.rerender(<><AutoRootCtx /><View /></>)
+    await tick()
+    expect(getStore().get().n).toBe(0)
   })
 })
