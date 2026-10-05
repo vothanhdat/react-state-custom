@@ -5,7 +5,7 @@ frontend with high-frequency data, cross-store validation and racing async sourc
 
 ```bash
 yarn demo:trading                                        # http://localhost:3100
-npx vitest run --config demos/trading/vitest.config.mjs  # tests
+npx vitest run --config demos/trading/vitest.config.mjs  # tests: domain, stores, views, architecture
 npx tsc -p demos/trading                                 # types
 ```
 
@@ -15,19 +15,28 @@ npx tsc -p demos/trading                                 # types
   sequenced deltas, trades, tickers, candles, an account with balances, a matching engine for limit
   and market orders, request latency, random rejections. The header controls feed speed (1× to 50×,
   up to ~1,100 messages/s), sequence gaps (1% of book messages lost) and connection drops.
-- **Stores** (`src/stores`): one per owner of data or IO.
+- **Layers**: imports only go down, and `tests/architecture.test.ts` fails when one goes up.
 
-  | store | params | notes |
-  |---|---|---|
-  | `connection`, `markets`, `tickers`, `workspace`, `favorites`, `toasts` | none | app-wide; tickers publishes one key per symbol |
-  | `book` | `symbol` | snapshot + deltas in plain maps, published once per frame; resyncs on a sequence gap |
-  | `book-view` | `symbol, grouping, depth` | grouped ladder rows, derived from `book` |
-  | `trades` | `symbol` | last 60 trades, once per frame |
-  | `candles` | `symbol, interval` | history over REST merged with live trades by trade id; refetched after a reconnect |
-  | `account` | none | balances, orders, fills; snapshot + sequenced events; optimistic orders reconciled by version; `onFill(listener)` for fill events |
-  | `fill-toasts` | none | fill → toast; its own store, so the account never waits for or fails with the toasts |
-  | `order-form` | `symbol` | the ticket; validation reads markets, account (minus in-flight orders), book and trades through selectors |
-  | `portfolio` | none | balances valued at live prices |
+  ```
+  lib, sim/types   utilities, data contracts
+  domain           plain functions: book arithmetic, order rules, valuation. No React, no stores
+  stores/core      stores that own IO and data. They know nothing about the UI
+  stores/ui        view-models: what the screens render, built from core
+  components       views: read stores/ui only, plus their own local state
+  ```
+
+  | layer | store or hook | params | notes |
+  |---|---|---|---|
+  | core | `connection`, `markets`, `tickers`, `feed` | none | tickers publishes one key per symbol; feed is the simulator's knobs |
+  | core | `book` | `symbol` | snapshot + deltas in plain maps, published once per frame; resyncs on a sequence gap |
+  | core | `trades`, `candles` | `symbol` (+ `interval`) | candles merge REST history with live trades by trade id; refetched after a reconnect |
+  | core | `account` | none | balances, orders, fills; snapshot + sequenced events; optimistic orders reconciled by version. Commands return their outcome, fills go out through `onFill(listener)` |
+  | ui | `workspace`, `favorites`, `toasts` | none | what the user looks at, preferences, notifications |
+  | ui | `fill-toasts` | none | fill → toast; a store so there is one listener however many places start it |
+  | ui | `order-form` | `symbol` | the draft; the rules are `checkOrder()` in domain, fed by selectors over core |
+  | ui | `ladder` | `symbol, grouping, depth` | ladder rows, spread, last trade and the user's price levels from one store |
+  | ui | `portfolio` | none | balances valued at live prices (header and balances table) |
+  | ui | hooks: `useChart`, `useDepth`, `useTradeTape`, `useWatchlist`, `useOrderRow`, ... | | one reader each, so a hook rather than a store: no extra commit |
 
 - **UI** (`src/components`): watchlist, canvas candlestick chart with zoom, pan, crosshair and order
   lines, order book ladder (click a level to fill the ticket), depth chart, trades, order ticket,
