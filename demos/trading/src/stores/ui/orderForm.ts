@@ -37,9 +37,9 @@ const useOrderFormState = ({ symbol }: { symbol: string }) => {
   const base = market?.base ?? ''
   const quote = market?.quote ?? ''
   const feeRate = market?.feeRate ?? 0
-  const accountReady = useAccount(undefined, s => s.status === 'ready')
-  const baseAvailable = useAccount(undefined, s => (s.balances?.[base]?.free ?? 0) - reservedByPending(s.pending, base, feeRate))
-  const quoteAvailable = useAccount(undefined, s => (s.balances?.[quote]?.free ?? 0) - reservedByPending(s.pending, quote, feeRate))
+  const accountReady = useAccount(s => s.status === 'ready')
+  const baseAvailable = useAccount(s => (s.balances?.[base]?.free ?? 0) - reservedByPending(s.pending, base, feeRate))
+  const quoteAvailable = useAccount(s => (s.balances?.[quote]?.free ?? 0) - reservedByPending(s.pending, quote, feeRate))
 
   const limit = type === 'limit'
   const sizeFromTotal = limit && driver === 'total'

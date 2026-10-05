@@ -12,15 +12,15 @@ export const useWatchlist = ({ query, sort, favoritesOnly }: { query: string; so
   const { favorites } = useFavorites()
   const only = favoritesOnly ? favorites : undefined
   // re-runs on every ticker batch, renders the list only when the order changes
-  const ids = useTickers(undefined, tickers => visibleSymbols(symbols ?? [], tickers, query, sort, only), shallowEqual)
+  const ids = useTickers(tickers => visibleSymbols(symbols ?? [], tickers, query, sort, only), shallowEqual)
   return { ids, loading: !symbols && !error, error, retry }
 }
 
 export const useWatchRow = (symbol: string) => {
   const ticker = useTickers()[symbol]
   const decimals = useMarket(symbol)?.priceDecimals ?? 2
-  const active = useWorkspace(undefined, s => s.symbol === symbol)
-  const favorite = useFavorites(undefined, s => s.favorites.includes(symbol))
+  const active = useWorkspace(s => s.symbol === symbol)
+  const favorite = useFavorites(s => s.favorites.includes(symbol))
   const { setSymbol } = useWorkspace()
   const { toggle } = useFavorites()
   return {

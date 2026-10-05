@@ -1,6 +1,8 @@
 // UI: what the market panels render. The ladder is a store (three panels' worth of inputs, read by
 // one component that renders 24 rows, and the rows and the spread must come from one book). The
 // others are hooks: each has one reader, so a store would only add a commit per update.
+// Cadence is decided here: the ladder follows every frame of the book, the depth chart (a few
+// hundred SVG points nobody reads digit by digit) ten times a second.
 
 import { useMemo } from 'react'
 import { createStore, shallowEqual } from 'react-state-custom'
@@ -20,7 +22,7 @@ const useLadderState = ({ symbol, grouping, depth }: { symbol: string; grouping:
   const sizeDecimals = useMarket(symbol)?.sizeDecimals ?? 8
   const { bids, asks, spread, mid, status, resyncs } = useBook({ symbol })
   const { lastPrice, direction } = useTrades({ symbol })
-  const mine = useAccount(undefined, s => myOrderPrices(s.orders, symbol, grouping), shallowEqual)
+  const mine = useAccount(s => myOrderPrices(s.orders, symbol, grouping), shallowEqual)
 
   const rows = useMemo(() => {
     const bidRows = groupLevels(bids, grouping, 'bid', depth, sizeDecimals, mine)
@@ -56,7 +58,7 @@ export const useTradeTape = (symbol: string) => {
 /** Cumulative depth around the mid; `zoom` is the share of the book's price range to show */
 export const useDepth = (symbol: string, zoom: number) => {
   const decimals = useMarket(symbol)?.priceDecimals ?? 2
-  const { bids, asks, mid } = useBook({ symbol })
+  const { bids, asks, mid } = useBook({ symbol }, { schedule: { throttle: 100 } })
   const view = useMemo(() => {
     if (!mid) return undefined
     const deepest = Math.max(mid - (bids?.at(-1)?.[0] ?? mid), (asks?.at(-1)?.[0] ?? mid) - mid)
@@ -75,6 +77,6 @@ export const useDepth = (symbol: string, zoom: number) => {
 export const useChart = (symbol: string, interval: number) => {
   const { candles, loading, error, retry } = useCandles({ symbol, interval })
   const decimals = useMarket(symbol)?.priceDecimals ?? 2
-  const lines = useAccount(undefined, s => orderLines(s.orders, symbol), sameLines)
+  const lines = useAccount(s => orderLines(s.orders, symbol), sameLines)
   return { candles, loading, error, retry, decimals, lines }
 }

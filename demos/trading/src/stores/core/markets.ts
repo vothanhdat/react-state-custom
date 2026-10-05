@@ -1,7 +1,7 @@
 // Core: reference data (markets) and the all-markets ticker stream, one top-level key per symbol.
 
 import { useEffect, useMemo, useState } from 'react'
-import { createStore } from 'react-state-custom'
+import { createStore, useFrameState } from 'react-state-custom'
 import { api, socket } from '../../sim/exchange'
 import type { Market, Ticker } from '../../sim/types'
 
@@ -26,13 +26,15 @@ export const { useStore: useMarkets } = createStore('markets', () => {
 }, { timeToClean: KEEP })
 
 /** One market's rules; re-renders only when that market changes */
-export const useMarket = (symbol: string) => useMarkets(undefined, s => s.markets?.[symbol])
+export const useMarket = (symbol: string) => useMarkets(s => s.markets?.[symbol])
 
 /** dir: how the last price moved since the previous update */
 export type TickerView = Ticker & { dir: 1 | 0 | -1 }
 
+// Batches arrive every simulator step; useFrameState applies those of a frame together, so the store
+// publishes once per frame
 export const { useStore: useTickers } = createStore('tickers', () => {
-  const [tickers, setTickers] = useState<Record<string, TickerView | undefined>>({})
+  const [tickers, setTickers] = useFrameState<Record<string, TickerView | undefined>>({})
   useEffect(() => socket.subscribe('tickers', '', batch => {
     setTickers(prev => {
       const next = { ...prev }

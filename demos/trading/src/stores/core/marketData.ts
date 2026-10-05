@@ -1,11 +1,12 @@
 // Core: live market data for one symbol. Each store owns its socket subscription; the socket client
-// shares channels between them. Messages are kept in plain objects and published once per frame.
+// shares channels between them. Market data arrives in bursts of tens or hundreds of messages a
+// second, and the screen changes once per frame: messages are kept in plain objects and published
+// once per frame, with `scheduled(publish, 'frame')`.
 
 import { useEffect, useState } from 'react'
-import { createStore } from 'react-state-custom'
+import { createStore, scheduled } from 'react-state-custom'
 import { applyLevels, sortLevels } from '../../domain/book'
 import { mergeTrades } from '../../domain/candles'
-import { frameScheduler } from '../../lib/frame'
 import { api, socket } from '../../sim/exchange'
 import type { Candle, Level, Trade } from '../../sim/types'
 import { useConnection } from './connection'
@@ -27,7 +28,7 @@ const useBookState = ({ symbol }: { symbol: string }) => {
     const asks = new Map<number, number>()
     let seq: number | undefined
     let broken = false
-    const frame = frameScheduler(() => setBook({ bids: sortLevels(bids, true), asks: sortLevels(asks, false) }))
+    const publish = scheduled(() => setBook({ bids: sortLevels(bids, true), asks: sortLevels(asks, false) }), 'frame')
 
     const unsubscribe = socket.subscribe('book', symbol, msg => {
       if (broken) return
@@ -51,11 +52,11 @@ const useBookState = ({ symbol }: { symbol: string }) => {
         applyLevels(asks, msg.asks)
         seq = msg.seq
       }
-      frame.schedule()
+      publish()
     })
     return () => {
       unsubscribe()
-      frame.dispose()
+      publish.cancel()
     }
   }, [symbol, epoch])
 
@@ -85,19 +86,19 @@ const useTradesState = ({ symbol }: { symbol: string }) => {
 
   useEffect(() => {
     let buffer: Trade[] = []
-    const frame = frameScheduler(() => {
+    const publish = scheduled(() => {
       const fresh = buffer.reverse()
       buffer = []
       setTrades(prev => [...fresh, ...prev].slice(0, MAX_TRADES))
-    })
+    }, 'frame')
     const unsubscribe = socket.subscribe('trades', symbol, batch => {
       buffer.push(...batch)
       if (buffer.length > MAX_TRADES) buffer = buffer.slice(-MAX_TRADES)
-      frame.schedule()
+      publish()
     })
     return () => {
       unsubscribe()
-      frame.dispose()
+      publish.cancel()
     }
   }, [symbol])
 
@@ -128,14 +129,14 @@ const useCandlesState = ({ symbol, interval }: { symbol: string; interval: numbe
     // undefined until the history has arrived; trades up to this id are already in it
     let lastTradeId: number | undefined
 
-    const frame = frameScheduler(() => {
+    const publish = scheduled(() => {
       const trades = pending
       pending = []
       setCandles(prev => (prev ? mergeTrades(prev, trades, interval) : prev))
-    })
+    }, 'frame')
     const unsubscribe = socket.subscribe('trades', symbol, batch => {
       pending.push(...batch)
-      if (lastTradeId !== undefined) frame.schedule()
+      if (lastTradeId !== undefined) publish()
     })
 
     setError(undefined)
@@ -152,7 +153,7 @@ const useCandlesState = ({ symbol, interval }: { symbol: string; interval: numbe
     return () => {
       cancelled = true
       unsubscribe()
-      frame.dispose()
+      publish.cancel()
     }
   }, [symbol, interval, online, attempt])
 
