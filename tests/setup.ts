@@ -11,7 +11,7 @@ if (typeof global.TextDecoder === 'undefined') {
 
 import { cleanup, configure } from '@testing-library/react'
 import { afterEach } from 'vitest'
-import { getContext } from '../src/state-utils/ctx'
+import { resetStores } from '../src/testing'
 
 // Render everything under <StrictMode> so side effects in render and non-idempotent effects surface in tests
 configure({ reactStrictMode: true })
@@ -19,5 +19,5 @@ configure({ reactStrictMode: true })
 // Cleanup after each test case
 afterEach(() => {
   cleanup()
-  getContext.cache.clear()
+  resetStores()
 })
