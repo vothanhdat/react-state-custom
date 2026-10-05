@@ -75,7 +75,95 @@ const ids = Object.keys(useItems()).filter(id => id !== 'setItem')
 
 (The cast is there because TypeScript drops the index signature when an object with one is spread next to a named property.)
 
-When each item has its own lifecycle, a fetch or a subscription, make it a [parameterized store](/guide/parameterized-stores) instead: `useItem({ id })` is one instance per id, mounted while someone reads it. The collection scenario in [Benchmarks](/benchmarks) measures the array and the keyed shapes side by side: 1000 renders against 5 for one changed item.
+The collection scenario in [Benchmarks](/benchmarks) measures the array and the keyed shapes side by side: 1000 renders against 5 for one changed item.
+
+### Rendering a list
+
+Pass each row its id, not its item, and let the row read its own item with a selector:
+
+```tsx
+const TaskRow = memo(({ projectId, id }: { projectId: string; id: string }) => {
+  const task = useTasks({ projectId }, s => s.tasks?.[id])
+  if (!task) return null                 // deleted while the list still had its id
+  return <li>{task.title}</li>
+})
+
+const TaskList = ({ projectId }: { projectId: string }) => {
+  const ids = useVisible({ projectId }, s => s.ids ?? [], shallowEqual)
+  return <ul>{ids.map(id => <TaskRow key={id} projectId={projectId} id={id} />)}</ul>
+}
+```
+
+- A change to one task re-renders its row only. The row's selector picks its own task; `memo` skips the other rows when the list re-renders, since their props are the same strings; and [`shallowEqual`](/api/primitives#shallowequal) keeps the list from re-rendering when a store computes a new `ids` array holding the same ids.
+- The row checks for a missing task. The ids come from `visible`, a store derived from `tasks` that publishes one commit later: when a task is deleted, its row renders once more before the list drops it. See [Data across stores](/guide/how-it-works#data-across-stores).
+- For a short list, the list can read the items from the store that holds them and pass each row its item, with `memo` on the row. A store that replaces only the changed item keeps the other items' identity, and the list and its rows always see the same data.
+
+### Items with their own fetch or subscription
+
+Two shapes work:
+
+- **A store per id.** `createStore('task-detail', ({ taskId }) => ...)` is one instance per id, mounted while someone reads it ([Parameterized stores](/guide/parameterized-stores)). The library counts its readers, keeps it for `timeToClean` after the last one leaves, and confines a failure to that item. This is the least code. Another store cannot call it once per id in a loop; see [Many instances at once](/guide/composing-stores#many-instances-at-once).
+- **One store for the whole collection**: a record per id for the data and one for its status, and a `subscribe(id)` action that starts loading the first time an id is asked for. You count readers and drop entries yourself. In exchange one store can batch the requests of many ids into one, apply one policy (how many requests at a time, prefetching, how many entries to keep) and share one socket, and a store that combines many items reads them with one call.
+
+```ts
+type Entry = { readers: number; drop?: ReturnType<typeof setTimeout>; stop: () => void }
+
+export const { useStore: useTaskDetails } = createStore('task-details', () => {
+  const [details, setDetails] = useState<Record<string, Detail | undefined>>({})
+  const [status, setStatus] = useState<Record<string, 'loading' | 'loaded' | 'error' | undefined>>({})
+  const entries = useRef(new Map<string, Entry>())   // bookkeeping, never rendered: keep it out of state
+
+  // updater functions throughout: these callbacks run later, holding an old render's state
+  const start = (id: string): Entry => {
+    setStatus(s => ({ ...s, [id]: 'loading' }))
+    api.fetchDetail(id).then(
+      d => { setDetails(s => ({ ...s, [id]: d })); setStatus(s => ({ ...s, [id]: 'loaded' })) },
+      () => setStatus(s => ({ ...s, [id]: 'error' })),
+    )
+    const entry: Entry = { readers: 0, stop: socket.watchTask(id, d => setDetails(s => ({ ...s, [id]: d }))) }
+    entries.current.set(id, entry)
+    return entry
+  }
+
+  const subscribe = (id: string) => {
+    const entry = entries.current.get(id) ?? start(id)
+    clearTimeout(entry.drop)
+    entry.readers++
+    return () => {
+      if (--entry.readers > 0) return
+      // wait before dropping: StrictMode runs effects twice, and a reader may come right back
+      entry.drop = setTimeout(() => { entry.stop(); entries.current.delete(id) }, 5_000)
+    }
+  }
+
+  // the store is torn down: run the drops still waiting. Entries with readers stay, since
+  // StrictMode and Fast Refresh also run this cleanup while the store keeps running
+  useEffect(() => () => {
+    entries.current.forEach((entry, id) => {
+      if (entry.readers > 0) return
+      clearTimeout(entry.drop)
+      entry.stop()
+      entries.current.delete(id)
+    })
+  }, [])
+
+  return { details, status, subscribe }
+}, { timeToClean: 60_000 })   // outlives its last reader, so the grace period can run
+
+export const useTaskDetail = (id: string) => {
+  const { subscribe } = useTaskDetails()
+  useEffect(() => subscribe?.(id), [subscribe, id])   // runs again once `subscribe` exists
+  const detail = useTaskDetails(undefined, s => s.details?.[id])
+  const status = useTaskDetails(undefined, s => s.status?.[id])
+  return { detail, status }
+}
+```
+
+- `subscribe` is `undefined` until the store has run, so it is a dependency of the effect.
+- The store needs a `timeToClean` longer than the grace period. Its readers are its only consumers: without it, the store is torn down with its last reader, entries and all, and a reader that comes back starts over.
+- Readers select their own id, so a change to one entry re-renders that entry's readers only. Every reader's selector still runs on every change; with thousands of entries changing many times a second, publish each id as its own top-level key (above) instead.
+- A dropped id keeps its data in `details` as a cache until the store is torn down. Delete it in the drop timer to free it.
+- A store that combines entries, such as a comment count over the selected tasks, reads `useTaskDetails()` once and checks each entry, since some are still loading.
 
 ## Under the hood
 

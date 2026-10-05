@@ -85,6 +85,33 @@ function UserName({ userId }: { userId: string }) {
 
 Two components rendering `useUserStore({ userId: '42' })` share one instance of the hook and therefore one fetch. `UserName` re-renders only when `user` changes, not when some other key of the store does.
 
+## Before the data arrives
+
+A store starts when its first reader mounts, so on that reader's first render the hook has not run yet: every key is `undefined`, actions included, unless [`initialState`](/guide/store-options#initialstate) seeds it. Data from a fetch or a socket stays `undefined`, or the `null` you start it with, until it arrives. The types say so: every key of the `useStore` result is optional. Check values before using them.
+
+```tsx
+function TaskTitle({ projectId, id }: { projectId: string; id: string }) {
+  const task = useTasks({ projectId }, s => s.tasks?.[id])
+  if (!task) return null                 // not loaded yet, or just deleted
+  return <span>{task.title}</span>
+}
+
+function Total() {
+  const { total, checkout } = useCart()
+  return <button onClick={() => checkout?.()}>{total ?? '…'}</button>
+}
+```
+
+- **Data**: read with `?.`, fall back with `??`, or return a placeholder early.
+- **Actions**: call them with `?.()` from event handlers. By the time anyone clicks, the store has run and the action exists. A call made while rendering, or from an effect when the component mounts, comes before the store has run and does nothing. Start loading inside the store, which runs its own effects; if a component must call an action from an effect, list the action as a dependency so the effect runs again once it exists. Actions keep their identity after that, so it runs once more, not on every render.
+
+  ```ts
+  const { load } = useReport({ id })
+  useEffect(() => { load?.(range) }, [load, range])   // runs again when `load` arrives
+  ```
+
+- **Lookups by id**: a record can lack an id even after loading, when the item was deleted while a list still holds its id. Turn on TypeScript's [`noUncheckedIndexedAccess`](https://www.typescriptlang.org/tsconfig/#noUncheckedIndexedAccess) so the compiler asks for the check. See [Data across stores](/guide/how-it-works#data-across-stores).
+
 ## What's next
 
 - [How it works](/guide/how-it-works): the model behind these four steps.

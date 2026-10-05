@@ -10,7 +10,7 @@ jsdom does no layout or paint; the Chrome runs include style and layout, and the
 
 **One extra render per consumer on mount** when `initialState` is absent or does not match the hook's first publish.
 
-**Layers are one commit apart.** A store publishes one commit after the stores it reads. A component that reads both a store and a store derived from it can, for one render, see the new value next to the old derived one. Nothing is painted in between, but render logic and effects see it. Render from the derived store only and re-export the raw values it needs; values published by the same store always arrive together. See [Progressive data](/guide/progressive-data#combine-in-a-store-render-from-it).
+**Layers are one commit apart.** A store publishes one commit after the stores it reads. A component that reads both a store and a store derived from it can, for one render, see the new value next to the old derived one. Nothing is painted in between, but render logic and effects see it. Write readers that tolerate it: check values before reading them, join by id rather than by position, and make decisions from one store. Or render from the derived store only and re-export the raw values it needs, since values published by the same store always arrive together. See [Data across stores](/guide/how-it-works#data-across-stores).
 
 **Store hooks see the providers above `AutoRootCtx`.** A store hook runs inside `AutoRootCtx`, not inside the component that calls `useStore`, so `useContext` in a store reads the providers wrapping `AutoRootCtx`. Put the query client, router, theme or i18n providers a store needs outside it.
 
@@ -36,7 +36,7 @@ One `AutoRootCtx` near the root, mounted once. No provider per store. `StateScop
 
 ### Why do I see `undefined` on the first render?
 
-The store hook has not run yet; stores are lazy. Read with `??` or `?.`, or pass `initialState` to seed the values and type those keys as present. See [Store options](/guide/store-options#initialstate).
+The store hook has not run yet; stores are lazy. Read with `??` or `?.`, call actions with `?.()`, or pass `initialState` to seed the values and type those keys as present. See [Before the data arrives](/guide/getting-started#before-the-data-arrives) and [Store options](/guide/store-options#initialstate).
 
 ### A consumer re-renders more than I expect
 
