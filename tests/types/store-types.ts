@@ -1,6 +1,6 @@
 // Type-level tests, checked by `yarn typecheck` (tsc), never run.
 import { useState } from 'react'
-import { createStore, createRootCtx, createAutoCtx, scheduled, shallowEqual, useFrameState, type Schedule, type StoreStatus } from '../../src'
+import { createStore, createRootCtx, createAutoCtx, scheduled, shallowEqual, useFrameState, sync, frame, throttle, debounce, idle, type Scheduler, type StoreStatus } from '../../src'
 
 type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
 const expectType = <T>(_value: T) => { }
@@ -155,34 +155,35 @@ export const LowerSeedConsumer = () => {
 
 // Read options: a schedule for the proxy, isEqual and a schedule for a selector, the selector first
 // for a store without required params
-export const scheduledReads = createStore('types-schedule', () => ({ n: 1, ids: ['a'] }), { schedule: 'frame' })
+export const scheduledReads = createStore('types-schedule', () => ({ n: 1, ids: ['a'] }), { schedule: frame() })
 export const ScheduledConsumer = () => {
-  const { n } = scheduledReads.useStore(undefined, { schedule: { throttle: 100 } })
+  const { n } = scheduledReads.useStore(undefined, { schedule: throttle(100) })
   expectType<number | undefined>(n)
-  const ids = scheduledReads.useStore(undefined, s => s.ids ?? [], { isEqual: shallowEqual, schedule: 'frame' })
+  const ids = scheduledReads.useStore(undefined, s => s.ids ?? [], { isEqual: shallowEqual, schedule: frame() })
   assert<Equals<typeof ids, string[]>>()
   const first = scheduledReads.useStore(s => s.ids?.[0])
   assert<Equals<typeof first, string | undefined>>()
-  const count = scheduledReads.useStore(s => s.ids?.length ?? 0, { schedule: { debounce: 50, maxWait: 500 } })
+  const count = scheduledReads.useStore(s => s.ids?.length ?? 0, { schedule: debounce(50, { maxWait: 500 }) })
   assert<Equals<typeof count, number>>()
   const same = scheduledReads.useStore(s => s.n, (a, b) => a === b)
   expectType<number | undefined>(same)
-  // @ts-expect-error not a schedule
-  scheduledReads.useStore(undefined, { schedule: 'later' })
+  // @ts-expect-error a schedule comes from a factory now
+  scheduledReads.useStore(undefined, { schedule: 'frame' })
+  scheduledReads.useStore(undefined, { schedule: sync() })
   // @ts-expect-error isEqual compares selections
   scheduledReads.useStore(s => s.n, { isEqual: (a: string, b: string) => a === b })
   return null
 }
 export const RequiredScheduledConsumer = () => {
-  required.useStore({ id: 'a' }, { schedule: 'frame' })
-  required.useStore({ id: 'a' }, s => s.name, { schedule: { idle: 500 } })
+  required.useStore({ id: 'a' }, { schedule: frame() })
+  required.useStore({ id: 'a' }, s => s.name, { schedule: idle(500) })
   // @ts-expect-error the selector-first form needs a store without required params
   required.useStore(s => s.name)
   return null
 }
 
 // scheduled keeps the arguments of the function
-export const scheduledFn = scheduled((id: string, n: number) => { void id; void n }, 'frame')
+export const scheduledFn = scheduled((id: string, n: number) => { void id; void n }, frame())
 scheduledFn('a', 1)
 // @ts-expect-error arguments are checked
 scheduledFn(1)
@@ -196,7 +197,8 @@ export const FrameStateConsumer = () => {
   setN(m => m + 1)
   const [maybe] = useFrameState<string>()
   assert<Equals<typeof maybe, string | undefined>>()
-  const schedule: Schedule = { debounce: 10 }
-  void schedule
+  // a scheduler of your own
+  const everySecondFrame: Scheduler = { name: 'everySecondFrame', task: run => ({ request: run, cancel: () => { } }) }
+  void everySecondFrame
   return null
 }

@@ -6,7 +6,7 @@ import { paramsToId, type ParamsToIdRecord, type StoreParamsShape } from "./para
 import { useQuickSubscribe } from "./useQuickSubscribe"
 import { isProduction, formatState } from "./utils"
 import { storeEntries, storeMocks } from "./storeRegistry"
-import type { Schedule } from "./schedule"
+import type { Scheduler } from "./schedule"
 
 /**
  * Renders one store instance's state when `debugging` is on. `name` is the instance key,
@@ -499,19 +499,16 @@ export const AutoRootCtx: React.FC<{
 
 AutoRootCtx.displayName = "AutoRootCtx"
 
-const warnedParams = new Set<string>()
-
 /**
- * Development check for `useStore({ schedule: 'frame' })` on a store without params: the object is
- * the params there, so it starts an instance named after the schedule and nothing is scheduled.
+ * Development check for `useStore({ schedule: frame() })` on a store without params: the object is
+ * the params there, and paramsToId would only say that a param is not a primitive.
  */
 const checkParams = (name: string, params: unknown) => {
-  const schedule = (params as { schedule?: unknown } | undefined)?.schedule
-  if ((schedule !== "frame" && schedule !== "sync") || warnedParams.has(name)) return
-  warnedParams.add(name)
-  console.warn(
-    `[react-state-custom] useStore("${name}") got { schedule: '${schedule}' } as its params. Options come after the ` +
-    `params: useStore(undefined, { schedule: '${schedule}' }), or useStore(params, { schedule: '${schedule}' }).`
+  const schedule = (params as { schedule?: { task?: unknown } } | undefined)?.schedule
+  if (typeof schedule !== "object" || schedule === null || typeof schedule.task !== "function") return
+  throw new TypeError(
+    `[react-state-custom] useStore("${name}") got { schedule } as its params. Options come after the params: ` +
+    `useStore(undefined, { schedule }) for a store without params, or useStore(params, { schedule }).`
   )
 }
 
@@ -547,21 +544,22 @@ export type StoreOptions<U extends StoreParamsShape<U>, V extends object, I = {}
   initialState?: I | ((params: U) => I)
   /**
    * When consumers re-render for a change of this store, unless they pass their own `schedule` to
-   * `useStore`: `'sync'` (default), `'frame'`, `{ throttle: ms }`, `{ debounce: ms, maxWait? }` or
-   * `{ idle: ms }`. Applies to `useStore` and `useStoreSuspense`. The store itself, `getStore()` and
-   * actions are never delayed. See `Schedule`.
+   * `useStore`: `frame()`, `throttle(ms)`, `debounce(ms, { maxWait })` or `idle(ms)`, imported from
+   * the library (default: at once). Applies to `useStore` and `useStoreSuspense`. The store itself,
+   * `getStore()` and actions are never delayed.
    */
-  schedule?: Schedule
+  schedule?: Scheduler
 }
 
 /** Options of `useStore(params, options)`. */
 export type StoreReadOptions = {
   /**
-   * When this component re-renders for a change of the store: `'sync'`, `'frame'`,
-   * `{ throttle: ms }`, `{ debounce: ms, maxWait? }` or `{ idle: ms }`. Default: the store's
-   * `schedule` option, or `'sync'`. A new object on every render is fine. See `Schedule`.
+   * When this component re-renders for a change of the store: `sync()`, `frame()`, `throttle(ms)`,
+   * `debounce(ms, { maxWait })` or `idle(ms)`, imported from the library. Default: the store's
+   * `schedule` option, or at once. Calling the factory on every render is fine: it returns the same
+   * scheduler for the same arguments.
    */
-  schedule?: Schedule
+  schedule?: Scheduler
 }
 
 /** Options of `useStore(params, selector, options)`. */
@@ -798,7 +796,7 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
    * `useStore(params, selector, isEqual | options?)` returns `selector(state)` and re-renders only when
    * that value changes: use it for deep reads (`s => s.user?.name`) and derived values. A store
    * without required params takes the selector first: `useStore(selector, options?)`.
-   * `options.schedule` says when the component re-renders for a change (see `Schedule`).
+   * `options.schedule` says when the component re-renders for a change (`frame()`, `throttle(ms)`, ...).
    */
   // first, so that the last two overloads stay the ones react-state-custom/testing reads the types from
   function useStore<R>(selector: {} extends U ? (state: StoreState<V, I>) => R : never, options?: StoreSelectOptions<R> | ((a: R, b: R) => boolean)): R

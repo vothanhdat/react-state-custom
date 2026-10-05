@@ -130,7 +130,7 @@ export const resetStores = () => {
 
 /**
  * Make every pending scheduled render happen now: those of components reading with a `schedule`
- * (`'frame'`, throttle, debounce, idle), `useFrameState` updates and `scheduled` functions. Wrap the
+ * (`frame()`, `throttle(ms)`, `debounce(ms)`, `idle(ms)`), `useFrameState` updates and `scheduled` functions. Wrap the
  * call in `act`. Returns whether anything was pending. What those renders publish can schedule more:
  * a component scheduled on a store that reads a frame-buffered one needs a second call.
  */

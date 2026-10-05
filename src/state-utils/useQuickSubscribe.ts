@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { functionSources, latestOf, type Context } from "./ctx";
 import { isProduction } from "./utils";
-import { createTask, planOf, SYNC, type Plan, type Schedule } from "./schedule";
+import { schedulerOf, SYNC, type Scheduler } from "./schedule";
 
 type Probe = { wrapper: Function, latest: unknown, calledInRender: boolean, fn: Function }
 
@@ -200,8 +200,8 @@ function createTracker<D>(ctx: Context<D> | undefined) {
     }
   }
 
-  let plan: Plan = SYNC
-  let task = createTask(plan, check)
+  let plan: Scheduler = SYNC
+  let task = plan.task(check)
   /** Waiting for the store's first data, which is checked at once whatever the schedule. */
   let offReady: (() => void) | undefined
 
@@ -258,12 +258,12 @@ function createTracker<D>(ctx: Context<D> | undefined) {
      * key subscriptions to them. When effects re-run without a new render (StrictMode on mount), it
      * resubscribes what is on screen after `dispose`. `next` is the schedule the render asked for.
      */
-    commit(next: Plan) {
+    commit(next: Scheduler) {
       open = false
       if (next !== plan) {
         task.cancel()
         plan = next
-        task = createTask(plan, check)
+        task = plan.task(check)
       }
       rendering = undefined
       if (rendered) {
@@ -362,14 +362,14 @@ export const useQuickSubscribe = <D>(
   ctx: Context<D> | undefined,
   /** What the server rendered for this context (a store's `initialState`), read while hydrating. */
   serverData?: () => Partial<D>,
-  /** When the component re-renders for a change (default `'sync'`). See `Schedule`. */
-  schedule?: Schedule
+  /** When the component re-renders for a change: `frame()`, `throttle(ms)`, ... (default at once). */
+  schedule?: Scheduler
 ): {
     [P in keyof D]?: D[P] | undefined;
   } => {
 
   const tracker = useMemo(() => createTracker(ctx), [ctx])
-  const plan = planOf(schedule)
+  const plan = schedulerOf(schedule)
 
   tracker.setServerData(serverData)
   const snapshot = useSyncExternalStore(tracker.subscribe, tracker.getSnapshot, tracker.getServerSnapshot)

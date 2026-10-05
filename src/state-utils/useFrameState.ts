@@ -1,10 +1,10 @@
 import { useState, useSyncExternalStore, type SetStateAction } from "react"
-import { createTask, planOf } from "./schedule"
+import { frame } from "./schedulers"
 
 /**
  * `useState` whose updates apply once per animation frame. Set it as often as messages arrive (a
  * socket, a sensor, a pointer): the updates of a frame are applied in order, and the component
- * renders once, in the frame, together with the components scheduled `'frame'`.
+ * renders once, in the frame, together with the components scheduled `frame()`.
  *
  * In a store hook it publishes once per frame instead of once per message. The setter is stable.
  * An update is applied in the frame even if the component unmounted meanwhile; nothing renders then.
@@ -21,7 +21,7 @@ const frameState = <T,>(initial: T) => {
   let value = initial
   const updates: SetStateAction<T>[] = []
   const listeners = new Set<() => void>()
-  const task = createTask(planOf("frame"), () => {
+  const task = frame().task(() => {
     let next = value
     for (const update of updates.splice(0)) next = typeof update === "function" ? (update as (prev: T) => T)(next) : update
     if (Object.is(next, value)) return

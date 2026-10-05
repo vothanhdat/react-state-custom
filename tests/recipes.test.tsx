@@ -8,6 +8,7 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
 import { shallowEqual } from '../src/state-utils/utils'
 import { scheduled } from '../src/state-utils/schedule'
+import { frame } from '../src/state-utils/schedulers'
 import { flushScheduled } from '../src/testing'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
@@ -364,7 +365,7 @@ describe('realtime data: snapshot and sequenced deltas', () => {
         const levels = new Map<number, number>()
         let seq: number | undefined
         let broken = false
-        const publish = scheduled(() => setBids([...levels].sort((a, b) => b[0] - a[0])), 'frame')
+        const publish = scheduled(() => setBids([...levels].sort((a, b) => b[0] - a[0])), frame())
         const unsubscribe = socket.subscribe(msg => {
           if (broken) return
           if (msg.type === 'snapshot') {

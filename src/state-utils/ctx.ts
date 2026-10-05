@@ -1,5 +1,6 @@
 import { memoize, DependencyTracker } from "./utils";
-import { createTask, planOf, SYNC, type Plan, type Schedule } from "./schedule";
+import { schedulerOf, SYNC, type Scheduler } from "./schedule";
+import { debounce } from "./schedulers";
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 
 /** True while rendering on the server (no DOM). Evaluated per call so test environments can toggle it. */
@@ -419,20 +420,20 @@ export const useDataSource = <D, K extends keyof D>(ctx: Context<D> | undefined,
 const noopSubscribe = () => () => { }
 
 /**
- * The plan of the `debounceTime` argument of the subscribe hooks: a number of milliseconds is a
+ * The scheduler of the `debounceTime` argument of the subscribe hooks: a number of milliseconds is a
  * debounce, which renders at least every second (or every `ms`, when longer) while changes go on.
  */
-const planOfDelay = (delay: number | Schedule | undefined) =>
-  typeof delay === "number" ? (delay > 0 ? planOf({ debounce: delay }) : SYNC) : planOf(delay)
+const schedulerOfDelay = (delay: number | Scheduler | undefined) =>
+  typeof delay === "number" ? (delay > 0 ? debounce(delay) : SYNC) : schedulerOf(delay)
 
 /**
  * Run `deliver` for a change now, or when `plan` says. A context's first data is delivered at once,
  * when it becomes ready (it publishes just before): a schedule limits how often, not how soon data
  * arrives. Returns the listener and a cleanup that forgets a pending delivery.
  */
-const deliverOn = (ctx: Context<any>, plan: Plan, deliver: () => void) => {
+const deliverOn = (ctx: Context<any>, plan: Scheduler, deliver: () => void) => {
   if (plan === SYNC) return { listener: deliver, cancel: () => { } }
-  const task = createTask(plan, deliver)
+  const task = plan.task(deliver)
   const offReady = ctx.ready ? undefined : ctx.onReady(() => {
     task.cancel()
     deliver()
@@ -452,12 +453,12 @@ const deliverOn = (ctx: Context<any>, plan: Plan, deliver: () => void) => {
  * consistently across components (no tearing, no extra timer tick).
  * @param ctx - The context instance.
  * @param key - The key to subscribe to.
- * @param schedule - When to re-render for a change (default `'sync'`, see `Schedule`). A number of
- *   milliseconds is `{ debounce: ms }`, which re-renders at least every second while changes go on.
+ * @param schedule - When to re-render for a change: a scheduler such as `frame()` (default at once).
+ *   A number of milliseconds is `debounce(ms)`, which re-renders at least every second while changes go on.
  * @returns The current value for the key.
  */
-export const useDataSubscribe = <D, K extends keyof D>(ctx: Context<D> | undefined, key: K, schedule: number | Schedule = 0): D[K] | undefined => {
-  const plan = planOfDelay(schedule)
+export const useDataSubscribe = <D, K extends keyof D>(ctx: Context<D> | undefined, key: K, schedule: number | Scheduler = 0): D[K] | undefined => {
+  const plan = schedulerOfDelay(schedule)
   const store = useMemo(() => {
     if (!ctx) return { subscribe: noopSubscribe, getSnapshot: () => undefined }
 
@@ -537,7 +538,7 @@ const select = <D, R>(selector: (data: Partial<D>) => R, data: Partial<D>) => {
  * `selector` runs against the plain `ctx.data` object (not a proxy), so it may read as deep as it
  * likes; the component re-renders only when the selected value changes according to `isEqual`
  * (default `Object.is`). A new `selector` function each render is fine.
- * With a `schedule` other than `'sync'`, React is told about changes when the schedule says, and
+ * With a `schedule` such as `frame()`, React is told about changes when the schedule says, and
  * the selector runs then, on the data of that moment.
  * @param ctx - The context instance.
  * @param selector - Derives the value from the context data.
@@ -549,14 +550,14 @@ export const useDataSelector = <D, R>(
   isEqual: (a: R, b: R) => boolean = Object.is,
   /** What the server rendered for this context (a store's `initialState`), selected from while hydrating. */
   serverData?: () => Partial<D>,
-  /** When the component re-renders for a change (default `'sync'`). See `Schedule`. */
-  schedule?: Schedule
+  /** When the component re-renders for a change: `frame()`, `throttle(ms)`, ... (default at once). */
+  schedule?: Scheduler
 ): R => {
   // Read only for the server snapshot, which React uses while hydrating.
   const serverDataRef = useRef(serverData)
   serverDataRef.current = serverData
 
-  const plan = planOf(schedule)
+  const plan = schedulerOf(schedule)
   const subscribe = useMemo(() => (onStoreChange: () => void) => {
     if (!ctx) return () => { }
     if (plan === SYNC) return ctx.subscribeAll(onStoreChange)
@@ -647,7 +648,7 @@ export const useDataSourceMultiple = <D, T extends readonly (keyof D)[]>(
 const useMultiKeySnapshot = <D, K extends readonly (keyof D)[]>(
   ctx: Context<D> | undefined,
   keys: K,
-  plan: Plan
+  plan: Scheduler
 ): { [i in keyof K]: D[K[i]] | undefined } => {
   const keysId = useArrayChangeId(keys as unknown as any[])
 
@@ -717,14 +718,14 @@ export const useDataSubscribeMultiple = <D, K extends readonly (keyof D)[]>(
  * React hook to subscribe to multiple context values with debouncing.
  * @param ctx - The context instance.
  * @param debounceTime - Debounce time in ms (default 50); it re-renders at least every second while
- *   changes go on. A `Schedule` is accepted too.
+ *   changes go on. A scheduler (`frame()`, `throttle(ms)`, ...) is accepted too.
  * @param keys - Keys to subscribe to.
  * @returns Array of current values for the keys.
  */
 export const useDataSubscribeMultipleWithDebounce = <D, K extends (keyof D)[]>(
   ctx: Context<D> | undefined,
-  debounceTime: number | Schedule = 50,
+  debounceTime: number | Scheduler = 50,
   ...keys: K
 ): { [i in keyof K]: D[K[i]] | undefined } => {
-  return useMultiKeySnapshot(ctx, keys, planOfDelay(debounceTime))
+  return useMultiKeySnapshot(ctx, keys, schedulerOfDelay(debounceTime))
 }

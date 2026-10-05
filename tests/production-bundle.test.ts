@@ -26,7 +26,8 @@ const devOnly = [
   'which the store has set back',           // useStoreSuspense(params, keys): cleared key
   'rendered from initialState',             // useStoreSuspense: seed reads
   'Circular dependency detected',           // DependencyTracker
-  'Unknown schedule',                       // schedule: a value that is not one
+  'is not a schedule',                      // schedule: a value that is not a scheduler
+  'expected a number of milliseconds',      // throttle(ms), debounce(ms), idle(ms) with a bad delay
   'Options come after the',                 // useStore({ schedule }) on a store without params
 ]
 
