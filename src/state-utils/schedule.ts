@@ -33,10 +33,10 @@ const FRAME: Plan = Object.freeze({ kind: 'frame' })
 
 const plans = new Map<string, Plan>()
 
-const intern = (plan: Plan): Plan => {
-  const key = JSON.stringify(plan)
+/** The shared plan for `key`, made by `make` the first time. Runs on every render of a scheduled reader. */
+const intern = (key: string, make: () => Plan): Plan => {
   let shared = plans.get(key)
-  if (!shared) plans.set(key, shared = Object.freeze(plan))
+  if (!shared) plans.set(key, shared = Object.freeze(make()))
   return shared
 }
 
@@ -69,17 +69,17 @@ export const planOf = (schedule: Schedule | undefined): Plan => {
   if (typeof schedule !== 'object' || schedule === null) return invalid(schedule)
   if ('throttle' in schedule) {
     const ms = msOf(schedule.throttle)
-    return ms === undefined ? invalid(schedule) : ms === 0 ? SYNC : intern({ kind: 'throttle', ms })
+    return ms === undefined ? invalid(schedule) : ms === 0 ? SYNC : intern(`t${ms}`, () => ({ kind: 'throttle', ms }))
   }
   if ('debounce' in schedule) {
     const ms = msOf(schedule.debounce)
     const maxWait = schedule.maxWait === undefined ? Math.max(ms ?? 0, DEFAULT_MAX_WAIT) : msOf(schedule.maxWait, Infinity)
     if (ms === undefined || maxWait === undefined) return invalid(schedule)
-    return ms === 0 || maxWait === 0 ? SYNC : intern({ kind: 'debounce', ms, maxWait })
+    return ms === 0 || maxWait === 0 ? SYNC : intern(`d${ms}/${maxWait}`, () => ({ kind: 'debounce', ms, maxWait }))
   }
   if ('idle' in schedule) {
     const ms = msOf(schedule.idle)
-    return ms === undefined ? invalid(schedule) : ms === 0 ? SYNC : intern({ kind: 'idle', ms })
+    return ms === undefined ? invalid(schedule) : ms === 0 ? SYNC : intern(`i${ms}`, () => ({ kind: 'idle', ms }))
   }
   return invalid(schedule)
 }

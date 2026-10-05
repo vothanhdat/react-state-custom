@@ -211,6 +211,7 @@ function createTracker<D>(ctx: Context<D> | undefined) {
    */
   const watchReady = () => {
     if (!ctx || plan === SYNC || committed.ready || offReady) return
+    if (ctx.ready) return check()
     offReady = ctx.onReady(() => {
       offReady = undefined
       check()

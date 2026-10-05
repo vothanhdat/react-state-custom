@@ -2,10 +2,11 @@
 // `useFrameState` and `flushScheduled`. Every test renders under StrictMode (tests/setup.ts).
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
+import { createRoot } from 'react-dom/client'
 import { Profiler, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
 import { getContext, useDataSubscribe } from '../src/state-utils/ctx'
-import { scheduled, type Schedule } from '../src/state-utils/schedule'
+import { planOf, scheduled, SYNC, type Schedule } from '../src/state-utils/schedule'
 import { useFrameState } from '../src/state-utils/useFrameState'
 import { flushScheduled } from '../src/testing'
 
@@ -79,21 +80,38 @@ describe('schedule: frame', () => {
     expect(getByTestId('frame').textContent).toBe('1')
   })
 
+  // On React's real scheduler: act() queues React's work until the act callback ends, after the
+  // frame's own microtasks, so it cannot show what lands in the same frame.
   it('a store reading a frame-buffered source and its frame-scheduled readers update in the same frame', async () => {
-    vi.useFakeTimers()
-    let push!: (n: number) => void
-    const { useStore: useSource } = createStore(`schedule-source-${++names}`, () => {
-      const [n, setN] = useFrameState(0)
-      push = setN
-      return { n }
-    })
-    const { useStore: useDouble } = createStore(`schedule-double-${++names}`, () => ({ double: (useSource().n ?? 0) * 2 }))
-    const Reader = () => <b data-testid="double">{useDouble(undefined, { schedule: 'frame' }).double}</b>
-    const { getByTestId } = render(<><AutoRootCtx /><Reader /></>)
-    expect(getByTestId('double').textContent).toBe('0')
-    await act(async () => { push(1); push(2); push(3) })
-    await act(async () => { vi.advanceTimersToNextFrame() })
-    expect(getByTestId('double').textContent).toBe('6')
+    const scope = globalThis as { IS_REACT_ACT_ENVIRONMENT?: unknown }
+    const actEnvironment = scope.IS_REACT_ACT_ENVIRONMENT
+    scope.IS_REACT_ACT_ENVIRONMENT = false
+    const el = document.createElement('div')
+    const root = createRoot(el)
+    try {
+      let push!: (n: number) => void
+      const { useStore: useSource } = createStore(`schedule-source-${++names}`, () => {
+        const [n, setN] = useFrameState(0)
+        push = setN
+        return { n }
+      })
+      const { useStore: useDouble } = createStore(`schedule-double-${++names}`, () => ({ double: (useSource().n ?? 0) * 2 }))
+      const Reader = () => <b>{useDouble(undefined, { schedule: 'frame' }).double}</b>
+      root.render(<><AutoRootCtx /><Reader /></>)
+      const start = Date.now()
+      while (el.textContent !== '0') {
+        if (Date.now() - start > 2000) throw new Error(`not mounted: ${el.textContent}`)
+        await new Promise(r => setTimeout(r, 10))
+      }
+
+      push(1); push(2); push(3)
+      // the frame the pushes asked for, then a task: anything left for a later frame is not on screen yet
+      await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)))
+      expect(el.textContent).toBe('6')
+    } finally {
+      root.unmount()
+      scope.IS_REACT_ACT_ENVIRONMENT = actEnvironment
+    }
   })
 })
 
@@ -270,6 +288,14 @@ describe('schedule: rules', () => {
     expect(getByTestId('sync').textContent).toBe('1')
     await act(async () => { vi.advanceTimersToNextFrame() })
     expect(getByTestId('frame').textContent).toBe('1')
+  })
+
+  it('equal schedules are one plan, so an inline object costs nothing', () => {
+    expect(planOf({ throttle: 100 })).toBe(planOf({ throttle: 100 }))
+    expect(planOf({ debounce: 50 })).toBe(planOf({ debounce: 50, maxWait: 1000 }))
+    expect(planOf({ debounce: 2000 })).toBe(planOf({ debounce: 2000, maxWait: 2000 }))   // maxWait defaults to ms when longer
+    expect(planOf({ idle: 0 })).toBe(SYNC)
+    expect(planOf(undefined)).toBe(SYNC)
   })
 
   it('a reader can change its schedule', async () => {
