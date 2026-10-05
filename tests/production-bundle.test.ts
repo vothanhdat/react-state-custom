@@ -26,6 +26,8 @@ const devOnly = [
   'which the store has set back',           // useStoreSuspense(params, keys): cleared key
   'rendered from initialState',             // useStoreSuspense: seed reads
   'Circular dependency detected',           // DependencyTracker
+  'Unknown schedule',                       // schedule: a value that is not one
+  'Options come after the',                 // useStore({ schedule }) on a store without params
 ]
 
 const bundle = async (mode: 'production' | 'development') => {

@@ -6,6 +6,7 @@ import { paramsToId, type ParamsToIdRecord, type StoreParamsShape } from "./para
 import { useQuickSubscribe } from "./useQuickSubscribe"
 import { isProduction, formatState } from "./utils"
 import { storeEntries, storeMocks } from "./storeRegistry"
+import type { Schedule } from "./schedule"
 
 /**
  * Renders one store instance's state when `debugging` is on. `name` is the instance key,
@@ -498,6 +499,22 @@ export const AutoRootCtx: React.FC<{
 
 AutoRootCtx.displayName = "AutoRootCtx"
 
+const warnedParams = new Set<string>()
+
+/**
+ * Development check for `useStore({ schedule: 'frame' })` on a store without params: the object is
+ * the params there, so it starts an instance named after the schedule and nothing is scheduled.
+ */
+const checkParams = (name: string, params: unknown) => {
+  const schedule = (params as { schedule?: unknown } | undefined)?.schedule
+  if ((schedule !== "frame" && schedule !== "sync") || warnedParams.has(name)) return
+  warnedParams.add(name)
+  console.warn(
+    `[react-state-custom] useStore("${name}") got { schedule: '${schedule}' } as its params. Options come after the ` +
+    `params: useStore(undefined, { schedule: '${schedule}' }), or useStore(params, { schedule: '${schedule}' }).`
+  )
+}
+
 /**
  * Development check for `useStore`: the proxy and the selector form run different hooks, so a call
  * site that passes a selector on some renders only (`cond ? sel : undefined`, which TypeScript
@@ -528,6 +545,29 @@ export type StoreOptions<U extends StoreParamsShape<U>, V extends object, I = {}
    * May be a function of the params.
    */
   initialState?: I | ((params: U) => I)
+  /**
+   * When consumers re-render for a change of this store, unless they pass their own `schedule` to
+   * `useStore`: `'sync'` (default), `'frame'`, `{ throttle: ms }`, `{ debounce: ms, maxWait? }` or
+   * `{ idle: ms }`. Applies to `useStore` and `useStoreSuspense`. The store itself, `getStore()` and
+   * actions are never delayed. See `Schedule`.
+   */
+  schedule?: Schedule
+}
+
+/** Options of `useStore(params, options)`. */
+export type StoreReadOptions = {
+  /**
+   * When this component re-renders for a change of the store: `'sync'`, `'frame'`,
+   * `{ throttle: ms }`, `{ debounce: ms, maxWait? }` or `{ idle: ms }`. Default: the store's
+   * `schedule` option, or `'sync'`. A new object on every render is fine. See `Schedule`.
+   */
+  schedule?: Schedule
+}
+
+/** Options of `useStore(params, selector, options)`. */
+export type StoreSelectOptions<R> = StoreReadOptions & {
+  /** Decides whether the selection changed. Default `Object.is`; `shallowEqual` for fresh arrays and objects. */
+  isEqual?: (a: R, b: R) => boolean
 }
 
 /** `useStore(params)`: `params` can be omitted when the store has no required params. */
@@ -623,7 +663,7 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
   timeToCleanOrOptions: number | StoreOptions<U, V, I> = 0,
   AttatchedComponent: React.ComponentType<U> | undefined = undefined
 ) => {
-  const { timeToClean, AttachedComponent, initialState } = normalizeOptions(timeToCleanOrOptions, AttatchedComponent)
+  const { timeToClean, AttachedComponent, initialState, schedule: defaultSchedule } = normalizeOptions(timeToCleanOrOptions, AttatchedComponent)
 
   const scoped = (scopeId: string | null, ctxName: string) => scopeId ? `${scopeId}/${ctxName}` : ctxName
 
@@ -754,24 +794,28 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
   const serverValues = (params: U) => () => (seedValues(params) ?? {}) as Partial<V>
 
   /**
-   * `useStore(params?)` returns a tracking proxy: re-render only for the keys read during render.
-   * `useStore(params, selector, isEqual?)` returns `selector(state)` and re-renders only when that
-   * value changes: use it for deep reads (`s => s.user?.name`) and derived values.
+   * `useStore(params?, options?)` returns a tracking proxy: re-render only for the keys read during render.
+   * `useStore(params, selector, isEqual | options?)` returns `selector(state)` and re-renders only when
+   * that value changes: use it for deep reads (`s => s.user?.name`) and derived values.
+   * `options.schedule` says when the component re-renders for a change (see `Schedule`).
    */
-  function useStore(...args: StoreParams<U>): StoreState<V, I>
+  function useStore(...args: [...StoreParams<U>, options?: StoreReadOptions]): StoreState<V, I>
   // params may be undefined only when every param is optional, as in the form above
-  function useStore<R>(params: {} extends U ? U | undefined : U, selector: (state: StoreState<V, I>) => R, isEqual?: (a: R, b: R) => boolean): R
+  function useStore<R>(params: {} extends U ? U | undefined : U, selector: (state: StoreState<V, I>) => R, options?: StoreSelectOptions<R> | ((a: R, b: R) => boolean)): R
   function useStore(...args: any[]) {
-    const [params, selector, isEqual] = args as [U | undefined, ((state: StoreState<V, I>) => unknown)?, ((a: unknown, b: unknown) => boolean)?]
+    const [params, second, third] = args as [U | undefined, unknown, unknown]
+    const withSelector = typeof second === "function"
+    const options = (withSelector ? (typeof third === "function" ? { isEqual: third } : third) : second) as StoreSelectOptions<unknown> | undefined
+    if (!isProduction) checkParams(name, params)
     const ctx = useCtxState(params as any)
     const server = serverValues((params ?? {}) as U)
-    const withSelector = typeof selector === "function"
+    const schedule = options?.schedule ?? defaultSchedule
     // isProduction never changes at runtime, so this conditional hook keeps a stable order
     if (!isProduction) useSelectorModeCheck(ctx.name, withSelector)
     // The two modes run different hooks: a call site must always pass a selector or never.
     return withSelector
-      ? useDataSelector(ctx, selector as (data: Partial<V>) => unknown, isEqual, server)
-      : useQuickSubscribe(ctx, server) as StoreState<V, I>
+      ? useDataSelector(ctx, second as (data: Partial<V>) => unknown, options?.isEqual, server, schedule)
+      : useQuickSubscribe(ctx, server, schedule) as StoreState<V, I>
   }
 
   /**
@@ -822,7 +866,7 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
     if (!isProduction && Array.isArray(readiness)) warnClearedKeys(ctx, readiness)
     extendHeldRetain(ctx)
     useEffect(() => releaseHeldRetain(ctx), [ctx])
-    const state = useQuickSubscribe(ctx, serverValues((params ?? {}) as U)) as V
+    const state = useQuickSubscribe(ctx, serverValues((params ?? {}) as U), defaultSchedule) as V
     // Ready before the store ran: the predicate held on initialState, and this render reads only that
     return !isProduction && !ctx.ready && !isServer() ? watchSeedReads(ctx, state) : state
   }

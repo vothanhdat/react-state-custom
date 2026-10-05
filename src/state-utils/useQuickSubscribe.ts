@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { functionSources, latestOf, type Context } from "./ctx";
 import { isProduction } from "./utils";
+import { createTask, planOf, SYNC, type Plan, type Schedule } from "./schedule";
 
 type Probe = { wrapper: Function, latest: unknown, calledInRender: boolean, fn: Function }
 
@@ -14,9 +15,11 @@ type Reads<D> = {
   called: Map<keyof D, unknown>,
   present: Map<keyof D, boolean>,
   keys: PropertyKey[] | undefined,
+  /** The store had published (it was ready) when this render read it: its first data is not scheduled. */
+  ready: boolean,
 }
 
-const createReads = <D>(): Reads<D> => ({ seen: new Map(), called: new Map(), present: new Map(), keys: undefined })
+const createReads = <D>(): Reads<D> => ({ seen: new Map(), called: new Map(), present: new Map(), keys: undefined, ready: false })
 
 const sameKeys = (a: PropertyKey[], b: PropertyKey[]) => a.length === b.length && a.every((key, i) => key === b[i])
 
@@ -63,6 +66,9 @@ const refuseWrite = (_target: unknown, key: PropertyKey): never => {
  *   discarded render must not change what the UI on screen is subscribed to.
  * - While hydrating, reads come from `serverData` (what the server rendered) when the live data has
  *   already moved on, e.g. a store that ran for an earlier island or Suspense boundary.
+ * - With a schedule other than `'sync'`, a change asks for a check when the schedule says, which
+ *   compares with the data of that moment. A store's first data (it becomes ready after the render on
+ *   screen) is checked at once: a schedule limits how often the UI updates, not how soon it loads.
  */
 function createTracker<D>(ctx: Context<D> | undefined) {
   let open = true
@@ -194,6 +200,29 @@ function createTracker<D>(ctx: Context<D> | undefined) {
     }
   }
 
+  let plan: Plan = SYNC
+  let task = createTask(plan, check)
+  /** Waiting for the store's first data, which is checked at once whatever the schedule. */
+  let offReady: (() => void) | undefined
+
+  /**
+   * A store publishes its first data just before it is marked ready, in the same layout effect: a
+   * scheduled reader whose render on screen came before that checks when it becomes ready.
+   */
+  const watchReady = () => {
+    if (!ctx || plan === SYNC || committed.ready || offReady) return
+    offReady = ctx.onReady(() => {
+      offReady = undefined
+      check()
+    })
+  }
+
+  /** Check now, or ask the schedule for a check. */
+  const changed = () => {
+    if (plan === SYNC) check()
+    else task.request()
+  }
+
   /** The context revision last checked from a notification, and whether commit() is subscribing. */
   let checkedRevision = -1
   let subscribing = false
@@ -207,7 +236,7 @@ function createTracker<D>(ctx: Context<D> | undefined) {
   const onChange = () => {
     if (subscribing || ctx!.revision === checkedRevision) return
     checkedRevision = ctx!.revision
-    check()
+    changed()
   }
 
   return {
@@ -221,14 +250,20 @@ function createTracker<D>(ctx: Context<D> | undefined) {
       reading.called.clear()
       reading.present.clear()
       reading.keys = undefined
+      reading.ready = ctx?.ready ?? false
     },
     /**
      * Called after every commit: close the getter, make the committed render's reads current and sync
      * key subscriptions to them. When effects re-run without a new render (StrictMode on mount), it
-     * resubscribes what is on screen after `dispose`.
+     * resubscribes what is on screen after `dispose`. `next` is the schedule the render asked for.
      */
-    commit() {
+    commit(next: Plan) {
       open = false
+      if (next !== plan) {
+        task.cancel()
+        plan = next
+        task = createTask(plan, check)
+      }
       rendering = undefined
       if (rendered) {
         rendered = false
@@ -261,10 +296,16 @@ function createTracker<D>(ctx: Context<D> | undefined) {
         subAll = undefined
       }
       warnIfSpread()
-      // catch anything published between render and commit
-      check()
+      // catch anything published between render and commit (onReady checks at once when it is ready);
+      // a schedule is asked only for a real change: a throttle would spend its window on nothing
+      watchReady()
+      if (plan === SYNC) check()
+      else if (hasChanged()) task.request()
     },
     dispose() {
+      task.cancel()
+      offReady?.()
+      offReady = undefined
       subs.forEach(unsub => unsub())
       subs.clear()
       subAll?.()
@@ -319,19 +360,22 @@ function createTracker<D>(ctx: Context<D> | undefined) {
 export const useQuickSubscribe = <D>(
   ctx: Context<D> | undefined,
   /** What the server rendered for this context (a store's `initialState`), read while hydrating. */
-  serverData?: () => Partial<D>
+  serverData?: () => Partial<D>,
+  /** When the component re-renders for a change (default `'sync'`). See `Schedule`. */
+  schedule?: Schedule
 ): {
     [P in keyof D]?: D[P] | undefined;
   } => {
 
   const tracker = useMemo(() => createTracker(ctx), [ctx])
+  const plan = planOf(schedule)
 
   tracker.setServerData(serverData)
   const snapshot = useSyncExternalStore(tracker.subscribe, tracker.getSnapshot, tracker.getServerSnapshot)
   tracker.beginRender(snapshot)
 
   // no deps: subscriptions must follow the keys read in *every* render
-  useEffect(() => { tracker.commit() })
+  useEffect(() => { tracker.commit(plan) })
 
   useEffect(() => () => tracker.dispose(), [tracker])
 

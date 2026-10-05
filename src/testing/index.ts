@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react"
 import { acquireContext, getContext, type Context } from "../state-utils/ctx"
 import { DependencyTracker } from "../state-utils/utils"
+import { cancelAllScheduled, flushAllScheduled } from "../state-utils/schedule"
 import { storeEntries, storeMocks, type StoreEntry } from "../state-utils/storeRegistry"
 import type { StoreHandle, StoreParams, StoreState, StoreStateWith } from "../state-utils/createAutoCtx"
 
@@ -124,7 +125,16 @@ export const resetStores = () => {
   storeMocks.clear()
   getContext.cache.clear()
   DependencyTracker.graph.clear()
+  cancelAllScheduled()
 }
+
+/**
+ * Make every pending scheduled render happen now: those of components reading with a `schedule`
+ * (`'frame'`, throttle, debounce, idle), `useFrameState` updates and `scheduled` functions. Wrap the
+ * call in `act`. Returns whether anything was pending. What those renders publish can schedule more:
+ * a component scheduled on a store that reads a frame-buffered one needs a second call.
+ */
+export const flushScheduled = (): boolean => flushAllScheduled()
 
 /**
  * The `getStore(params)` handle of a store, from any of its functions: read its state, call its
