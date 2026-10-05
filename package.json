@@ -47,6 +47,16 @@
         "default": "./dist/testing.cjs"
       }
     },
+    "./schedulers": {
+      "import": {
+        "types": "./dist/schedulers/index.d.ts",
+        "default": "./dist/schedulers.es.js"
+      },
+      "require": {
+        "types": "./dist/schedulers/index.d.cts",
+        "default": "./dist/schedulers.cjs"
+      }
+    },
     "./style.css": "./dist/react-state-custom.css",
     "./dist/react-state-custom.css": "./dist/react-state-custom.css",
     "./package.json": "./package.json"
@@ -61,6 +71,9 @@
       ],
       "testing": [
         "./dist/testing/index.d.ts"
+      ],
+      "schedulers": [
+        "./dist/schedulers/index.d.ts"
       ]
     }
   },

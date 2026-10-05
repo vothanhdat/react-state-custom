@@ -1,13 +1,13 @@
 // react-state-custom/testing: helpers for tests. Each takes a store by any function `createStore`
-// returned for it (`useStore`, `getStore`, `useStoreSuspense`, ...), whichever its module exports.
+// returned for it (`useStore`, `storeRef`, ...), whichever its module exports.
 import { useSyncExternalStore } from "react"
 import { acquireContext, getContext, type Context } from "../state-utils/ctx"
 import { DependencyTracker } from "../state-utils/utils"
 import { cancelAllScheduled, flushAllScheduled } from "../state-utils/schedule"
 import { storeEntries, storeMocks, type StoreEntry } from "../state-utils/storeRegistry"
-import type { StoreHandle, StoreParams, StoreState, StoreStateWith } from "../state-utils/createAutoCtx"
+import type { StoreRef, StoreParams, StoreState, StoreStateWith } from "../state-utils/createAutoCtx"
 
-/** A function `createStore` returned. `useStore`, `getStore` and `useStoreSuspense` also carry the store's types. */
+/** A function `createStore` returned. `useStore`, `storeRef` and `useStoreSuspense` also carry the store's types. */
 export type StoreFunction = (...args: any[]) => any
 
 /**
@@ -16,9 +16,9 @@ export type StoreFunction = (...args: any[]) => any
  * single signature, its generic last overload would take any return type and match anything.
  */
 type TypesOf<F> =
-  // getStore (the return type of useStore's selector overload reads as unknown here)
+  // storeRef (the return type of useStore's selector overload reads as unknown here)
   F extends (...args: infer A) => infer H
-    ? H extends StoreHandle<infer V, infer I> ? [Exclude<A[0], undefined>, V, I]
+    ? H extends StoreRef<infer V, infer I> ? [Exclude<A[0], undefined>, V, I]
     // useStore: the proxy overload, then the selector one, whose `state` names the types
     : F extends { (...args: infer A): any, <R>(params: any, selector: (state: StoreState<infer V, infer I>) => R, isEqual?: any): R }
       ? unknown extends V ? SuspenseTypesOf<F> : [Exclude<A[0], undefined>, V, I]
@@ -44,7 +44,7 @@ const entryOf = (store: unknown, caller: string): StoreEntry => {
   const entry = typeof store === "function" ? storeEntries.get(store) : undefined
   if (entry) return entry
   throw new TypeError(
-    `[react-state-custom] ${caller}() takes a function returned by createStore (useStore, getStore, useStoreSuspense, ...), ` +
+    `[react-state-custom] ${caller}() takes a function returned by createStore (useStore, storeRef, ...), ` +
     `got ${typeof store === "function" ? `the function ${store.name || "(anonymous)"}` : String(store)}.`
   )
 }
@@ -137,11 +137,11 @@ export const resetStores = () => {
 export const flushScheduled = (): boolean => flushAllScheduled()
 
 /**
- * The `getStore(params)` handle of a store, from any of its functions: read its state, call its
+ * The `storeRef(params)` of a store, from any of its functions: read its state, call its
  * actions, subscribe or `retain()` it, also when its module exports only `useStore`.
- * Global scope only, like `getStore`.
+ * Global scope only, like `storeRef`.
  */
-export const storeHandle = <F extends StoreFunction>(store: F, ...args: StoreParams<ParamsOf<F>>): StoreHandle<StateOf<F>, InitialOf<F>> =>
+export const storeHandle = <F extends StoreFunction>(store: F, ...args: StoreParams<ParamsOf<F>>): StoreRef<StateOf<F>, InitialOf<F>> =>
   entryOf(store, "storeHandle").getStore(args[0] as object | undefined)
 
 /** Options of `waitForStore`. */
@@ -186,7 +186,7 @@ const timeoutMessage = (ctx: Context<object>, timeout: number, state: Record<Pro
  * until each of `keys` holds a value, which types those keys as present, like `useStoreSuspense`.
  * Resolves with the state; rejects with what the store hook threw if it fails, and after `timeout`.
  * It does not start the store: render a component that reads it, or `retain()` it.
- * Global scope only, like `getStore`.
+ * Global scope only, like `storeRef`.
  */
 export function waitForStore<F extends StoreFunction>(store: F, ...args: StoreParams<ParamsOf<F>>): Promise<StoreState<StateOf<F>, InitialOf<F>>>
 // the predicate first: checked against the keys overload first, its parameter would get no type

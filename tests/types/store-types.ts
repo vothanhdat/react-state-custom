@@ -1,6 +1,8 @@
 // Type-level tests, checked by `yarn typecheck` (tsc), never run.
 import { useState } from 'react'
 import { createStore, createRootCtx, createAutoCtx, scheduled, shallowEqual, useFrameState, sync, frame, throttle, debounce, idle, type Scheduler, type StoreStatus } from '../../src'
+import { useMultipleStore as useMany, type StoreRef } from '../../src'
+import { frame as frameFromSubpath, type Scheduler as SubpathScheduler } from '../../src/schedulers'
 
 type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
 const expectType = <T>(_value: T) => { }
@@ -202,3 +204,57 @@ export const FrameStateConsumer = () => {
   void everySecondFrame
   return null
 }
+
+// The 2.0 API: useStore(params, { select }), storeRef(params), useMultipleStore(refs)
+
+const items = createStore('types-items', ({ id }: { id: string }) => ({ label: id, hits: 0, hit: () => { } }))
+const user = createStore('types-user', () => ({ name: 'Ada' }))
+
+export const SelectOption = () => {
+  const label = items.useStore({ id: 'a' }, { select: s => s.label ?? '' })
+  assert<Equals<typeof label, string>>()
+  // isEqual is typed by what select returns
+  items.useStore({ id: 'a' }, { select: s => s.hits, isEqual: (a, b) => expectType<number | undefined>(a) === expectType<number | undefined>(b), schedule: frameFromSubpath() })
+  // a store without params takes undefined there
+  const name = user.useStore(undefined, { select: s => s.name })
+  assert<Equals<typeof name, string | undefined>>()
+  // @ts-expect-error params are required
+  items.useStore(undefined, { select: s => s.label })
+  // without select, the options take a schedule only
+  const proxy = items.useStore({ id: 'a' }, { schedule: frameFromSubpath() })
+  expectType<string | undefined>(proxy.label)
+  return null
+}
+
+export const Refs = () => {
+  const ref = items.storeRef({ id: 'a' })
+  expectType<StoreRef<{ label: string, hits: number, hit: () => void }>>(ref)
+  expectType<string | undefined>(ref.get().label)
+  // @ts-expect-error params are required
+  items.storeRef()
+  user.storeRef()
+
+  // typed by position
+  const [u, i] = useMany([user.storeRef(), items.storeRef({ id: 'a' })])
+  assert<Equals<typeof u.name, string | undefined>>()
+  assert<Equals<typeof i.hits, number | undefined>>()
+  // @ts-expect-error a tuple of two
+  useMany([user.storeRef(), items.storeRef({ id: 'a' })])[2]
+
+  // a list of any length
+  const list = useMany(['a', 'b'].map(id => items.storeRef({ id })))
+  expectType<(string | undefined)[]>(list.map(item => item.label))
+
+  // select over every state
+  const total = useMany(['a', 'b'].map(id => items.storeRef({ id })), { select: states => states.reduce((sum, s) => sum + (s.hits ?? 0), 0) })
+  assert<Equals<typeof total, number>>()
+  const both = useMany([user.storeRef(), items.storeRef({ id: 'a' })], { select: ([u, i]) => `${u.name} ${i.label}` })
+  assert<Equals<typeof both, string>>()
+
+  // @ts-expect-error only refs
+  useMany([{ name: 'x' }])
+  return null
+}
+
+// the schedulers entry exports the same types
+export const subpathScheduler: SubpathScheduler = frameFromSubpath()

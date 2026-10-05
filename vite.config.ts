@@ -37,18 +37,19 @@ export default defineConfig({
       babel: (id) => ({ plugins: isExample(id) ? ["babel-plugin-react-compiler"] : [] }),
     }),
     dts({
-      include: ['src/index.ts', 'src/state-utils', 'src/dev-tool', 'src/testing'],
+      include: ['src/index.ts', 'src/state-utils', 'src/dev-tool', 'src/testing', 'src/schedulers'],
       afterBuild: writeDeclarations,
     }),
   ],
   build: {
     lib: {
-      // Four entries: the state library, the dev tool (which carries the only CSS), the
-      // react-obj-view renderer for the dev tool (so that optional peer stays out of the other ones),
-      // and the test helpers. Code they share goes into a common chunk, so the testing entry reaches
-      // the same store registry as the library.
+      // Five entries: the state library, the schedulers, the dev tool (which carries the only CSS),
+      // the react-obj-view renderer for the dev tool (so that optional peer stays out of the other
+      // ones), and the test helpers. Code they share goes into a common chunk, so the testing entry
+      // reaches the same store registry as the library, and the schedulers the same queues.
       entry: {
         'index': 'src/index.ts',
+        'schedulers': 'src/schedulers/index.ts',
         'dev-tool': 'src/dev-tool/index.ts',
         'dev-tool/obj-view': 'src/dev-tool/obj-view.tsx',
         'testing': 'src/testing/index.ts',

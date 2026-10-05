@@ -4,8 +4,8 @@ import { useDataContext, useDataSelector, acquireContext, getContext, isServer, 
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord, type StoreParamsShape } from "./paramsToId"
 import { useQuickSubscribe } from "./useQuickSubscribe"
-import { isProduction, formatState } from "./utils"
-import { storeEntries, storeMocks } from "./storeRegistry"
+import { isProduction, formatState, shallowEqual } from "./utils"
+import { storeEntries, storeMocks, storeRefs } from "./storeRegistry"
 import type { Scheduler } from "./schedule"
 
 /**
@@ -402,8 +402,16 @@ const StoreInstance = memo(named("StoreInstance", function StoreInstance({ name,
 }))
 
 export const AutoRootCtx: React.FC<{
+  /**
+   * Wraps each store instance; by default `StoreErrorBoundary`, which isolates a store that throws.
+   * @deprecated Removed in 2.0: each store keeps its own error boundary, and its error shows in the
+   * components reading it. Report errors with React's `onCaughtError` root option.
+   */
   Wrapper?: React.ComponentType<{ children?: React.ReactNode }>
-  /** Render each store's state into the DOM: `true` for JSON text, or a component receiving `{ name, value }`. */
+  /**
+   * Render each store's state into the DOM: `true` for JSON text, or a component receiving `{ name, value }`.
+   * @deprecated Removed in 2.0: use the dev tool (`react-state-custom/dev-tool`).
+   */
   debugging?: boolean | StateDebugRenderer
 }> = ({ Wrapper = StoreErrorBoundary, debugging = false }) => {
 
@@ -500,72 +508,94 @@ export const AutoRootCtx: React.FC<{
 AutoRootCtx.displayName = "AutoRootCtx"
 
 /**
- * Development check for `useStore({ schedule: frame() })` on a store without params: the object is
- * the params there, and paramsToId would only say that a param is not a primitive.
+ * Development check for `useStore({ schedule: frame() })` or `useStore({ select })` on a store without
+ * params: the object is the params there, and paramsToId would only say that a param is not a primitive.
  */
 const checkParams = (name: string, params: unknown) => {
-  const schedule = (params as { schedule?: { task?: unknown } } | undefined)?.schedule
-  if (typeof schedule !== "object" || schedule === null || typeof schedule.task !== "function") return
+  const { schedule, select } = (params ?? {}) as { schedule?: { task?: unknown }, select?: unknown }
+  const option = typeof select === "function" ? "select"
+    : typeof schedule === "object" && schedule !== null && typeof schedule.task === "function" ? "schedule"
+    : undefined
+  if (!option) return
   throw new TypeError(
-    `[react-state-custom] useStore("${name}") got { schedule } as its params. Options come after the params: ` +
-    `useStore(undefined, { schedule }) for a store without params, or useStore(params, { schedule }).`
+    `[react-state-custom] useStore("${name}") got { ${option} } as its params. Options come after the params: ` +
+    `useStore(undefined, { ${option} }) for a store without params, or useStore(params, { ${option} }).`
   )
 }
 
 /**
- * Development check for `useStore`: the proxy and the selector form run different hooks, so a call
- * site that passes a selector on some renders only (`cond ? sel : undefined`, which TypeScript
- * rejects) would break the hook order with an error that does not name the cause. Throw one that does.
+ * Development check for `useStore` and `useMultipleStore`: the proxy and the selector form run
+ * different hooks, so a call site that passes a selector on some renders only (`cond ? sel : undefined`,
+ * which TypeScript rejects) would break the hook order with an error that does not name the cause.
+ * Throw one that does. `call` names the call site: `useStore("todos")`.
  */
-const useSelectorModeCheck = (name: string, withSelector: boolean) => {
+export const useSelectorModeCheck = (call: string, withSelector: boolean) => {
   const first = useRef(withSelector)
   if (first.current === withSelector) return
   throw new Error(
-    `[react-state-custom] useStore("${name}") was called with a selector ${first.current ? "before" : "on this render"} ` +
+    `[react-state-custom] ${call} was called with a selector ${first.current ? "before" : "on this render"} ` +
     `and without one ${first.current ? "on this render" : "before"}. Each form runs different hooks, so a call site ` +
     `must always pass a selector or never. Use two components, or a selector that handles both cases.`
   )
 }
 
-/** Options accepted by createStore / createAutoCtx (a bare number is still accepted as `timeToClean`). */
+/** Options of `createStore(name, useFn, options)`. */
 export type StoreOptions<U extends StoreParamsShape<U>, V extends object, I = {}> = {
   /**
    * Milliseconds to keep the store alive after its last consumer unmounts. Default 0. `Infinity`
    * (or any value of 2^31 - 1 or more) keeps it until `AutoRootCtx` unmounts.
    */
   timeToClean?: number
-  /** Component rendered next to the store root, once per store instance (side effects, logging, ...). */
+  /**
+   * Component rendered next to the store root, once per store instance (side effects, logging, ...).
+   * @deprecated Removed in 2.0: put the side effect in the store hook, as an effect.
+   */
   AttachedComponent?: React.ComponentType<U>
   /**
    * Values consumers read before the store hook has published its first result.
    * Keys listed here are typed as always present on the `useStore` result.
    * May be a function of the params.
+   * @deprecated Removed in 2.0: readers get `undefined` until the store publishes, so default at the
+   * read (`count ?? 0`).
    */
   initialState?: I | ((params: U) => I)
   /**
    * When consumers re-render for a change of this store, unless they pass their own `schedule` to
    * `useStore`: `frame()`, `throttle(ms)`, `debounce(ms, { maxWait })` or `idle(ms)`, imported from
-   * the library (default: at once). Applies to `useStore` and `useStoreSuspense`. The store itself,
-   * `getStore()` and actions are never delayed.
+   * `react-state-custom/schedulers` (default: at once). The store itself, `storeRef(params).get()`
+   * and actions are never delayed.
    */
   schedule?: Scheduler
 }
 
-/** Options of `useStore(params, options)`. */
+/** Options of `useStore(params, options)` and `useMultipleStore(refs, options)`. */
 export type StoreReadOptions = {
   /**
    * When this component re-renders for a change of the store: `sync()`, `frame()`, `throttle(ms)`,
-   * `debounce(ms, { maxWait })` or `idle(ms)`, imported from the library. Default: the store's
-   * `schedule` option, or at once. Calling the factory on every render is fine: it returns the same
-   * scheduler for the same arguments.
+   * `debounce(ms, { maxWait })` or `idle(ms)`, imported from `react-state-custom/schedulers`.
+   * Default: the store's `schedule` option, or at once. Calling the factory on every render is fine:
+   * it returns the same scheduler for the same arguments.
    */
   schedule?: Scheduler
 }
 
 /** Options of `useStore(params, selector, options)`. */
 export type StoreSelectOptions<R> = StoreReadOptions & {
-  /** Decides whether the selection changed. Default `Object.is`; `shallowEqual` for fresh arrays and objects. */
+  /**
+   * Decides whether the selection changed. Default `shallowEqual` next to `select`, and `Object.is`
+   * for a selector passed on its own (the deprecated form).
+   */
   isEqual?: (a: R, b: R) => boolean
+}
+
+/**
+ * Options of `useStore(params, { select })` and `useMultipleStore(refs, { select })`: the hook
+ * returns `select(state)` and re-renders only when that value changes according to `isEqual`,
+ * by default `shallowEqual` (`Object.is` one level deep, so a fresh array of the same items is equal).
+ */
+export type StoreSelect<S, R> = StoreSelectOptions<R> & {
+  /** Derives the value from the plain state. A new function on every render is fine. */
+  select: (state: S) => R
 }
 
 /** `useStore(params)`: `params` can be omitted when the store has no required params. */
@@ -597,8 +627,12 @@ const normalizeOptions = <U extends StoreParamsShape<U>, V extends object, I>(
 /** Contexts that already received their initialState (one seeding per Context instance). */
 const seededContexts = new WeakSet<Context<any>>()
 
-/** The imperative handle returned by `getStore(params)`. */
-export type StoreHandle<V, I> = {
+/**
+ * One instance of a store, as `storeRef(params)` returns it: read it and keep it running from code
+ * outside React (socket handlers, routers, tests), and read several instances in one component with
+ * `useMultipleStore([refA, refB])`.
+ */
+export type StoreRef<V, I = {}> = {
   /** Context name of this store instance (`name?params`). */
   readonly name: string
   /** Snapshot of the current state: a plain object, safe to read anywhere (handlers, sockets, tests). */
@@ -619,6 +653,12 @@ export type StoreHandle<V, I> = {
   /** What the store hook threw while it is disabled, `undefined` while it runs. Cleared when the instance is torn down. */
   readonly error: unknown
 }
+
+/**
+ * The imperative handle returned by `getStore(params)`.
+ * @deprecated Renamed `StoreRef`, which `storeRef(params)` returns.
+ */
+export type StoreHandle<V, I> = StoreRef<V, I>
 
 /** The state of a store instance itself, as `useStoreStatus` returns it. */
 export type StoreStatus = {
@@ -752,18 +792,20 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
   }
 
   /**
-   * Imperative access for code that lives outside React (socket handlers, routers, tests) and for
-   * event handlers that want the latest value without subscribing. Global scope only: stores inside
-   * a `StateScopeProvider` are reachable from their components through `useCtxState`.
+   * The instance for `params`: read it and keep it running from code outside React (socket
+   * handlers, routers, tests) or from event handlers that want the latest value without
+   * subscribing, and pass it to `useMultipleStore` to read several instances in one component.
+   * Global scope only: stores inside a `StateScopeProvider` are reachable from their components
+   * through `useStore`.
    */
-  const getStore = (...args: StoreParams<U>): StoreHandle<V, I> => {
+  const storeRef = (...args: StoreParams<U>): StoreRef<V, I> => {
     const params = (args[0] ?? {}) as U
     const ctxName = getCtxName(params)
     const snapshot = (ctx: Context<V> | undefined): StoreState<V, I> =>
       ({ ...(seedValues(params) ?? {}), ...(ctx?.data ?? {}) }) as StoreState<V, I>
     const live = () => isServer() ? undefined : getContext.fromCache(ctxName) as Context<V> | undefined
 
-    return {
+    const ref: StoreRef<V, I> = {
       name: ctxName,
       get: () => snapshot(live()),
       get ready() { return live()?.ready ?? false },
@@ -786,6 +828,14 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
       },
       retain: () => retainStore(null, params),
     }
+    storeRefs.set(ref, {
+      name: ctxName,
+      prepare: ctx => seedContext(ctx, params),
+      retain: scopeId => retainStore(scopeId, params),
+      server: serverValues(params),
+      schedule: defaultSchedule,
+    })
+    return ref
   }
 
   /** What the server rendered for these params: consumers read it while hydrating (see useQuickSubscribe). */
@@ -793,30 +843,41 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
 
   /**
    * `useStore(params?, options?)` returns a tracking proxy: re-render only for the keys read during render.
-   * `useStore(params, selector, isEqual | options?)` returns `selector(state)` and re-renders only when
-   * that value changes: use it for deep reads (`s => s.user?.name`) and derived values. A store
-   * without required params takes the selector first: `useStore(selector, options?)`.
+   * `useStore(params, { select, isEqual? })` returns `select(state)` and re-renders only when that
+   * value changes (by default `shallowEqual`): use it for deep reads (`s => s.user?.name`) and
+   * derived values. A store without params takes `undefined` as its params there.
    * `options.schedule` says when the component re-renders for a change (`frame()`, `throttle(ms)`, ...).
    */
-  // first, so that the last two overloads stay the ones react-state-custom/testing reads the types from
+  // the deprecated forms first and last: react-state-custom/testing reads the types from the last two
+  /**
+   * @deprecated Removed in 2.0. Pass the selector in the options: `useStore(undefined, { select })`.
+   * Its default `isEqual` is `shallowEqual` instead of `Object.is`.
+   */
   function useStore<R>(selector: {} extends U ? (state: StoreState<V, I>) => R : never, options?: StoreSelectOptions<R> | ((a: R, b: R) => boolean)): R
+  // params may be undefined only when every param is optional
+  function useStore<R>(params: {} extends U ? U | undefined : U, options: StoreSelect<StoreState<V, I>, R>): R
   function useStore(...args: [...StoreParams<U>, options?: StoreReadOptions]): StoreState<V, I>
-  // params may be undefined only when every param is optional, as in the form above
+  /**
+   * @deprecated Removed in 2.0. Pass the selector in the options: `useStore(params, { select, isEqual })`.
+   * Its default `isEqual` is `shallowEqual` instead of `Object.is`.
+   */
   function useStore<R>(params: {} extends U ? U | undefined : U, selector: (state: StoreState<V, I>) => R, options?: StoreSelectOptions<R> | ((a: R, b: R) => boolean)): R
   function useStore(...args: any[]) {
     // params are never functions: a function first is the selector of a store without params
     const [params, second, third] = (typeof args[0] === "function" ? [undefined, ...args] : args) as [U | undefined, unknown, unknown]
-    const withSelector = typeof second === "function"
-    const options = (withSelector ? (typeof third === "function" ? { isEqual: third } : third) : second) as StoreSelectOptions<unknown> | undefined
+    const positional = typeof second === "function"
+    const options = (positional ? (typeof third === "function" ? { isEqual: third } : third) : second) as Partial<StoreSelect<unknown, unknown>> | undefined
+    const selector = positional ? second as (state: unknown) => unknown : options?.select
+    const withSelector = typeof selector === "function"
     if (!isProduction) checkParams(name, params)
     const ctx = useCtxState(params as any)
     const server = serverValues((params ?? {}) as U)
     const schedule = options?.schedule ?? defaultSchedule
     // isProduction never changes at runtime, so this conditional hook keeps a stable order
-    if (!isProduction) useSelectorModeCheck(ctx.name, withSelector)
+    if (!isProduction) useSelectorModeCheck(`useStore("${ctx.name}")`, withSelector)
     // The two modes run different hooks: a call site must always pass a selector or never.
     return withSelector
-      ? useDataSelector(ctx, second as (data: Partial<V>) => unknown, options?.isEqual, server, schedule)
+      ? useDataSelector(ctx, selector, options?.isEqual ?? (positional ? Object.is : shallowEqual), server, schedule)
       : useQuickSubscribe(ctx, server, schedule) as StoreState<V, I>
   }
 
@@ -883,15 +944,33 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
     return useSyncExternalStore(source.subscribe, source.get, serverStatus)
   }
 
+  /** `storeRef` under its old name: a separate function, so that its deprecation stays its own. */
+  const getStore = (...args: StoreParams<U>) => storeRef(...args)
+
   // so that react-state-custom/testing finds this store from whichever of these a module exports
-  const entry = { name, getStore: getStore as (params?: object) => StoreHandle<any, any> }
-  for (const fn of [useCtxState, useStore, useStoreSuspense, useStoreStatus, getStore]) storeEntries.set(fn, entry)
+  const entry = { name, getStore: storeRef as (params?: object) => StoreRef<any, any> }
+  for (const fn of [useCtxState, useStore, useStoreSuspense, useStoreStatus, storeRef, getStore]) storeEntries.set(fn, entry)
 
   return {
-    useCtxState,
     useStore,
+    storeRef,
+    /**
+     * The raw `Context` of the instance in the current scope.
+     * @deprecated Removed in 2.0, with scopes: read the store with `useStore`.
+     */
+    useCtxState,
+    /**
+     * Suspends until the store has published.
+     * @deprecated Removed in 2.0: render from the values with a fallback while they are `undefined`.
+     */
     useStoreSuspense,
+    /**
+     * Whether the instance has published and whether it failed.
+     * @deprecated Removed in 2.0: keep loading state in the store (`isLoading`). From 2.0 on, a store
+     * that throws throws in the components reading it, for their error boundary.
+     */
     useStoreStatus,
+    /** @deprecated Renamed `storeRef`. */
     getStore,
   }
 }
@@ -1100,23 +1179,43 @@ const waitUntilReady = <V, I>(
   return pending.promise
 }
 
+/** What `createStore` returns. */
+export type Store<U extends StoreParamsShape<U>, V extends object, I = {}> = ReturnType<typeof createAutoCtxWith<U, V, I>>
+
 /**
- * createStore
- *
- * One-step helper: `createRootCtx` + `createAutoCtx`.
+ * Turn a hook into a store: one running instance per params, started by its first reader, shared by
+ * every reader, and stopped `timeToClean` ms after the last one leaves.
  * ```
- * const { useStore } = createStore('counter', useCounterState)
- * const { useStore } = createStore('user', useUserState, { timeToClean: 5000, initialState: { user: null } })
+ * const { useStore, storeRef } = createStore('counter', useCounterState)
+ * const { useStore } = createStore('user', useUserState, { timeToClean: 5000 })
  * ```
- * The third argument may be a bare number (`timeToClean`) for backwards compatibility.
  */
-export const createStore = <U extends StoreParamsShape<U>, V extends object, K extends keyof V = never>(
+export function createStore<U extends StoreParamsShape<U>, V extends object, K extends keyof V = never>(
   name: string,
   useFn: (params: U, preState: Partial<V>) => V,
-  timeToCleanOrOptions: number | StoreOptions<U, V, Seed<V, K>> = 0,
+  options?: StoreOptions<U, V, Seed<V, K>>
+): Store<U, V, Seed<V, K>>
+/** @deprecated Removed in 2.0. Pass an options object: `createStore(name, useFn, { timeToClean })`. */
+export function createStore<U extends StoreParamsShape<U>, V extends object>(
+  name: string,
+  useFn: (params: U, preState: Partial<V>) => V,
+  timeToClean: number,
+  AttachedComponent?: React.ComponentType<U>
+): Store<U, V>
+/** @deprecated Removed in 2.0, with `AttachedComponent`: put the side effect in the store hook, as an effect. */
+export function createStore<U extends StoreParamsShape<U>, V extends object, K extends keyof V = never>(
+  name: string,
+  useFn: (params: U, preState: Partial<V>) => V,
+  options: StoreOptions<U, V, Seed<V, K>> | undefined,
+  AttachedComponent: React.ComponentType<U>
+): Store<U, V, Seed<V, K>>
+export function createStore<U extends StoreParamsShape<U>, V extends object>(
+  name: string,
+  useFn: (params: U, preState: Partial<V>) => V,
+  timeToCleanOrOptions: number | StoreOptions<U, V, any> = 0,
   AttatchedComponent: React.ComponentType<U> | undefined = undefined
-) => {
-  return createAutoCtxWith<U, V, Seed<V, K>>(createRootCtx(name, useFn), timeToCleanOrOptions, AttatchedComponent)
+) {
+  return createAutoCtxWith<U, V, any>(createRootCtx(name, useFn), timeToCleanOrOptions, AttatchedComponent)
 }
 
 /** Scopes created in this page so far, which numbers their ids. */

@@ -33,6 +33,7 @@ export default defineConfig({
       // the tests import '../../src', the setup file '../src/testing' (for resetStores)
       ...(againstDist ? [
         { find: /^(\.\.\/)+src\/testing$/, replacement: resolve(__dirname, './dist/testing.es.js') },
+        { find: /^(\.\.\/)+src\/schedulers$/, replacement: resolve(__dirname, './dist/schedulers.es.js') },
         { find: /^(\.\.\/)+src$/, replacement: resolve(__dirname, './dist/index.es.js') },
       ] : []),
       { find: '@', replacement: resolve(__dirname, './src') },

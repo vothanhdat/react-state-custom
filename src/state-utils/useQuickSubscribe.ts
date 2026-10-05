@@ -24,7 +24,7 @@ const createReads = <D>(): Reads<D> => ({ seen: new Map(), called: new Map(), pr
 const sameKeys = (a: PropertyKey[], b: PropertyKey[]) => a.length === b.length && a.every((key, i) => key === b[i])
 
 /** Server snapshot meaning "render what the server rendered": the live data has moved on since. */
-const FROM_SERVER = -1
+export const FROM_SERVER = -1
 
 /** True when `live` holds a value the server could not have rendered from `seed`. */
 const differsFromSeed = (seed: Record<PropertyKey, unknown>, live: Record<PropertyKey, unknown>) => {
@@ -70,7 +70,7 @@ const refuseWrite = (_target: unknown, key: PropertyKey): never => {
  *   compares with the data of that moment. A store's first data (it becomes ready after the render on
  *   screen) is checked at once: a schedule limits how often the UI updates, not how soon it loads.
  */
-function createTracker<D>(ctx: Context<D> | undefined) {
+export function createTracker<D>(ctx: Context<D> | undefined) {
   let open = true
   let version = 0
   /** The data this render reads from instead of the live data (the server's, while hydrating). */
@@ -334,6 +334,8 @@ function createTracker<D>(ctx: Context<D> | undefined) {
     },
   }
 }
+
+export type Tracker<D> = ReturnType<typeof createTracker<D>>
 
 /**
  * useQuickSubscribe is a custom React hook for efficiently subscribing to specific properties of a context's data object.

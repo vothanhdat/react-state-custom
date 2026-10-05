@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { renderToString } from 'react-dom/server'
 import { createStore, AutoRootCtx, StateScopeProvider } from '../src/state-utils/createAutoCtx'
+import { useMultipleStore } from '../src/state-utils/useMultipleStore'
 import { getContext } from '../src/state-utils/ctx'
 import { DevToolContainer } from '../src/dev-tool'
 
@@ -27,6 +28,20 @@ describe('server rendering (node environment, no DOM)', () => {
 
     // many requests with many params: still nothing retained
     for (let i = 0; i < 50; i++) renderToString(<><AutoRootCtx /><Profile userId={'req' + i} /></>)
+    expect(getContext.cache.size).toBe(0)
+  })
+
+  it('renders useMultipleStore from empty states, never running the stores', () => {
+    let storeRuns = 0
+    const { storeRef } = createStore('ssr-multi', ({ id }: { id: string }) => {
+      storeRuns++
+      return { label: id }
+    })
+    const refs = () => ['a', 'b'].map(id => storeRef({ id }))
+    const Labels = () => <p>{useMultipleStore(refs()).map(item => item.label ?? '…').join(',')}</p>
+    const Count = () => <i>{useMultipleStore(refs(), { select: items => items.filter(item => item.label).length })}</i>
+    expect(renderToString(<><AutoRootCtx /><Labels /><Count /></>)).toContain('<p>…,…</p><i>0</i>')
+    expect(storeRuns).toBe(0)
     expect(getContext.cache.size).toBe(0)
   })
 

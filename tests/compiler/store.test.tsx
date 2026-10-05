@@ -1,7 +1,7 @@
-import React, { Suspense, useEffect, useState } from 'react'
+import React, { Profiler, Suspense, useEffect, useState } from 'react'
 import { act, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { AutoRootCtx, createStore } from '../../src'
+import { AutoRootCtx, createStore, useMultipleStore } from '../../src'
 import { COMPILED } from './canary.test'
 
 // Everything in this file (store hooks and components) is compiled by the React Compiler.
@@ -16,6 +16,13 @@ const useCounterState = ({ step = 1 }: { step?: number }) => {
   const rename = (next: string) => setLabel(next)
   return { count, label, increment, rename, double: count * 2 }
 }
+
+// Stores live at module scope, as in an app: the compiler moves callbacks that capture nothing from
+// the component (`step => multiple.storeRef({ step })`) to module scope.
+const selectOption = createStore('compiler-select-option', useCounterState)
+const multiple = createStore('compiler-multiple', useCounterState)
+// passed whole to a helper: the compiler memoises the helper's result on the proxy's identity
+const countText = (s: { count?: number }) => `${s.count}`
 
 describe('react-state-custom under the React Compiler', () => {
   it('store hooks are compiled too', () => {
@@ -115,6 +122,46 @@ describe('react-state-custom under the React Compiler', () => {
     act(() => getStore().get().increment!())
     await tick()
     expect(screen.getByTestId('v').textContent).toBe('1')
+  })
+
+  it('useStore(params, { select }) re-renders only when the selection changes', async () => {
+    let commits = 0
+    const Consumer = () => {
+      const parity = selectOption.useStore({}, { select: s => ['parity', (s.count ?? 0) % 2] })
+      return <i data-testid="v">{parity.join(':')}</i>
+    }
+    expect(Consumer.toString()).toMatch(COMPILED)
+    render(<><AutoRootCtx /><Profiler id="c" onRender={() => { commits++ }}><Consumer /></Profiler></>, noStrict)
+    await tick()
+    expect(screen.getByTestId('v').textContent).toBe('parity:0')
+    const settled = commits
+    act(() => selectOption.storeRef().get().rename!('z'))
+    await tick()
+    expect(commits).toBe(settled)
+    act(() => selectOption.storeRef().get().increment!())
+    await tick()
+    expect(screen.getByTestId('v').textContent).toBe('parity:1')
+    expect(commits).toBe(settled + 1)
+  })
+
+  it('useMultipleStore over a list, with proxies and with select', async () => {
+    const List = ({ steps }: { steps: number[] }) => {
+      const items = useMultipleStore(steps.map(step => multiple.storeRef({ step })))
+      const total = useMultipleStore(steps.map(step => multiple.storeRef({ step })), { select: states => states.reduce((sum, s) => sum + (s.count ?? 0), 0) })
+      return <i data-testid="v">{items.map(countText).join(',')}={total}</i>
+    }
+    expect(List.toString()).toMatch(COMPILED)
+    const { rerender } = render(<><AutoRootCtx /><List steps={[1, 5]} /></>)
+    await tick()
+    expect(screen.getByTestId('v').textContent).toBe('0,0=0')
+    act(() => multiple.storeRef({ step: 5 }).get().increment!())
+    await tick()
+    expect(screen.getByTestId('v').textContent).toBe('0,5=5')
+    rerender(<><AutoRootCtx /><List steps={[1, 5, 10]} /></>)
+    await tick()
+    act(() => multiple.storeRef({ step: 10 }).get().increment!())
+    await tick()
+    expect(screen.getByTestId('v').textContent).toBe('0,5,10=15')
   })
 
   it('parameterised stores and initialState', async () => {

@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { act } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
-import { hydrateRoot, type Root } from 'react-dom/client'
+import { createRoot, hydrateRoot, type Root } from 'react-dom/client'
 import { useState } from 'react'
 import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
+import { useMultipleStore } from '../src/state-utils/useMultipleStore'
 import { getContext } from '../src/state-utils/ctx'
 import { DevToolContainer } from '../src/dev-tool'
 
@@ -39,6 +40,39 @@ describe('hydration', () => {
     const hydrationComplaints = errors.mock.calls.filter(c => /hydrat|did not match|mismatch/i.test(c.map(String).join(' ')))
     expect(hydrationComplaints).toEqual([])
     expect(container.textContent).toBe('Ada')
+    container.remove()
+  })
+
+  it('useMultipleStore hydrates what the server rendered although the instances already run, then the live data', async () => {
+    const { storeRef } = createStore('hyd-multi', ({ id }: { id: string }) => ({ label: id.toUpperCase() }))
+    const refs = () => [storeRef({ id: 'a' }), storeRef({ id: 'b' })]
+    const Labels = () => <p>{useMultipleStore(refs()).map(item => item.label ?? '…').join(',')}</p>
+    const Count = () => <i>{useMultipleStore(refs(), { select: items => items.filter(item => item.label).length })}</i>
+    const App = () => <><Labels /><Count /></>
+
+    const html = renderToString(<App />)
+    expect(html).toContain('<p>…,…</p><i>0</i>')
+    getContext.cache.clear()
+
+    // the instances started in another root of the page before this one hydrates
+    const other = document.createElement('div')
+    const otherRoot = createRoot(other)
+    await act(async () => { otherRoot.render(<AutoRootCtx />) })
+    const releases: (() => void)[] = []
+    await act(async () => { for (const ref of refs()) releases.push(ref.retain()) })
+    expect(storeRef({ id: 'a' }).get().label).toBe('A')
+
+    const container = document.createElement('div')
+    container.innerHTML = html
+    document.body.appendChild(container)
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await act(async () => { root = hydrateRoot(container, <App />) })
+    await act(async () => { await new Promise(r => setTimeout(r, 20)) })
+
+    const hydrationComplaints = errors.mock.calls.filter(c => /hydrat|did not match|mismatch/i.test(c.map(String).join(' ')))
+    expect(hydrationComplaints).toEqual([])
+    expect(container.textContent).toBe('A,B2')
+    act(() => { releases.forEach(release => release()); otherRoot.unmount() })
     container.remove()
   })
 

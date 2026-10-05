@@ -314,12 +314,26 @@ const scheduleEvict = (name: string, live: Context<any>, delay = CACHE_EVICT_DEL
  * then no effect ever counts or releases the instance, so one created here is evicted unless a user
  * has committed by then. A render that commits later restores it (see useDataContext).
  */
-const getContextInRender = (name: string) => {
+export const getContextInRender = (name: string) => {
   const cached = getContext.fromCache(name)
   if (cached) return cached
   const ctx = getContext(name)
   scheduleEvict(name, ctx, UNCOMMITTED_EVICT_DELAY)
   return ctx
+}
+
+/**
+ * On commit, the live context for `name`. A component may render before the eviction timer fires and
+ * commit after it: if the entry was evicted in between, the rendered instance is restored to the
+ * cache; if another component already created a fresh instance, that one is returned, and the
+ * caller adopts it (one re-render) so a name never maps to two live Contexts.
+ */
+export const liveContext = <D>(name: string, rendered: Context<D>): Context<D> => {
+  const cacheKey = getContext.keyFor(name)
+  const live = getContext.cache.get(cacheKey)
+  if (live) return live
+  getContext.cache.set(cacheKey, rendered)
+  return rendered
 }
 
 /**
@@ -381,13 +395,8 @@ export const useDataContext = <D>(name: string = "noname") => {
   const ctx = ref.current.ctx
 
   useEffect(() => {
-    const cacheKey = getContext.keyFor(namespacedName)
-    let live = getContext.cache.get(cacheKey)
-    if (!live) {
-      // evicted between render and commit: restore the instance we rendered with
-      getContext.cache.set(cacheKey, ctx)
-      live = ctx
-    } else if (live !== ctx) {
+    const live = liveContext(namespacedName, ctx)
+    if (live !== ctx) {
       // someone created a fresh instance in between: adopt it
       ref.current = { name: namespacedName, ctx: live }
       forceRender(c => c + 1)
@@ -431,7 +440,7 @@ const schedulerOfDelay = (delay: number | Scheduler | undefined) =>
  * when it becomes ready (it publishes just before): a schedule limits how often, not how soon data
  * arrives. Returns the listener and a cleanup that forgets a pending delivery.
  */
-const deliverOn = (ctx: Context<any>, plan: Scheduler, deliver: () => void) => {
+export const deliverOn = (ctx: Context<any>, plan: Scheduler, deliver: () => void) => {
   if (plan === SYNC) return { listener: deliver, cancel: () => { } }
   const task = plan.task(deliver)
   const offReady = ctx.ready ? undefined : ctx.onReady(() => {
@@ -524,7 +533,7 @@ export const useDataSubscribeWithTransform = <D, K extends keyof D, E>(ctx: Cont
 }
 
 /** Run a selector; a store function it calls is a render-time dependency (see functionSources). */
-const select = <D, R>(selector: (data: Partial<D>) => R, data: Partial<D>) => {
+export const runSelector = <D, R>(selector: (data: D) => R, data: D) => {
   selectorScope.depth++
   try {
     return selector(data)
@@ -586,7 +595,7 @@ export const useDataSelector = <D, R>(
     const getSnapshot = () => {
       const revision = ctx?.revision ?? 0
       if (computedRevision === revision) return result
-      const next = select(selector, (ctx?.data ?? {}) as Partial<D>)
+      const next = runSelector(selector, (ctx?.data ?? {}) as Partial<D>)
       // keep an equal reference, the one on screen first, so React sees no change
       result = shown.current && isEqual(shown.current.value, next) ? shown.current.value
         : computedRevision !== -1 && isEqual(result, next) ? result
@@ -601,7 +610,7 @@ export const useDataSelector = <D, R>(
       if (server) return server.value
       const live = getSnapshot()
       const data = serverDataRef.current
-      const fromServer = data ? select(selector, data()) : live
+      const fromServer = data ? runSelector(selector, data()) : live
       server = { value: data && !isEqual(fromServer, live) ? fromServer : live }
       return server.value
     }
