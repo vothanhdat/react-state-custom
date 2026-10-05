@@ -34,6 +34,9 @@ export default defineConfig({
             { text: 'Store options', link: '/guide/store-options' },
             { text: 'Parameterized stores', link: '/guide/parameterized-stores' },
             { text: 'Composing stores', link: '/guide/composing-stores' },
+            { text: 'Organizing stores in layers', link: '/guide/layers' },
+            { text: 'Events from a store', link: '/guide/events' },
+            { text: 'Realtime data', link: '/guide/realtime' },
             { text: 'Progressive data', link: '/guide/progressive-data' },
             { text: 'Scopes', link: '/guide/scopes' },
             { text: 'Error handling', link: '/guide/error-handling' },
@@ -43,6 +46,7 @@ export default defineConfig({
           text: 'Reading state',
           items: [
             { text: 'Selectors', link: '/guide/selectors' },
+            { text: 'Update cadence', link: '/guide/update-cadence' },
             { text: 'Suspense', link: '/guide/suspense' },
             { text: 'Concurrent rendering', link: '/guide/concurrent' },
             { text: 'Outside React', link: '/guide/outside-react' },

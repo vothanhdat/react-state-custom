@@ -7,6 +7,7 @@ createStore('name', useFn, {
   initialState: { ... },     // values consumers read before the hook has run
   timeToClean: 5000,         // keep the instance alive 5 s after its last consumer leaves (default 0)
   AttachedComponent: Logger, // optional component rendered next to each instance, receives params
+  schedule: 'frame',         // when readers re-render for a change (default 'sync')
 })
 ```
 
@@ -61,6 +62,8 @@ createStore('search', useSearchState, { timeToClean: 30_000 })
 
 Retainers from `getStore().retain()` count as consumers.
 
+`Infinity` keeps the instance until `AutoRootCtx` unmounts: for a store the whole app shares, such as the session or a socket connection. Any value of 2³¹ − 1 ms (about 24.8 days) or more does the same. Earlier versions tore such an instance down at once, because a timer that long fires immediately.
+
 The instance keeps running during that time, effects included: a store that polls keeps polling, and a socket stays open. That is what you want when the next screen needs the live resource right away.
 
 ### Keeping the values, not the resource
@@ -86,6 +89,15 @@ export const { useStore: useRoom } = createStore('room', ({ roomId }: { roomId: 
 ```
 
 The Live Rooms example of the [demo](https://vothanhdat.github.io/react-state-custom/) runs this split. Server data fetched through a query library can stay in that library's cache instead: a store mounted again starts from the cached response while it refetches.
+
+## `schedule`
+
+When the store's readers re-render for a change: `'sync'` (default), `'frame'`, `{ throttle: ms }`, `{ debounce: ms, maxWait? }` or `{ idle: ms }`. A reader can pass its own: `useStore(params, { schedule })`. The store itself, `getStore()` and actions are never delayed. See [Update cadence](/guide/update-cadence).
+
+```ts
+// equity moves with every price tick: its readers show it four times a second
+createStore('portfolio', usePortfolioState, { schedule: { throttle: 250 } })
+```
 
 ## `AttachedComponent`
 

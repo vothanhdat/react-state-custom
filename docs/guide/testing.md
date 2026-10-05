@@ -3,7 +3,7 @@
 A store is a hook, so it is tested like one: render something that uses it, interact, assert. What is specific to the library is covered here, with the helpers of the `react-state-custom/testing` entry:
 
 ```ts
-import { mockStore, resetStores, storeHandle, waitForStore } from 'react-state-custom/testing'
+import { flushScheduled, mockStore, resetStores, storeHandle, waitForStore } from 'react-state-custom/testing'
 ```
 
 Each helper takes a store by any function `createStore` returned for it, usually the `useStore` hook its module exports. They work with Vitest and Jest and need no particular rendering library. See the [API reference](/api/testing).
@@ -148,6 +148,65 @@ expect(screen.getByText('Write docs')).toBeInTheDocument()   // the readers have
 - It does not start the store. Render a component that reads it, or `retain()` it first.
 - While it waits, React's act environment is off, as in Testing Library's `waitFor`, so the store's own updates do not log "not wrapped in act" warnings.
 
+## Fake the transport
+
+A store that owns a socket or an API is tested against a fake of that module, whose responses and messages the test sends one by one. Then a test can reproduce a race: an event that arrives while the snapshot request is in flight, a stream message that beats the response to a command.
+
+```tsx
+// vi.hoisted: vi.mock is hoisted above the imports, so what it uses must be too
+const fake = vi.hoisted(() => {
+  const handlers = new Set<(msg: unknown) => void>()
+  const deferred = <T,>() => {
+    let resolve!: (value: T) => void
+    const promise = new Promise<T>(r => { resolve = r })
+    return { promise, resolve }
+  }
+  return { handlers, deferred, emit: (msg: unknown) => handlers.forEach(h => h(msg)), api: { getAccount: vi.fn() } }
+})
+
+vi.mock('../src/api/exchange', () => ({
+  api: fake.api,
+  socket: {
+    subscribe: (_channel: string, handler: (msg: unknown) => void) => {
+      fake.handlers.add(handler)
+      return () => fake.handlers.delete(handler)
+    },
+  },
+}))
+
+it('applies the events that arrive while the snapshot is in flight, and only those it does not contain', async () => {
+  const snapshot = fake.deferred<AccountSnapshot>()
+  fake.api.getAccount.mockReturnValueOnce(snapshot.promise)
+  render(<AutoRootCtx />)
+  const release = storeHandle(useAccount).retain()     // a core store, started without a view
+  await waitForStore(useAccount, undefined, ['placeOrder'])
+
+  act(() => fake.emit({ type: 'balances', seq: 9, balances: [{ asset: 'USD', free: 1 }] }))     // older than the snapshot
+  act(() => fake.emit({ type: 'balances', seq: 11, balances: [{ asset: 'USD', free: 900 }] }))  // newer
+  await act(async () => snapshot.resolve({ seq: 10, balances: [{ asset: 'USD', free: 1000 }], orders: [] }))
+
+  const state = await waitForStore(useAccount, undefined, s => s.status === 'ready')
+  expect(state.balances?.USD?.free).toBe(900)
+  release()
+})
+```
+
+In an app [organized in layers](/guide/layers), each layer is tested against the one below it: core stores against a fake transport like this one, UI stores and hooks against mocked core stores, views against mocked UI stores.
+
+## Scheduled readers
+
+A component reading with a [`schedule`](/guide/update-cadence) renders a change later: in the next frame, after a throttle period, when idle. `flushScheduled()` makes every pending scheduled render happen now. It covers `useFrameState` updates and `scheduled` functions too:
+
+```ts
+const book = mockStore(useBook, { mid: 100 })
+render(<><AutoRootCtx /><DepthChart /></>)          // reads with { schedule: { throttle: 100 } }
+act(() => book.set({ mid: 101 }))
+act(() => { flushScheduled() })
+expect(screen.getByTestId('mid')).toHaveTextContent('101')
+```
+
+What those renders publish can schedule more: a component reading a store fed by a frame-buffered store needs a second call. With fake timers, advancing the clock runs them instead (`vi.advanceTimersToNextFrame()` for frames). A store's first data is never scheduled, so `waitForStore` and first-render assertions need nothing extra.
+
 ## Fake timers
 
 `timeToClean` and the context cache use `setTimeout`. With `vi.useFakeTimers()` (or Jest's), advance timers to observe teardown:
@@ -159,6 +218,8 @@ act(() => { vi.advanceTimersByTime(5000) })  // timeToClean elapsed; the hook's 
 ```
 
 `waitForStore` still resolves as soon as the store's state matches, but its timeout fires only when the timers are advanced.
+
+Vitest 4's fake timers also fake `requestAnimationFrame`, which [scheduled readers](#scheduled-readers) wait for: `vi.advanceTimersToNextFrame()` runs a frame. jsdom has no `requestIdleCallback`, so the idle schedule falls back to a timer of its `ms`. A throttle period starts in a microtask after the first change, so let it run (`await act(async () => {})`) before advancing the clock.
 
 ## StrictMode
 

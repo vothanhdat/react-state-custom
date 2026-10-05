@@ -1,11 +1,14 @@
 // The recipes of the guide, as written there: Store options ("Keeping the values, not the resource"),
 // Outside React ("Keep a task running after its screen closes"), Composing stores ("Flatten a
-// nested source") and Selectors ("Rendering a list", "Items with their own fetch or subscription").
-import { describe, it, expect } from 'vitest'
+// nested source"), Selectors ("Rendering a list", "Items with their own fetch or subscription"),
+// Events from a store, and Realtime data ("Snapshot and sequenced deltas").
+import { describe, it, expect, vi } from 'vitest'
 import { render, act } from '@testing-library/react'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
 import { shallowEqual } from '../src/state-utils/utils'
+import { scheduled } from '../src/state-utils/schedule'
+import { flushScheduled } from '../src/testing'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
 
@@ -226,8 +229,8 @@ describe('items with their own fetch or subscription: one collection store', () 
     const useTaskDetail = (id: string) => {
       const { subscribe } = useTaskDetails()
       useEffect(() => subscribe?.(id), [subscribe, id])
-      const detail = useTaskDetails(undefined, s => s.details?.[id])
-      const status = useTaskDetails(undefined, s => s.status?.[id])
+      const detail = useTaskDetails(s => s.details?.[id])
+      const status = useTaskDetails(s => s.status?.[id])
       return { detail, status }
     }
 
@@ -252,5 +255,166 @@ describe('items with their own fetch or subscription: one collection store', () 
     rerender(<><AutoRootCtx /></>)
     await tick(GRACE + 20)
     expect(calls.open).toBe(0)
+  })
+})
+
+describe('events from a store', () => {
+  type Fill = { id: number, size: number }
+  /** The account and toast stores of the guide, over a fake socket. */
+  const setup = (name: string, options: { throwingListener?: boolean } = {}) => {
+    const socket = { handler: undefined as ((fill: Fill) => void) | undefined, emit: (fill: Fill) => socket.handler?.(fill) }
+    const { useStore: useAccount } = createStore(`${name}-account`, () => {
+      const [fills, setFills] = useState<Fill[]>([])
+      const fillListeners = useRef(new Set<(fill: Fill) => void>())
+      useEffect(() => {
+        socket.handler = fill => {
+          setFills(list => [fill, ...list])
+          for (const listener of fillListeners.current) {
+            try { listener(fill) } catch (e) { console.error(e) }
+          }
+        }
+        return () => { socket.handler = undefined }
+      }, [])
+      const onFill = (listener: (fill: Fill) => void) => {
+        fillListeners.current.add(listener)
+        return () => { fillListeners.current.delete(listener) }
+      }
+      return { fills, onFill }
+    })
+    const toasts: string[] = []
+    const { useStore: useToasts } = createStore(`${name}-toasts`, () => ({ push: (title: string) => { toasts.push(title) } }))
+    const { useStore: useFillToasts } = createStore(`${name}-fill-toasts`, () => {
+      const { push } = useToasts()
+      const { onFill } = useAccount()
+      useEffect(() => {
+        if (!push || !onFill) return
+        return onFill(fill => {
+          if (options.throwingListener) throw new Error('listener failed')
+          push(`Bought ${fill.size}`)
+        })
+      }, [push, onFill])
+      return {}
+    })
+    // the same listener as a plain hook, which the guide warns against
+    const usePlainFillToasts = () => {
+      const { push } = useToasts()
+      const { onFill } = useAccount()
+      useEffect(() => {
+        if (!push || !onFill) return
+        return onFill(fill => push(`Bought ${fill.size}`))
+      }, [push, onFill])
+    }
+    return { socket, toasts, useAccount, useFillToasts, usePlainFillToasts }
+  }
+
+  it('one toast per fill however many components start the notifier store', async () => {
+    const { socket, toasts, useAccount, useFillToasts } = setup('recipe-events-store')
+    const Starter = () => { useFillToasts(); return null }
+    const Fills = () => <b data-testid="n">{useAccount().fills?.length}</b>
+    const { getByTestId } = render(<><AutoRootCtx /><Starter /><Starter /><Fills /></>)
+    await tick()
+    act(() => socket.emit({ id: 1, size: 2 }))
+    expect(toasts).toEqual(['Bought 2'])
+    expect(getByTestId('n').textContent).toBe('1')
+  })
+
+  it('a plain hook in two components shows each toast twice', async () => {
+    const { socket, toasts, usePlainFillToasts } = setup('recipe-events-hook')
+    const Starter = () => { usePlainFillToasts(); return null }
+    render(<><AutoRootCtx /><Starter /><Starter /></>)
+    await tick()
+    act(() => socket.emit({ id: 1, size: 2 }))
+    expect(toasts).toEqual(['Bought 2', 'Bought 2'])
+  })
+
+  it('a listener that throws does not stop the store', async () => {
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => { })
+    const { socket, useAccount, useFillToasts } = setup('recipe-events-throw', { throwingListener: true })
+    const Starter = () => { useFillToasts(); return null }
+    const Fills = () => <b data-testid="n">{useAccount().fills?.length}</b>
+    const { getByTestId } = render(<><AutoRootCtx /><Starter /><Fills /></>)
+    await tick()
+    act(() => { socket.emit({ id: 1, size: 2 }); socket.emit({ id: 2, size: 3 }) })
+    expect(getByTestId('n').textContent).toBe('2')
+    quiet.mockRestore()
+  })
+})
+
+describe('realtime data: snapshot and sequenced deltas', () => {
+  type Msg = { type: 'snapshot', seq: number, bids: [number, number][] } | { type: 'delta', seq: number, prevSeq: number, bids: [number, number][] }
+
+  it('publishes once per frame, starts over on a gap and resubscribes for a fresh snapshot', async () => {
+    const socket = {
+      subscriptions: 0,
+      handler: undefined as ((msg: Msg) => void) | undefined,
+      subscribe(handler: (msg: Msg) => void) {
+        socket.subscriptions++
+        socket.handler = handler
+        return () => { socket.handler = undefined }
+      },
+      send: (msg: Msg) => socket.handler?.(msg),
+    }
+    let storeRenders = 0
+    const { useStore: useBook } = createStore('recipe-book', () => {
+      const [bids, setBids] = useState<[number, number][]>()
+      const [status, setStatus] = useState<'loading' | 'live' | 'resyncing'>('loading')
+      const [epoch, setEpoch] = useState(0)
+      useEffect(() => { storeRenders++ })
+      useEffect(() => {
+        const levels = new Map<number, number>()
+        let seq: number | undefined
+        let broken = false
+        const publish = scheduled(() => setBids([...levels].sort((a, b) => b[0] - a[0])), 'frame')
+        const unsubscribe = socket.subscribe(msg => {
+          if (broken) return
+          if (msg.type === 'snapshot') {
+            levels.clear()
+            for (const [price, size] of msg.bids) levels.set(price, size)
+            seq = msg.seq
+            setStatus('live')
+          } else {
+            if (seq === undefined) return
+            if (msg.prevSeq !== seq) {
+              broken = true
+              setStatus('resyncing')
+              setEpoch(e => e + 1)
+              return
+            }
+            for (const [price, size] of msg.bids) size ? levels.set(price, size) : levels.delete(price)
+            seq = msg.seq
+          }
+          publish()
+        })
+        return () => {
+          unsubscribe()
+          publish.cancel()
+        }
+      }, [epoch])
+      return { bids, status }
+    })
+    const Book = () => {
+      const { bids, status } = useBook()
+      return <b data-testid="book">{`${status} ${bids?.map(([p, s]) => `${p}:${s}`).join(',') ?? ''}`}</b>
+    }
+    const { getByTestId } = render(<><AutoRootCtx /><Book /></>)
+    await tick()
+    const subscribed = socket.subscriptions
+
+    act(() => socket.send({ type: 'snapshot', seq: 1, bids: [[100, 1]] }))
+    storeRenders = 0
+    act(() => {
+      socket.send({ type: 'delta', seq: 2, prevSeq: 1, bids: [[101, 2]] })
+      socket.send({ type: 'delta', seq: 3, prevSeq: 2, bids: [[100, 0]] })
+    })
+    act(() => { flushScheduled() })
+    expect(getByTestId('book').textContent).toBe('live 101:2')
+    expect(storeRenders).toBe(1)                     // two messages, one publish
+
+    act(() => socket.send({ type: 'delta', seq: 5, prevSeq: 4, bids: [[99, 1]] }))   // seq 4 is missing
+    expect(getByTestId('book').textContent).toBe('resyncing 101:2')                 // the last book stays
+    expect(socket.subscriptions).toBe(subscribed + 1)
+    act(() => socket.send({ type: 'snapshot', seq: 9, bids: [[98, 5]] }))
+    act(() => { flushScheduled() })
+    expect(getByTestId('book').textContent).toBe('live 98:5')
   })
 })

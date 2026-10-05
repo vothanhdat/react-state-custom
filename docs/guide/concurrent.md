@@ -40,6 +40,8 @@ const Results = memo(({ query }: { query: string }) => <List items={filter(allIt
 
 On each keystroke the input shows the new text right away, and `Results` renders with it in the background. The expensive part must be memoized (`memo`, or the React Compiler); otherwise it renders in the urgent pass anyway.
 
+For a store that changes on its own, such as a price feed, a [`schedule`](/guide/update-cadence) is the other tool: the reader renders less often instead of in the background.
+
 ## Load in parallel
 
 A store that keeps its loading state in its values never holds back a commit: every consumer commits right away and every store starts at once. Only Suspense can make a store wait. `useStore` starts its store from an effect, once the component has committed, and a component in a boundary that is showing its fallback has rendered but not committed, so its store waits for the boundary:

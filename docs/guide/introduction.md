@@ -22,7 +22,7 @@ Every component that calls `useCartStore({ userId: '42' })` shares one running i
 - **Shared, not duplicated.** A store is called like a hook, anywhere. The hook runs once per params, however many components and stores call it.
 - **Composition.** A store hook can call other stores, so dependencies update automatically.
 - **Progressive data.** Each source fetches on its own and a combining store shows every piece as soon as it arrives. See [Progressive data](/guide/progressive-data).
-- **Selective re-renders.** `useStore` returns a proxy that records which keys a component reads during render and subscribes to exactly those. Selectors handle deep or derived reads.
+- **Selective re-renders.** `useStore` returns a proxy that records which keys a component reads during render and subscribes to exactly those. Selectors handle deep or derived reads, and a [schedule](/guide/update-cadence) lets a reader follow fast data once per frame, throttled, debounced or when idle.
 - **Automatic lifecycle.** No providers per store. `AutoRootCtx` mounts a store when it is first needed and tears it down when it is no longer used, after an optional grace period.
 - **Parameterized instances.** `useStore({ listId: 'work' })` and `useStore({ listId: 'home' })` are two independent instances of one definition.
 - **Escape hatches.** `getStore()` for sockets, routers and tests; `useStoreSuspense()` for Suspense; `StateScopeProvider` for isolated subtrees.

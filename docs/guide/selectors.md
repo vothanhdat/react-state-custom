@@ -4,14 +4,15 @@ Pass a selector as the second argument of `useStore` to re-render only when a de
 
 ```ts
 const name = useUserStore({ userId }, s => s.user?.name)
-const total = useCartStore(undefined, s => s.items.reduce((sum, i) => sum + i.price, 0))
+const total = useCartStore(s => s.items.reduce((sum, i) => sum + i.price, 0))   // a store without params
 const tags = usePostStore({ id }, s => s.post?.tags ?? [], shallowEqual)
 ```
 
 - The selector receives the **plain state object** (`initialState` merged with the live data), not the tracking proxy, so it can read as deep as it likes and compute anything.
 - The result is compared with `Object.is` after every publish. Pass an `isEqual` as the third argument when the selector returns a fresh array or object each time: [`shallowEqual`](/api/primitives#shallowequal), exported by the library, compares arrays and plain objects one level deep.
+- The third argument can also be an object: `{ isEqual, schedule }`, where [`schedule`](/guide/update-cadence) says how often the component follows the store.
 - A new selector function on every render is fine; it is not used as a dependency.
-- For stores without params pass `undefined` as the first argument.
+- For a store without params the selector comes first: `useCartStore(s => s.total)`, the same as `useCartStore(undefined, s => s.total)`.
 
 ## Proxy or selector?
 
@@ -153,8 +154,8 @@ export const { useStore: useTaskDetails } = createStore('task-details', () => {
 export const useTaskDetail = (id: string) => {
   const { subscribe } = useTaskDetails()
   useEffect(() => subscribe?.(id), [subscribe, id])   // runs again once `subscribe` exists
-  const detail = useTaskDetails(undefined, s => s.details?.[id])
-  const status = useTaskDetails(undefined, s => s.status?.[id])
+  const detail = useTaskDetails(s => s.details?.[id])
+  const status = useTaskDetails(s => s.status?.[id])
   return { detail, status }
 }
 ```

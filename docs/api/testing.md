@@ -3,7 +3,7 @@
 Imported from a separate entry, for test code only:
 
 ```ts
-import { mockStore, resetStores, storeHandle, waitForStore } from 'react-state-custom/testing'
+import { flushScheduled, mockStore, resetStores, storeHandle, waitForStore } from 'react-state-custom/testing'
 import type { StoreMock, StoreFunction, WaitForStoreOptions } from 'react-state-custom/testing'
 ```
 
@@ -36,7 +36,15 @@ The store's own hook and its `AttachedComponent` do not run. `initialState` and 
 function resetStores(): void
 ```
 
-Removes every mock and drops every cached context with the state it holds, so the next test starts from nothing. Call it after each test, once the rendered trees are unmounted (after Testing Library's `cleanup`).
+Removes every mock and drops every cached context with the state it holds, so the next test starts from nothing. It also forgets pending scheduled renders. Call it after each test, once the rendered trees are unmounted (after Testing Library's `cleanup`).
+
+## `flushScheduled`
+
+```ts
+function flushScheduled(): boolean
+```
+
+Makes every pending scheduled render happen now: those of components reading with a `schedule` (`'frame'`, throttle, debounce, idle), `useFrameState` updates and [`scheduled`](/api/primitives#scheduled) functions. Wrap it in `act`. Returns whether anything was pending. What those renders publish can schedule more: a component reading a store that is fed by a frame-buffered one needs a second call. With fake timers, advancing them does the same (`vi.advanceTimersToNextFrame()` for frames).
 
 ## `storeHandle`
 

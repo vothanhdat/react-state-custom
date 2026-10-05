@@ -8,11 +8,16 @@ function createStore<Params, State, Seeded extends keyof State = never>(
   useFn: (params: Params, preState: Partial<State>) => State,
   options?: number | StoreOptions<Params, State, Initial>
 ): {
-  useStore(params?: Params): StoreState<State, Initial>
+  useStore(params?: Params, options?: StoreReadOptions): StoreState<State, Initial>
   useStore<R>(
     params: Params | undefined,
     selector: (state: StoreState<State, Initial>) => R,
-    isEqual?: (a: R, b: R) => boolean
+    isEqualOrOptions?: ((a: R, b: R) => boolean) | StoreSelectOptions<R>
+  ): R
+  // only when Params has no required keys
+  useStore<R>(
+    selector: (state: StoreState<State, Initial>) => R,
+    isEqualOrOptions?: ((a: R, b: R) => boolean) | StoreSelectOptions<R>
   ): R
   useStoreSuspense(params?: Params, isReady?: (state: StoreState<State, Initial>) => boolean): State
   useStoreSuspense<const K extends readonly (keyof State)[]>(
@@ -45,21 +50,28 @@ An object, or a bare number treated as `timeToClean`.
 
 | option | type | default | description |
 |---|---|---|---|
-| `timeToClean` | `number` | `0` | Milliseconds to keep the instance alive after its last consumer or retainer leaves. |
+| `timeToClean` | `number` | `0` | Milliseconds to keep the instance alive after its last consumer or retainer leaves. `Infinity` keeps it until `AutoRootCtx` unmounts. |
 | `initialState` | `Initial \| (params) => Initial` | | Values consumers read before the hook has published. Keys listed here are typed as always present; values are checked against the hook's types. |
 | `AttachedComponent` | `ComponentType<Params>` | | Rendered next to each instance, inside its error boundary, with the store params as props. |
+| `schedule` | [`Schedule`](/api/types#schedule) | `'sync'` | When readers re-render for a change, unless they pass their own `schedule`. Applies to `useStore` and `useStoreSuspense`. See [Update cadence](/guide/update-cadence). |
 
 See [Store options](/guide/store-options) for guidance.
 
 ## Returns
 
-### `useStore(params?)`
+### `useStore(params?, options?)`
 
 The consumer hook. Returns a proxy that records which keys the component reads during render and subscribes to exactly those. The proxy is a new object on every render. Reads outside render return the current value, are not tracked, and log a development warning. The proxy is read-only: writing to it throws in development. See [Reads outside render](/guide/reads-outside-render).
 
-### `useStore(params, selector, isEqual?)`
+`options.schedule` says when the component re-renders for a change: `'sync'` (the default, or the store's `schedule` option), `'frame'`, `{ throttle: ms }`, `{ debounce: ms, maxWait? }` or `{ idle: ms }`. See [Update cadence](/guide/update-cadence). A store without params takes `undefined` as `params` here: `useStore(undefined, { schedule: 'frame' })`. Passed alone, the options object would be read as params (a development warning says so).
 
-Returns `selector(state)` and re-renders only when that value changes (`Object.is` unless `isEqual` is given). The selector receives the plain state object. A new selector function each render is fine, but a call site must pass one on every render or on none: the two forms run different hooks (a development error says so). Pass `undefined` as `params` for stores without params. See [Selectors](/guide/selectors).
+### `useStore(params, selector, isEqual | options?)`
+
+Returns `selector(state)` and re-renders only when that value changes (`Object.is` unless `isEqual` is given). The third argument is `isEqual`, or `{ isEqual?, schedule? }`. The selector receives the plain state object. A new selector function each render is fine, but a call site must pass one on every render or on none: the two forms run different hooks (a development error says so). See [Selectors](/guide/selectors).
+
+### `useStore(selector, isEqual | options?)`
+
+The selector form for a store without required params: the selector comes first. Same as `useStore(undefined, selector, ...)`.
 
 ### `useStoreSuspense(params?, isReady?)`
 

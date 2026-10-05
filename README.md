@@ -127,8 +127,8 @@ function UserName({ userId }: { userId: string }) {
 The full guide lives on the **[documentation site](https://vothanhdat.github.io/react-state-custom/docs/)**:
 
 - **Start**: [getting started](https://vothanhdat.github.io/react-state-custom/docs/guide/getting-started), [how it works](https://vothanhdat.github.io/react-state-custom/docs/guide/how-it-works)
-- **Stores**: [store options](https://vothanhdat.github.io/react-state-custom/docs/guide/store-options) (`initialState`, `timeToClean`, `AttachedComponent`), [parameterized stores](https://vothanhdat.github.io/react-state-custom/docs/guide/parameterized-stores), [composing stores](https://vothanhdat.github.io/react-state-custom/docs/guide/composing-stores), [progressive data](https://vothanhdat.github.io/react-state-custom/docs/guide/progressive-data), [scopes](https://vothanhdat.github.io/react-state-custom/docs/guide/scopes) with `StateScopeProvider`, [error handling](https://vothanhdat.github.io/react-state-custom/docs/guide/error-handling)
-- **Reading state**: [selectors](https://vothanhdat.github.io/react-state-custom/docs/guide/selectors), [nested objects](https://vothanhdat.github.io/react-state-custom/docs/guide/composing-stores#flatten-a-nested-source), [Suspense](https://vothanhdat.github.io/react-state-custom/docs/guide/suspense), [concurrent rendering](https://vothanhdat.github.io/react-state-custom/docs/guide/concurrent), [outside React](https://vothanhdat.github.io/react-state-custom/docs/guide/outside-react) with `getStore()`, [reads outside render](https://vothanhdat.github.io/react-state-custom/docs/guide/reads-outside-render)
+- **Stores**: [store options](https://vothanhdat.github.io/react-state-custom/docs/guide/store-options) (`initialState`, `timeToClean`, `AttachedComponent`, `schedule`), [organizing stores in layers](https://vothanhdat.github.io/react-state-custom/docs/guide/layers), [events from a store](https://vothanhdat.github.io/react-state-custom/docs/guide/events), [realtime data](https://vothanhdat.github.io/react-state-custom/docs/guide/realtime), [parameterized stores](https://vothanhdat.github.io/react-state-custom/docs/guide/parameterized-stores), [composing stores](https://vothanhdat.github.io/react-state-custom/docs/guide/composing-stores), [progressive data](https://vothanhdat.github.io/react-state-custom/docs/guide/progressive-data), [scopes](https://vothanhdat.github.io/react-state-custom/docs/guide/scopes) with `StateScopeProvider`, [error handling](https://vothanhdat.github.io/react-state-custom/docs/guide/error-handling)
+- **Reading state**: [selectors](https://vothanhdat.github.io/react-state-custom/docs/guide/selectors), [update cadence](https://vothanhdat.github.io/react-state-custom/docs/guide/update-cadence) (render a reader per frame, throttled, debounced or when idle), [nested objects](https://vothanhdat.github.io/react-state-custom/docs/guide/composing-stores#flatten-a-nested-source), [Suspense](https://vothanhdat.github.io/react-state-custom/docs/guide/suspense), [concurrent rendering](https://vothanhdat.github.io/react-state-custom/docs/guide/concurrent), [outside React](https://vothanhdat.github.io/react-state-custom/docs/guide/outside-react) with `getStore()`, [reads outside render](https://vothanhdat.github.io/react-state-custom/docs/guide/reads-outside-render)
 - **Integration**: [developer tools](https://vothanhdat.github.io/react-state-custom/docs/guide/devtools), [server-side rendering](https://vothanhdat.github.io/react-state-custom/docs/guide/ssr), [React Compiler](https://vothanhdat.github.io/react-state-custom/docs/guide/react-compiler), [testing](https://vothanhdat.github.io/react-state-custom/docs/guide/testing), [limitations and FAQ](https://vothanhdat.github.io/react-state-custom/docs/guide/limitations)
 - **[API reference](https://vothanhdat.github.io/react-state-custom/docs/api/create-store)**: every export, including the low-level primitives
 
@@ -141,7 +141,7 @@ The closest relative is **Jotai**: both build a graph of small pieces of state t
 The same slice of an exchange UI, an order book per symbol fed by a socket, and a spread derived from it:
 
 ```ts
-// Jotai
+// Jotai 3 (atomFamily comes from the jotai-family package; it left jotai/utils in Jotai 3)
 const bookAtom = atomFamily((symbol: string) => {
   const a = atom<Book | null>(null)
   a.onMount = set => socket.subscribe(symbol, set)        // returns the unsubscribe
@@ -173,7 +173,7 @@ Both subscribe to the socket when the first component reads that symbol and unsu
 |:---|:---|:---|
 | **Unit** | a hook: `useState`, `useEffect`, `useQuery`, other stores | an atom: a value or a derived `get` |
 | **Depend on another piece** | call its hook | `get(otherAtom)` |
-| **One instance per symbol, id, …** | params on the hook; same params, same instance | `atomFamily` |
+| **One instance per symbol, id, …** | params on the hook; same params, same instance | `atomFamily` (`jotai-family`) |
 | **Side effects with a lifecycle** | `useEffect` inside the store | `onMount` on the atom |
 | **Fine-grained reads** | top-level keys through the proxy, selectors for deep values | one atom per value; split atoms for granularity |
 | **Cost per update** | when consumers re-render, 1.6–2.6x Jotai's in jsdom and 1.1–1.6x in Chrome; one more commit per derived layer | lower whenever consumers re-render, in our jsdom and Chrome [benchmarks](https://vothanhdat.github.io/react-state-custom/docs/benchmarks) |
@@ -181,6 +181,8 @@ Both subscribe to the socket when the first component reads that symbol and unsu
 | **To learn** | nothing beyond React hooks | the atom model |
 
 Jotai's update path costs less: it updates atoms outside React and renders the consumers in one commit. If your state is a graph of things that fetch, subscribe and derive, such as `config → market data → order book → positions → summary`, write each node as a hook, keep the graph acyclic, and import the hook where it is needed.
+
+**RTK Query** is the closest for server data: one cache entry per endpoint argument, reference-counted while components use it, kept for `keepUnusedDataFor` after the last one leaves (`timeToClean` here), and fed by a socket through `onCacheEntryAdded`. It adds Redux, cache invalidation and its devtools; the entry holds what the endpoint returns, and derived values go through selectors. Here a store is any hook, so server data, values derived from it and UI state such as a draft order are written the same way.
 
 **Zustand** is the least code for a flat global bag of values, with no per-key instances or lifecycle: you write the ref-counting around sockets yourself. **Redux** is a different model (actions and reducers) aimed at a different scale of ceremony. A plain **React context** re-renders every consumer on every change.
 
@@ -213,6 +215,7 @@ What it costs: each update commits twice, first the store, then the consumers th
 - **[Documentation site](https://vothanhdat.github.io/react-state-custom/docs/)** - Guide, API reference, benchmarks and changelog, with search.
 - **[AI Context](./AI_CONTEXT.md)** - A short guide for AI assistants generating code with this library.
 - **[Live Demo](https://vothanhdat.github.io/react-state-custom/)** - Interactive examples you can edit.
+- **[Trading terminal](./demos/trading)** - A realtime exchange UI (order book, charts, order ticket, account) over a simulated feed of up to ~1,100 messages a second, with stores in layers and tests per layer: `yarn demo:trading`.
 - **[Changelog](./CHANGELOG.md)**
 
 ## 📄 License

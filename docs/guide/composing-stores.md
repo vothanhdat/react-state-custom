@@ -95,7 +95,7 @@ const useCartTotal = () => {
 This re-renders the calling component whenever `items` changes. To re-render only when the derived value changes, use a [selector](/guide/selectors):
 
 ```ts
-const total = useCartStore(undefined, s => s.items.reduce((sum, i) => sum + i.price, 0))
+const total = useCartStore(s => s.items.reduce((sum, i) => sum + i.price, 0))
 ```
 
 ## Cycles
