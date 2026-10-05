@@ -57,6 +57,21 @@ describe('AutoRootCtx reference counting', () => {
     expect(screen.getByTestId('id').textContent).not.toBe(first)
   })
 
+  it('timeToClean: Infinity keeps the instance for good (a timer that long used to fire at once)', async () => {
+    const { useStore } = instanceStore('refcount-forever', Infinity)
+    const Reader = () => <b data-testid="id">{useStore().id}</b>
+    const App = ({ show }: { show: boolean }) => <><AutoRootCtx />{show && <Reader />}</>
+    const { rerender } = render(<App show={true} />)
+    await tick()
+    const first = screen.getByTestId('id').textContent
+
+    rerender(<App show={false} />)
+    await tick(50)
+    rerender(<App show={true} />)
+    await tick()
+    expect(screen.getByTestId('id').textContent).toBe(first)
+  })
+
   it('without timeToClean the instance stops with its last consumer and a new one starts fresh', async () => {
     const { useStore } = instanceStore('refcount-drop')
     const Reader = () => <b data-testid="id">{useStore().id}</b>

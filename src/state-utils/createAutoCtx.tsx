@@ -113,6 +113,13 @@ type StoreRecord = {
   params: ParamsToIdRecord,
 }
 
+/**
+ * The longest delay `setTimeout` waits (2^31 - 1 ms, about 24.8 days). Browsers and Node run a longer
+ * one at once, so a `timeToClean` of `Infinity` tore the instance down right away. A `timeToClean`
+ * this long or longer keeps the instance until AutoRootCtx unmounts.
+ */
+const MAX_TIMEOUT = 2 ** 31 - 1
+
 /** AutoRootCtx's bookkeeping for one instance: consumers and retainers, and the pending timeToClean removal. */
 type StoreBook = {
   counter: number,
@@ -458,6 +465,8 @@ export const AutoRootCtx: React.FC<{
           books.delete(recordKey)
           records.update(recordKey, () => undefined)
         }
+        // A timer cannot wait longer than MAX_TIMEOUT: a longer delay (Infinity included) fires at once
+        if (timeToCleanState >= MAX_TIMEOUT) return
         if (timeToCleanState > 0) current.timer = setTimeout(remove, timeToCleanState)
         else remove()
       }
@@ -506,7 +515,10 @@ const useSelectorModeCheck = (name: string, withSelector: boolean) => {
 
 /** Options accepted by createStore / createAutoCtx (a bare number is still accepted as `timeToClean`). */
 export type StoreOptions<U extends StoreParamsShape<U>, V extends object, I = {}> = {
-  /** Milliseconds to keep the store alive after its last consumer unmounts. Default 0. */
+  /**
+   * Milliseconds to keep the store alive after its last consumer unmounts. Default 0. `Infinity`
+   * (or any value of 2^31 - 1 or more) keeps it until `AutoRootCtx` unmounts.
+   */
   timeToClean?: number
   /** Component rendered next to the store root, once per store instance (side effects, logging, ...). */
   AttachedComponent?: React.ComponentType<U>
