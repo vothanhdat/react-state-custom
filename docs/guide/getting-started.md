@@ -8,7 +8,7 @@ npm install react-state-custom
 yarn add react-state-custom
 ```
 
-React 18 or newer is required. `react` and `react-dom` are peer dependencies. The package ships ESM and CommonJS builds with TypeScript declarations.
+React 18 or newer is required. `react` and `react-dom` are peer dependencies. The package ships ESM and CommonJS builds, each with TypeScript declarations that work under any `moduleResolution` (`bundler`, `node16`/`nodenext`, `node10`).
 
 ## 1. Define your state as a hook
 

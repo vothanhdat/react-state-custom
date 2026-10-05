@@ -10,6 +10,10 @@ All notable changes to this project are documented here.
   - `storeHandle(useStore, params)` returns the `getStore(params)` handle, also for a store whose module does not export `getStore`; reaching one used to take `getContext('name?params')` and the internal instance name.
   - `waitForStore(useStore, params, keys | isReady?, { timeout }?)` resolves with the state once the store has published, the keys hold values (typed as present) or the predicate holds; it rejects with the store's error if it fails, and after the timeout (1000 ms) with the reason. While it waits React's act environment is off, as in Testing Library's `waitFor`, so the store's own updates log no act warnings.
 
+### Fixed
+- Types under TypeScript's `moduleResolution: "node16"` or `"nodenext"`. The declarations imported each other without file extensions, which that resolution rejects in ES modules, so with `skipLibCheck` (the usual setting) every type of the library was silently `any`; and a CommonJS file importing the package got error TS1479 on every import, because the `require` condition shared the ESM declarations of a `"type": "module"` package. Declarations now import with extensions, and each has a CommonJS twin (`.d.cts`) that the `require` conditions of `exports` point to. `bundler` and `node10` resolution were not affected and read the same `.d.ts` files as before. CI now type-checks an app importing the built package under each resolution, as ES module and as CommonJS, with `skipLibCheck` off.
+- Under `node10` resolution without `esModuleInterop`, the declarations' default import of React was an error; with `skipLibCheck` it was hidden and the React types in them resolved to `any`, so the dev tool's components were typed `any`. The library now imports React as a namespace.
+
 ## [1.7.0] - 2026-10-05
 ### Added
 - `shallowEqual(a, b)`, for the `isEqual` argument of `useStore(params, selector, isEqual)`: `Object.is` one level deep over arrays, plain objects, `Map`s and `Set`s, so a selector that returns a fresh array with the same items does not re-render its component. The docs used it without the library exporting one.
