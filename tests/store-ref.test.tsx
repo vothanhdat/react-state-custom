@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
 import { useEffect, useState } from 'react'
-import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
+import { createStore, AutoRootCtx } from '../src'
 import { getContext } from '../src/state-utils/ctx'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
@@ -17,16 +17,16 @@ const makeCounter = (name: string, timeToClean = 0) => {
     }, [])
     return { count, increment: () => setCount(c => c + 1) }
   }
-  const store = createStore(name, useCounter, { initialState: { count: -1 }, timeToClean })
+  const store = createStore(name, useCounter, { timeToClean })
   return { ...store, lifecycle }
 }
 
-describe('getStore(params): imperative handle', () => {
-  it('get() returns initialState before anything runs, then the live state; actions work from outside React', async () => {
-    const { useStore, getStore } = makeCounter('handle-basic')
-    const handle = getStore({ start: 5 })
+describe('storeRef(params)', () => {
+  it('get() returns {} before anything runs, then the live state; actions work from outside React', async () => {
+    const { useStore, storeRef } = makeCounter('handle-basic')
+    const handle = storeRef({ start: 5 })
 
-    expect(handle.get()).toEqual({ count: -1 })
+    expect(handle.get()).toEqual({})
     expect(handle.ready).toBe(false)
 
     const C = () => <span data-testid="v">{useStore({ start: 5 }).count}</span>
@@ -42,9 +42,9 @@ describe('getStore(params): imperative handle', () => {
   })
 
   it('subscribe() delivers every change with the changed key and stops after unsubscribe', async () => {
-    const { useStore, getStore } = makeCounter('handle-subscribe')
-    const handle = getStore()
-    const seen: Array<[number, string]> = []
+    const { useStore, storeRef } = makeCounter('handle-subscribe')
+    const handle = storeRef()
+    const seen: Array<[number | undefined, string]> = []
     const unsub = handle.subscribe((state, key) => seen.push([state.count, String(key)]))
 
     const C = () => { useStore(); return null }
@@ -62,9 +62,9 @@ describe('getStore(params): imperative handle', () => {
   })
 
   it('retain() runs the store with no React consumer and tears it down on release', async () => {
-    const { getStore, lifecycle } = makeCounter('handle-retain')
+    const { storeRef, lifecycle } = makeCounter('handle-retain')
     render(<AutoRootCtx />)
-    const handle = getStore({ start: 10 })
+    const handle = storeRef({ start: 10 })
 
     const release = handle.retain()
     await tick()
@@ -80,13 +80,13 @@ describe('getStore(params): imperative handle', () => {
     expect(lifecycle.mounts - lifecycle.unmounts).toBe(0)
     expect(getContext.fromCache(handle.name)).toBeUndefined()
     expect(handle.ready).toBe(false)
-    expect(handle.get()).toEqual({ count: -1 })
+    expect(handle.get()).toEqual({})
   })
 
   it('a retained store is shared with components that mount later, and survives their unmount', async () => {
-    const { useStore, getStore, lifecycle } = makeCounter('handle-shared')
+    const { useStore, storeRef, lifecycle } = makeCounter('handle-shared')
     render(<AutoRootCtx />)
-    const handle = getStore()
+    const handle = storeRef()
     const release = handle.retain()
     await tick()
     await act(async () => { handle.get().increment!() })

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, act } from '@testing-library/react'
 import { memo, useCallback, useState } from 'react'
-import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
+import { createStore, AutoRootCtx } from '../src'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
 
@@ -15,7 +15,7 @@ const makeItems = (name: string) => createStore(name, () => {
 
 describe('functions returned by a store', () => {
   it('a getter called during render re-renders its consumer when the store returns a new one', async () => {
-    const { useStore, getStore } = makeItems('fn-getter')
+    const { useStore, storeRef } = makeItems('fn-getter')
     let renders = 0
     const View = () => {
       renders++
@@ -26,33 +26,33 @@ describe('functions returned by a store', () => {
     await tick()
     expect(getByTestId('v').textContent).toBe('A1')
 
-    act(() => getStore().get().setItems!({ a: 'A2' }))
+    act(() => storeRef().get().setItems!({ a: 'A2' }))
     await tick()
     expect(getByTestId('v').textContent).toBe('A2')
 
     // a change the getter does not depend on leaves the consumer alone
     const before = renders
-    act(() => getStore().get().setOther!(1))
+    act(() => storeRef().get().setOther!(1))
     await tick()
     expect(renders).toBe(before)
   })
 
   it('a selector that calls a store function follows its implementation', async () => {
-    const { useStore, getStore } = makeItems('fn-selector')
+    const { useStore, storeRef } = makeItems('fn-selector')
     const View = () => {
-      const a = useStore(undefined, s => s.getItem?.('a'))
+      const a = useStore(undefined, { select: s => s.getItem?.('a') })
       return <span data-testid="v">{a ?? '-'}</span>
     }
     const { getByTestId } = render(<><AutoRootCtx /><View /></>)
     await tick()
     expect(getByTestId('v').textContent).toBe('A1')
-    act(() => getStore().get().setItems!({ a: 'A2' }))
+    act(() => storeRef().get().setItems!({ a: 'A2' }))
     await tick()
     expect(getByTestId('v').textContent).toBe('A2')
   })
 
   it('a memoized child that calls a getter passed as a prop re-renders with the new implementation', async () => {
-    const { useStore, getStore } = makeItems('fn-memo-child')
+    const { useStore, storeRef } = makeItems('fn-memo-child')
     const Child = memo(({ getItem }: { getItem?: (id: string) => string | undefined }) =>
       <span data-testid="v">{getItem?.('a') ?? '-'}</span>)
     const Parent = () => {
@@ -62,7 +62,7 @@ describe('functions returned by a store', () => {
     const { getByTestId } = render(<><AutoRootCtx /><Parent /></>)
     await tick()
     expect(getByTestId('v').textContent).toBe('A1')
-    act(() => getStore().get().setItems!({ a: 'A2' }))
+    act(() => storeRef().get().setItems!({ a: 'A2' }))
     await tick()
     expect(getByTestId('v').textContent).toBe('A2')
   })
@@ -70,7 +70,7 @@ describe('functions returned by a store', () => {
   it('a function held in state (a sort order) reaches consumers when it is replaced', async () => {
     const byName = (a: string, b: string) => a.localeCompare(b)
     const byNameDesc = (a: string, b: string) => b.localeCompare(a)
-    const { useStore, getStore } = createStore('fn-state', () => {
+    const { useStore, storeRef } = createStore('fn-state', () => {
       const [compare, setCompare] = useState(() => byName)
       return { compare, setCompare }
     })
@@ -81,7 +81,7 @@ describe('functions returned by a store', () => {
     const { getByTestId } = render(<><AutoRootCtx /><View /></>)
     await tick()
     expect(getByTestId('v').textContent).toBe('abc')
-    act(() => getStore().get().setCompare!(() => byNameDesc))
+    act(() => storeRef().get().setCompare!(() => byNameDesc))
     await tick()
     expect(getByTestId('v').textContent).toBe('cba')
   })
@@ -89,7 +89,7 @@ describe('functions returned by a store', () => {
   it('a component returned by a store remounts when the store switches to another one', async () => {
     const Light = () => { const [label] = useState('light'); return <b data-testid="v">{label}</b> }
     const Dark = () => <b data-testid="v">dark</b>
-    const { useStore, getStore } = createStore('fn-component', () => {
+    const { useStore, storeRef } = createStore('fn-component', () => {
       const [dark, setDark] = useState(false)
       return { Icon: dark ? Dark : Light, setDark }
     })
@@ -100,13 +100,13 @@ describe('functions returned by a store', () => {
     const { getByTestId } = render(<><AutoRootCtx /><View /></>)
     await tick()
     expect(getByTestId('v').textContent).toBe('light')
-    act(() => getStore().get().setDark!(true))
+    act(() => storeRef().get().setDark!(true))
     await tick()
     expect(getByTestId('v').textContent).toBe('dark')
   })
 
   it('actions keep one identity per component and do not re-render readers when their closure changes', async () => {
-    const { useStore, getStore } = createStore('fn-actions', () => {
+    const { useStore, storeRef } = createStore('fn-actions', () => {
       const [count, setCount] = useState(0)
       const [other, setOther] = useState(0)
       const increment = () => setCount(count + 1)   // a new closure on every store render
@@ -123,14 +123,14 @@ describe('functions returned by a store', () => {
     const { getByTestId } = render(<><AutoRootCtx /><Button /></>)
     await tick()
     const before = renders
-    act(() => getStore().get().setOther!(1))
-    act(() => getStore().get().setOther!(2))
+    act(() => storeRef().get().setOther!(1))
+    act(() => storeRef().get().setOther!(2))
     await tick()
     expect(renders).toBe(before)
     act(() => getByTestId('b').click())
     act(() => getByTestId('b').click())
     await tick()
-    expect(getStore().get().count).toBe(2)          // each click ran the latest closure
+    expect(storeRef().get().count).toBe(2)          // each click ran the latest closure
     expect(renders).toBe(before)                    // calls from handlers never subscribe
     expect(seen.size).toBe(2)                       // undefined before the first publish, then one function
   })

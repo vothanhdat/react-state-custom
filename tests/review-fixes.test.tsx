@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, renderHook, act } from '@testing-library/react'
 import { Component, useState, type ReactNode } from 'react'
-import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
-import { createRootCtx } from '../src/state-utils/createRootCtx'
+import { createStore, useMultipleStore, AutoRootCtx } from '../src'
 import { getContext, useDataContext, useDataSubscribe, useDataSubscribeMultiple, type Context } from '../src/state-utils/ctx'
 import { paramsToId } from '../src/state-utils/paramsToId'
 import { useQuickSubscribe } from '../src/state-utils/useQuickSubscribe'
@@ -53,12 +52,15 @@ describe('stable action identity', () => {
     expect(new Set(seen).size).toBe(1)
   })
 
-  it('does not wrap classes', () => {
+  it('does not wrap classes', async () => {
     class Model {}
-    const { useRootState } = createRootCtx('class-value', (_: {}) => ({ Model }))
-    renderHook(() => useRootState({}))
+    const { storeRef } = createStore('class-value', (_: {}) => ({ Model }))
+    render(<AutoRootCtx />)
+    const release = storeRef().retain()
+    await tick()
     // published as-is, not behind a forwarding wrapper
-    expect(getContext('class-value').data.Model).toBe(Model)
+    expect(storeRef().get().Model).toBe(Model)
+    release()
   })
 })
 
@@ -77,6 +79,27 @@ describe('Object.is change detection', () => {
 })
 
 describe('synchronous propagation', () => {
+  it('delivers a store update to every kind of reader in the same act, without timers', async () => {
+    let set = (_: number) => { }
+    const { useStore, storeRef } = createStore('sync-store', () => {
+      const [a, setA] = useState(0)
+      set = setA
+      return { a }
+    })
+    const Reader = () => {
+      const { a } = useStore()
+      const doubled = useStore(undefined, { select: s => (s.a ?? 0) * 2 })
+      const [many] = useMultipleStore([storeRef()])
+      const total = useMultipleStore([storeRef()], { select: ([s]) => s!.a ?? 0 })
+      return <b>{`${a} ${doubled} ${many.a} ${total}`}</b>
+    }
+    const { container } = render(<><AutoRootCtx /><Reader /></>)
+    await tick()
+    act(() => set(1))
+    expect(container.textContent).toBe('1 2 1 1')
+  })
+
+  // 1.x only: removed in 2.0
   it('delivers updates to useDataSubscribe and useDataSubscribeMultiple in the same act, without timers', () => {
     const ctx = getContext('sync') as Context<{ a: number, b: number }>
     const { result } = renderHook(() => ({
@@ -90,6 +113,7 @@ describe('synchronous propagation', () => {
     expect(result.current.quick).toBe(1)
   })
 
+  // 1.x only: removed in 2.0
   it('useDataSubscribeMultiple returns a stable object until a value changes', () => {
     const ctx = getContext('stable-multi') as Context<{ a: number, b: number }>
     ctx.publish('a', 1); ctx.publish('b', 2)

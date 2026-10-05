@@ -72,7 +72,7 @@ describe('react-state-custom under the React Compiler', () => {
   })
 
   it('passing the whole store object to a helper still tracks the keys the helper reads', async () => {
-    const { useStore, getStore } = createStore('compiler-whole-object', useCounterState)
+    const { useStore, storeRef } = createStore('compiler-whole-object', useCounterState)
     // The compiler memoises `describe(s)` on the identity of `s`. If the proxy were stable across
     // renders the cached text would go stale and the read of `count` would stop being tracked.
     const describe = (s: { count?: number, label?: string }) => `${s.label}:${s.count}`
@@ -84,17 +84,18 @@ describe('react-state-custom under the React Compiler', () => {
     render(<><AutoRootCtx /><Consumer /></>)
     await tick()
     expect(screen.getByTestId('v').textContent).toBe('a:0')
-    act(() => getStore().get().increment!())
+    act(() => storeRef().get().increment!())
     await tick()
     expect(screen.getByTestId('v').textContent).toBe('a:1')
-    act(() => getStore().get().rename!('z'))
+    act(() => storeRef().get().rename!('z'))
     await tick()
     expect(screen.getByTestId('v').textContent).toBe('z:1')
-    act(() => getStore().get().increment!())
+    act(() => storeRef().get().increment!())
     await tick()
     expect(screen.getByTestId('v').textContent).toBe('z:2')
   })
 
+  // 1.x only: removed in 2.0
   it('useStore with a selector', async () => {
     const { useStore, getStore } = createStore('compiler-selector', useCounterState)
     const Consumer = () => {
@@ -109,6 +110,7 @@ describe('react-state-custom under the React Compiler', () => {
     expect(screen.getByTestId('v').textContent).toBe('3')
   })
 
+  // 1.x only: removed in 2.0
   it('useStoreSuspense', async () => {
     const { useStoreSuspense, getStore } = createStore('compiler-suspense', useCounterState)
     const Consumer = () => {
@@ -164,8 +166,8 @@ describe('react-state-custom under the React Compiler', () => {
     expect(screen.getByTestId('v').textContent).toBe('0,5,10=15')
   })
 
-  it('parameterised stores and initialState', async () => {
-    const { useStore } = createStore('compiler-params', useCounterState, { initialState: { count: 0 } })
+  it('parameterised stores', async () => {
+    const { useStore } = createStore('compiler-params', useCounterState)
     const Consumer = ({ step }: { step: number }) => {
       const { count, increment } = useStore({ step })
       return <button data-testid={`btn-${step}`} onClick={increment}>{count}</button>

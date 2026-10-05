@@ -5,10 +5,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, act } from '@testing-library/react'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
-import { shallowEqual } from '../src/state-utils/utils'
-import { scheduled } from '../src/state-utils/schedule'
-import { frame } from '../src/state-utils/schedulers'
+import { createStore, AutoRootCtx } from '../src'
+import { scheduled, frame } from '../src/schedulers'
 import { flushScheduled } from '../src/testing'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
@@ -19,7 +17,7 @@ describe('keeping the values, not the resource', () => {
     const { useStore: useRoomHistory } = createStore('recipe-room-history', ({ roomId: _ }: { roomId: string }) => {
       const [messages, setMessages] = useState<string[]>([])
       return { messages, setMessages }
-    }, { initialState: { messages: [] }, timeToClean: 5 * 60_000 })
+    }, { timeToClean: 5 * 60_000 })
     const { useStore: useRoom } = createStore('recipe-room', ({ roomId }: { roomId: string }) => {
       const { messages, setMessages } = useRoomHistory({ roomId })
       useEffect(() => {
@@ -52,12 +50,12 @@ describe('keep a task running after its screen closes', () => {
   it('retains itself while uploading and lets go once done', async () => {
     let alive = 0
     let complete = () => { }
-    const { useStore: useUpload, getStore: getUpload } = createStore('recipe-upload', ({ id }: { id: string }) => {
+    const { useStore: useUpload, storeRef: uploadRef } = createStore('recipe-upload', ({ id }: { id: string }) => {
       const [status, setStatus] = useState<'idle' | 'uploading' | 'done'>('idle')
       useEffect(() => { alive++; return () => { alive-- } }, [])
       useEffect(() => {
         if (status !== 'uploading') return
-        return getUpload({ id }).retain()
+        return uploadRef({ id }).retain()
       }, [status, id])
       complete = () => setStatus('done')
       return { status, start: () => setStatus('uploading') }
@@ -99,11 +97,11 @@ describe('flatten a nested source', () => {
       const [player, setPlayer] = useState(emptyPlayer)
       useEffect(() => subscribePlayer(id, setPlayer), [id])
       return { player }
-    }, { initialState: { player: emptyPlayer } })
+    })
     const { useStore: usePlayerFields } = createStore('recipe-player-fields', ({ id }: { id: string }) => {
       const { player } = usePlayerStore({ id })
       return { ...player }
-    }, { initialState: emptyPlayer })
+    })
 
     let renders = 0
     const Score = ({ id }: { id: string }) => {
@@ -132,7 +130,7 @@ describe('flatten a nested source', () => {
 describe('rendering a list', () => {
   type Task = { title: string; status: string }
   const setup = (name: string) => {
-    const { useStore: useTasks, getStore: getTasks } = createStore(`${name}-tasks`, ({ projectId: _ }: { projectId: string }) => {
+    const { useStore: useTasks, storeRef: tasksRef } = createStore(`${name}-tasks`, ({ projectId: _ }: { projectId: string }) => {
       const [tasks, setTasks] = useState<Record<string, Task>>({ a: { title: 'A', status: 'todo' }, b: { title: 'B', status: 'todo' }, c: { title: 'C', status: 'todo' } })
       const setStatus = (id: string, status: string) => setTasks(t => ({ ...t, [id]: { ...t[id]!, status } }))
       const remove = (id: string) => setTasks(t => { const { [id]: _, ...rest } = t; return rest })
@@ -147,35 +145,35 @@ describe('rendering a list', () => {
     const renders: Record<string, number> = { list: 0 }
     const TaskRow = memo(({ projectId, id }: { projectId: string; id: string }) => {
       renders[id] = (renders[id] ?? 0) + 1
-      const task = useTasks({ projectId }, s => s.tasks?.[id])
+      const task = useTasks({ projectId }, { select: s => s.tasks?.[id] })
       if (!task) return null                 // deleted while the list still had its id
       return <li>{task.title} {task.status}</li>
     })
     const TaskList = ({ projectId }: { projectId: string }) => {
       renders.list++
-      const ids = useVisible({ projectId }, s => s.ids ?? [], shallowEqual)
+      const ids = useVisible({ projectId }, { select: s => s.ids ?? [] })
       return <ul>{ids.map(id => <TaskRow key={id} projectId={projectId} id={id} />)}</ul>
     }
-    return { getTasks, renders, TaskList }
+    return { tasksRef, renders, TaskList }
   }
 
   it('re-renders only the changed row, and not the list', async () => {
-    const { getTasks, renders, TaskList } = setup('recipe-rows')
+    const { tasksRef, renders, TaskList } = setup('recipe-rows')
     const { container } = render(<><AutoRootCtx /><TaskList projectId="p" /></>)
     await tick()
     expect(container.querySelectorAll('li')).toHaveLength(3)
     const before = { ...renders }
-    await act(async () => { getTasks({ projectId: 'p' }).get().setStatus!('b', 'done') })
+    await act(async () => { tasksRef({ projectId: 'p' }).get().setStatus!('b', 'done') })
     expect(container.textContent).toContain('B done')
     expect(renders.b).toBeGreaterThan(before.b!)
     expect([renders.a, renders.c, renders.list]).toEqual([before.a, before.c, before.list])
   })
 
   it('drops a deleted row without crashing', async () => {
-    const { getTasks, TaskList } = setup('recipe-rows-delete')
+    const { tasksRef, TaskList } = setup('recipe-rows-delete')
     const { container } = render(<><AutoRootCtx /><TaskList projectId="p" /></>)
     await tick()
-    await act(async () => { getTasks({ projectId: 'p' }).get().remove!('b') })
+    await act(async () => { tasksRef({ projectId: 'p' }).get().remove!('b') })
     expect([...container.querySelectorAll('li')].map(li => li.textContent)).toEqual(['A todo', 'C todo'])
   })
 })
@@ -230,8 +228,8 @@ describe('items with their own fetch or subscription: one collection store', () 
     const useTaskDetail = (id: string) => {
       const { subscribe } = useTaskDetails()
       useEffect(() => subscribe?.(id), [subscribe, id])
-      const detail = useTaskDetails(s => s.details?.[id])
-      const status = useTaskDetails(s => s.status?.[id])
+      const detail = useTaskDetails(undefined, { select: s => s.details?.[id] })
+      const status = useTaskDetails(undefined, { select: s => s.status?.[id] })
       return { detail, status }
     }
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
 import { useState } from 'react'
-import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
+import { createStore, AutoRootCtx } from '../src'
 import { Context, useDataSubscribeMultiple } from '../src/state-utils/ctx'
 import { useQuickSubscribe } from '../src/state-utils/useQuickSubscribe'
 
@@ -88,6 +88,7 @@ describe('updates and mounts with many keys stay linear', () => {
     expect(container.querySelector('b')!.textContent).toBe(String(N))
   })
 
+  // 1.x only: removed in 2.0
   it('useDataSubscribeMultiple mounts and updates in linear time', async () => {
     const { useStore, useCtxState, keys, bump } = keyedStore('bulk-multi')
     const Multi = () => {
@@ -112,23 +113,23 @@ describe('updates and mounts with many keys stay linear', () => {
     expect(container.querySelector('b')!.textContent).toBe(String(N))
   })
 
-  it('getStore().subscribe gets one snapshot per update, once per changed key', async () => {
-    const { getStore } = createStore('bulk-handle', () => {
+  it('storeRef().subscribe gets one snapshot per update, once per changed key', async () => {
+    const { storeRef } = createStore('bulk-handle', () => {
       const [n, setN] = useState(1)
       return { a: n, b: n * 2, c: n * 3, setN }
     })
     render(<AutoRootCtx />)
-    const release = getStore().retain()
+    const release = storeRef().retain()
     await act(async () => { })
     const calls: { key: string, state: object }[] = []
-    const stop = getStore().subscribe((state, key) => calls.push({ key: String(key), state }))
+    const stop = storeRef().subscribe((state, key) => calls.push({ key: String(key), state }))
 
-    await act(async () => { getStore().get().setN!(2) })
+    await act(async () => { storeRef().get().setN!(2) })
     expect(calls.map(c => c.key)).toEqual(['a', 'b', 'c'])
     expect(calls[0].state).toMatchObject({ a: 2, b: 4, c: 6 })
     expect(calls.every(c => c.state === calls[0].state)).toBe(true)
 
-    await act(async () => { getStore().get().setN!(3) })
+    await act(async () => { storeRef().get().setN!(3) })
     expect(calls).toHaveLength(6)
     expect(calls[3].state).not.toBe(calls[0].state)
     expect(calls[3].state).toMatchObject({ a: 3, b: 6, c: 9 })

@@ -3,14 +3,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, renderHook, act, screen, fireEvent } from '@testing-library/react'
 import { useEffect, useState } from 'react'
-import { AutoRootCtx, StateScopeProvider, createStore } from '../src'
+import { AutoRootCtx, createStore } from '../src'
+import { StateScopeProvider } from '../src/state-utils/createAutoCtx'
 import { mockStore, resetStores, storeHandle, waitForStore } from '../src/testing'
 
 type Task = { id: string; title: string }
 
 const fetchTasks = vi.fn((projectId: string) =>
   new Promise<Task[]>(resolve => setTimeout(() => resolve([{ id: `${projectId}-1`, title: `Real ${projectId}` }]), 5)))
-const attached = vi.fn()
 
 // Exports only useStore, as most store modules do: the helpers reach the store through it.
 const { useStore: useTasks } = createStore('testing-tasks', ({ projectId }: { projectId: string }) => {
@@ -21,8 +21,6 @@ const { useStore: useTasks } = createStore('testing-tasks', ({ projectId }: { pr
     return () => { live = false }
   }, [projectId])
   return { tasks, add: (task: Task) => setTasks(list => [...(list ?? []), task]) }
-}, {
-  AttachedComponent: () => { attached(); return null },
 })
 
 const TaskList = ({ projectId }: { projectId: string }) => {
@@ -38,12 +36,11 @@ const App = () => <><AutoRootCtx /><TaskList projectId="p1" /></>
 
 beforeEach(() => {
   fetchTasks.mockClear()
-  attached.mockClear()
 })
 afterEach(() => { vi.restoreAllMocks() })
 
 describe('mockStore', () => {
-  it('runs in place of the store hook: readers see the mock, the hook and AttachedComponent never run', () => {
+  it('runs in place of the store hook: readers see the mock, the hook never runs', () => {
     const add = vi.fn()
     mockStore(useTasks, { tasks: [{ id: 'a', title: 'Mocked' }], add })
     render(<App />)
@@ -51,7 +48,6 @@ describe('mockStore', () => {
     fireEvent.click(screen.getByText('add to p1'))
     expect(add).toHaveBeenCalledWith({ id: 'new', title: 'New' })
     expect(fetchTasks).not.toHaveBeenCalled()
-    expect(attached).not.toHaveBeenCalled()
   })
 
   it('set() merges values over the mock and re-renders the readers', () => {
@@ -90,7 +86,7 @@ describe('mockStore', () => {
     first.unmount()
     render(<App />)
     expect(await screen.findByText('Real p1')).toBeTruthy()
-    expect(attached).toHaveBeenCalled()
+    expect(fetchTasks).toHaveBeenCalled()
   })
 
   it('warns when the store is already running, which keeps its own hook', () => {
@@ -101,6 +97,7 @@ describe('mockStore', () => {
     expect(screen.getByText('loading p1')).toBeTruthy()
   })
 
+  // 1.x only: removed in 2.0, with scopes
   it('applies inside a StateScopeProvider', () => {
     mockStore(useTasks, { tasks: [{ id: 's', title: 'Scoped' }] })
     render(<StateScopeProvider><TaskList projectId="p1" /></StateScopeProvider>)

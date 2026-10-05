@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { render, act, fireEvent } from '@testing-library/react'
 import * as React from 'react'
 import { Suspense, memo, startTransition, useDeferredValue, useEffect, useState } from 'react'
-import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
+import { createStore, AutoRootCtx } from '../src'
 import { useDataSubscribeWithTransform } from '../src/state-utils/ctx'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
@@ -58,7 +58,7 @@ describe('a transition that suspends', () => {
   it('keeps the UI on screen subscribed to its selection (selector)', async () => {
     const { useStore, setA } = createAB('transition-selector')
     const Reader = ({ mode }: { mode: 'a' | 'b' }) => {
-      const v = useStore(undefined, s => mode === 'a' ? String(s.a) : s.b)
+      const v = useStore(undefined, { select: s => mode === 'a' ? String(s.a) : s.b })
       return <span data-testid="v">{v}</span>
     }
     const { getByTestId, setMode } = setup(Reader)
@@ -104,8 +104,9 @@ describe('a transition that suspends, when the discarded render selects what is 
   }
 
   it('useStore with a selector', () => run('coincide-selector', ({ mode, store }) =>
-    <span data-testid="v">{String(store.useStore(undefined, s => mode === 'a' ? s.a : s.b))}</span>))
+    <span data-testid="v">{String(store.useStore(undefined, { select: s => mode === 'a' ? s.a : s.b }))}</span>))
 
+  // 1.x only: removed in 2.0
   it('useDataSubscribeWithTransform', () => run('coincide-transform', ({ mode, store }) =>
     <span data-testid="v">{String(useDataSubscribeWithTransform(store.useCtxState(), 'a', a => mode === 'a' ? a : 0))}</span>))
 })
@@ -142,6 +143,7 @@ describe('useDeferredValue on a store value', () => {
   })
 })
 
+// 1.x only: removed in 2.0, with useStoreSuspense
 describe('loading stores in parallel', () => {
   /** A store that starts "fetching" in an effect and never finishes, recording when it started. */
   const fetching = (name: string, started: string[]) => createStore(name, () => {
@@ -182,6 +184,7 @@ describe('loading stores in parallel', () => {
 describe.skipIf(!Activity)('<Activity mode="hidden">', () => {
   const setup = (name: string, options: { timeToClean?: number, warmStart?: boolean } = {}) => {
     let increment = () => {}
+    // warmStart: 1.x only, preState is removed in 2.0
     const { useStore } = createStore(name, (_: {}, preState: { n?: number }) => {
       const [n, setN] = useState(options.warmStart ? preState.n ?? 0 : 0)
       increment = () => setN(x => x + 1)
@@ -225,6 +228,7 @@ describe.skipIf(!Activity)('<Activity mode="hidden">', () => {
     expect(getByTestId('n').textContent).toBe('3')
   })
 
+  // 1.x only: removed in 2.0
   it('lets a new instance warm-start from preState', async () => {
     const { getByTestId, hideAndShow, countTo3 } = setup('activity-warm-start', { warmStart: true })
     await countTo3()

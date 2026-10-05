@@ -1,22 +1,22 @@
 /** @vitest-environment node */
 import { describe, it, expect } from 'vitest'
 import { renderToString } from 'react-dom/server'
-import { createStore, AutoRootCtx, StateScopeProvider } from '../src/state-utils/createAutoCtx'
-import { useMultipleStore } from '../src/state-utils/useMultipleStore'
+import { createStore, useMultipleStore, AutoRootCtx } from '../src'
+import { StateScopeProvider } from '../src/state-utils/createAutoCtx'
 import { getContext } from '../src/state-utils/ctx'
 import { DevToolContainer } from '../src/dev-tool'
 
 describe('server rendering (node environment, no DOM)', () => {
-  it('renders initialState, never runs store hooks, and leaves the shared cache empty', () => {
+  it('renders every key undefined, never runs store hooks, and leaves the shared cache empty', () => {
     expect(typeof window).toBe('undefined')
     let storeRuns = 0
     const { useStore } = createStore('ssr-user', ({ userId }: { userId: string }) => {
       storeRuns++
       return { user: { id: userId, name: 'Ada' }, isLoading: false }
-    }, { initialState: { user: null as null | { id: string, name: string }, isLoading: true } })
+    })
 
     const Profile = ({ userId }: { userId: string }) => {
-      const { user, isLoading } = useStore({ userId })
+      const { user, isLoading = true } = useStore({ userId })
       return <p>{isLoading ? 'loading' : user!.name}</p>
     }
     const App = () => <><AutoRootCtx /><Profile userId="u1" /><Profile userId="u2" /></>
@@ -45,11 +45,20 @@ describe('server rendering (node environment, no DOM)', () => {
     expect(getContext.cache.size).toBe(0)
   })
 
-  it('works inside StateScopeProvider and without any AutoRootCtx', () => {
-    const { useStore } = createStore('ssr-plain', (_: {}) => ({ v: 1 }), { initialState: { v: 0 } })
-    const C = () => <i>{useStore().v}</i>
-    expect(renderToString(<StateScopeProvider><C /></StateScopeProvider>)).toContain('<i>0</i>')
+  it('works without any AutoRootCtx, and storeRef reads nothing', () => {
+    const { useStore, storeRef } = createStore('ssr-plain', (_: {}) => ({ v: 1 }))
+    const C = () => <i>{useStore().v ?? 0}</i>
     expect(renderToString(<C />)).toContain('<i>0</i>')
+    expect(storeRef().get()).toEqual({})
+    expect(storeRef().ready).toBe(false)
+    expect(getContext.cache.size).toBe(0)
+  })
+
+  // 1.x only: removed in 2.0, with scopes
+  it('works inside StateScopeProvider', () => {
+    const { useStore } = createStore('ssr-scoped', (_: {}) => ({ v: 1 }))
+    const C = () => <i>{useStore().v ?? 0}</i>
+    expect(renderToString(<StateScopeProvider><C /></StateScopeProvider>)).toContain('<i>0</i>')
     expect(getContext.cache.size).toBe(0)
   })
 
@@ -59,6 +68,7 @@ describe('server rendering (node environment, no DOM)', () => {
     expect(html).toContain('height:300px')
   })
 
+  // 1.x only: removed in 2.0
   it('reports a store as not ready and not failed on the server', () => {
     const { useStoreStatus } = createStore('ssr-status', (): { v: number } => { throw new Error('never runs on the server') })
     const Status = () => { const { ready, failed } = useStoreStatus(); return <i>{`${ready}/${failed}`}</i> }

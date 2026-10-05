@@ -3,7 +3,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, act } from '@testing-library/react'
 import { useEffect, useRef, useState } from 'react'
-import { createStore, useMultipleStore, AutoRootCtx, StateScopeProvider } from '../src'
+import { createStore, useMultipleStore, AutoRootCtx } from '../src'
+import { StateScopeProvider } from '../src/state-utils/createAutoCtx'
 import { frame } from '../src/schedulers'
 import { flushScheduled } from '../src/testing'
 
@@ -62,6 +63,7 @@ describe('storeRef(params)', () => {
     expect(running.has('a')).toBe(false)
   })
 
+  // 1.x only: removed in 2.0
   it('is what getStore returned, under its new name', () => {
     const { storeRef, getStore } = itemStore()
     expect(getStore({ id: 'a' }).name).toBe(storeRef({ id: 'a' }).name)
@@ -268,6 +270,7 @@ describe('useMultipleStore(refs)', () => {
     expect(getByTestId('labels').textContent).toBe('Alpha,Beta')
   })
 
+  // 1.x only: removed in 2.0, with scopes
   it('reads the instances of the scope it renders in', async () => {
     const { storeRef, useStore } = itemStore()
     const Rename = () => {

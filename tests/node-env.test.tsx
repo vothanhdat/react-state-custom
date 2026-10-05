@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, act } from '@testing-library/react'
 import { useState } from 'react'
-import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
+import { createStore, useMultipleStore, AutoRootCtx } from '../src'
 
 /**
  * Where no bundler replaces `process.env.NODE_ENV` (Node: test runners, server rendering of
@@ -12,14 +12,15 @@ import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
 describe('development checks in Node', () => {
   it('do not read process.env while rendering', async () => {
     let bump = () => { }
-    const { useStore, useStoreSuspense } = createStore('node-env', () => {
+    const { useStore, storeRef } = createStore('node-env', () => {
       const [n, setN] = useState(0)
       bump = () => setN(x => x + 1)
       return { n, double: n * 2 }
-    }, { initialState: { n: 0, double: 0 } })
-    const Proxy_ = ({ i }: { i: number }) => <i>{useStore().n + i}</i>
-    const Selector = () => <b>{useStore(undefined, s => s.double)}</b>
-    const Suspended = () => <u>{useStoreSuspense(undefined, ['n']).n}</u>
+    })
+    const Proxy_ = ({ i }: { i: number }) => <i>{(useStore().n ?? 0) + i}</i>
+    const Selector = () => <b>{useStore(undefined, { select: s => s.double })}</b>
+    const Multiple = () => <u>{useMultipleStore([storeRef()])[0].n}</u>
+    const Total = () => <s>{useMultipleStore([storeRef()], { select: ([s]) => s!.double })}</s>
 
     const env = process.env
     let reads = 0
@@ -34,7 +35,8 @@ describe('development checks in Node', () => {
         <AutoRootCtx />
         {Array.from({ length: 20 }, (_, i) => <Proxy_ key={i} i={i} />)}
         <Selector />
-        <Suspended />
+        <Multiple />
+        <Total />
       </>)
       await act(async () => { })
       await act(async () => { bump() })

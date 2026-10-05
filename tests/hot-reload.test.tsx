@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
 import { useState } from 'react'
-import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
+import { createStore, AutoRootCtx } from '../src'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
 
@@ -28,7 +28,7 @@ describe('a store hook replaced by a hot update', () => {
 
     const { getByTestId, rerender } = render(<><AutoRootCtx /><View1 /></>)
     await tick()
-    act(() => v1.getStore().get().setCount!(5))
+    act(() => v1.storeRef().get().setCount!(5))
     await tick()
     expect(getByTestId('v').textContent).toBe('5 v1')
 
@@ -44,8 +44,8 @@ describe('a store hook replaced by a hot update', () => {
       return { count, setCount }
     })
     // one more hook, so the old hook state no longer fits
-    const v2 = createStore('hot-changed', (_: {}, preState: { count?: number }) => {
-      const [count, setCount] = useState(preState.count ?? 1)
+    const v2 = createStore('hot-changed', () => {
+      const [count, setCount] = useState(1)
       const [label] = useState('v2')
       return { count, setCount, label }
     })
@@ -54,17 +54,17 @@ describe('a store hook replaced by a hot update', () => {
 
     const { getByTestId, rerender } = render(<><AutoRootCtx /><View1 /></>)
     await tick()
-    act(() => v1.getStore().get().setCount!(5))
+    act(() => v1.storeRef().get().setCount!(5))
     await tick()
 
     rerender(<><AutoRootCtx /><View2 /></>)
     await tick()
-    // a fresh instance of the new hook, warm-started from what the old one published
-    expect(getByTestId('v').textContent).toBe('5 v2')
-    expect(v2.getStore().error).toBeUndefined()
+    // a fresh instance of the new hook, like a component remounted by Fast Refresh
+    expect(getByTestId('v').textContent).toBe('1 v2')
+    expect(v2.storeRef().error).toBeUndefined()
 
     // and it runs: updates still reach the consumer
-    act(() => v2.getStore().get().setCount!(6))
+    act(() => v2.storeRef().get().setCount!(6))
     await tick()
     expect(getByTestId('v').textContent).toBe('6 v2')
     expect(errors.mock.calls.flat().join('\n')).not.toMatch(/has been disabled/)
@@ -87,6 +87,6 @@ describe('a store hook replaced by a hot update', () => {
 
     rerender(<><AutoRootCtx /><View2 /></>)
     await tick()
-    expect(v2.getStore().error).toBe(broken)
+    expect(v2.storeRef().error).toBe(broken)
   })
 })

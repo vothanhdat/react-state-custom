@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, act } from '@testing-library/react'
 import * as React from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
+import { createStore, AutoRootCtx } from '../src'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
 const Activity = (React as any).Activity as React.ComponentType<{ mode: 'visible' | 'hidden', children?: React.ReactNode }> | undefined
@@ -44,24 +44,24 @@ describe('a torn-down store instance', () => {
   })
 
   it('keeps the instance when one reader unmounts as another mounts, in one commit', async () => {
-    const { useStore, getStore } = createStore('teardown-swap', () => {
+    const { useStore, storeRef } = createStore('teardown-swap', () => {
       const [n, setN] = useState(0)
       return { n, setN }
     })
     const View = () => <span>{useStore().n}</span>
     const r = render(<><AutoRootCtx /><View key="a" /></>)
     await tick()
-    act(() => getStore().get().setN!(5))
+    act(() => storeRef().get().setN!(5))
     await tick()
     r.rerender(<><AutoRootCtx /><View key="b" /></>)
     await tick()
-    expect(getStore().get().n).toBe(5)
+    expect(storeRef().get().n).toBe(5)
   })
 
   it('does nothing when an action of a failed instance is called', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => { })
     const effects: string[] = []
-    const { useStore, getStore } = createStore('teardown-failed', () => {
+    const { useStore, storeRef } = createStore('teardown-failed', () => {
       const [boom, setBoom] = useState(false)
       useEffect(() => { if (boom) throw new Error('bug in effect') }, [boom])
       return { boom, crash: () => setBoom(true), ping: () => { effects.push('ping') } }
@@ -69,12 +69,12 @@ describe('a torn-down store instance', () => {
     const View = () => <span>{String(useStore().boom)}</span>
     render(<><AutoRootCtx /><View /></>)
     await tick()
-    const { ping, crash } = getStore().get()
+    const { ping, crash } = storeRef().get()
     act(() => crash!())
     await tick()
     ping!()
     expect(effects).toEqual([])
-    expect(getStore().get().boom).toBe(true)       // its last values stay for its readers
+    expect(storeRef().get().boom).toBe(true)       // its last values stay for its readers
   })
 })
 

@@ -3,8 +3,7 @@ import { act } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
 import { createRoot, hydrateRoot, type Root } from 'react-dom/client'
 import { useState } from 'react'
-import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
-import { useMultipleStore } from '../src/state-utils/useMultipleStore'
+import { createStore, useMultipleStore, AutoRootCtx } from '../src'
 import { getContext } from '../src/state-utils/ctx'
 import { DevToolContainer } from '../src/dev-tool'
 
@@ -16,10 +15,10 @@ describe('hydration', () => {
     const { useStore } = createStore('hyd-user', ({ userId }: { userId: string }) => {
       const [user] = useState({ id: userId, name: 'Ada' })
       return { user, isLoading: false }
-    }, { initialState: { user: null as null | { id: string, name: string }, isLoading: true } })
+    })
 
     const Profile = () => {
-      const { user, isLoading } = useStore({ userId: 'u1' })
+      const { user, isLoading = true } = useStore({ userId: 'u1' })
       return <p>{isLoading ? 'loading' : user!.name}</p>
     }
     const App = () => <><AutoRootCtx /><Profile /></>

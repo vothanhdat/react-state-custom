@@ -2,7 +2,9 @@ import React, { useState } from 'react'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
-import { AutoRootCtx, StateScopeProvider, createStore, getContext } from '../src'
+import { AutoRootCtx, createStore } from '../src'
+import { StateScopeProvider } from '../src/state-utils/createAutoCtx'
+import { getContext } from '../src/state-utils/ctx'
 import { DevToolContainer, DevToolState, StateView } from '../src/dev-tool'
 
 const { useStore: useCounter } = createStore('dt-counter', ({ initial = 0 }: { initial?: number }) => {
@@ -94,6 +96,7 @@ describe('DevToolContainer', () => {
     expect(panel.querySelector('[data-store="dt-counter?initial=1"]')).toBeNull()
   })
 
+  // 1.x only: removed in 2.0, with scopes
   it('shows the scope of stores mounted inside a StateScopeProvider', async () => {
     render(<>
       <StateScopeProvider><Counter initial={2} /></StateScopeProvider>

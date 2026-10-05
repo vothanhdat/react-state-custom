@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
 import React, { Component, Suspense, useEffect, useState } from 'react'
-import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
+import { createStore, AutoRootCtx } from '../src'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
 
@@ -21,6 +21,30 @@ class Catch extends Component<{ children: React.ReactNode }, { error?: unknown }
 }
 
 describe('a store hook that throws', () => {
+  it('is disabled; storeRef().error reports what it threw while the instance lives', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => { })
+    const { storeRef } = createStore('err-ref', () => {
+      useEffect(() => { throw new Error('effect') }, [])
+      return { v: 1 }
+    })
+    const { storeRef: otherRef } = createStore('err-ref-other', () => ({ ok: true }))
+    render(<AutoRootCtx />)
+    let releases: (() => void)[] = []
+    act(() => { releases = [storeRef().retain(), otherRef().retain()] })
+    await tick(50)
+    expect((storeRef().error as Error).message).toBe('effect')
+    expect(error.mock.calls.some(call => call.some(arg => (arg as Error)?.message === 'effect'))).toBe(true)
+    // the other store keeps running
+    expect(otherRef().get().ok).toBe(true)
+    expect(otherRef().error).toBeUndefined()
+    act(() => releases.forEach(release => release()))
+    await tick(50)
+    expect(storeRef().error).toBeUndefined()
+  })
+})
+
+// 1.x only: removed in 2.0
+describe('a store hook that throws, read with 1.x APIs', () => {
   it('reaches a useStoreSuspense consumer when it throws before its first result', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => { })
     const { useStoreSuspense, getStore } = createStore('err-first', (): { v: number } => { throw new Error('boom') })

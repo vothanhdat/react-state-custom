@@ -4,11 +4,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
 import { createRoot } from 'react-dom/client'
 import { Profiler, useEffect, useRef, useState, type ReactNode } from 'react'
-import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
+import { createStore, AutoRootCtx } from '../src'
 import { getContext, useDataSubscribe } from '../src/state-utils/ctx'
-import { scheduled, sync, type Scheduler } from '../src/state-utils/schedule'
-import { debounce, frame, idle, throttle } from '../src/state-utils/schedulers'
-import { useFrameState } from '../src/state-utils/useFrameState'
+import { scheduled, sync, debounce, frame, idle, throttle, useFrameState, type Scheduler } from '../src/schedulers'
 import { flushScheduled } from '../src/testing'
 
 afterEach(() => {
@@ -17,7 +15,7 @@ afterEach(() => {
 })
 
 let names = 0
-const counterStore = (options: { schedule?: Scheduler, initialState?: { n: number } } = {}) =>
+const counterStore = (options: { schedule?: Scheduler } = {}) =>
   createStore(`schedule-${++names}`, () => {
     const [n, setN] = useState(0)
     return { n, setN }
@@ -50,7 +48,7 @@ const commits = () => {
 describe('schedule: frame', () => {
   it('renders the latest value once per frame however often the store changes, every reader in one commit', async () => {
     vi.useFakeTimers()
-    const { useStore, getStore } = counterStore()
+    const { useStore, storeRef } = counterStore()
     const { seen, Track } = committed()
     const { counter, Count } = commits()
     const Reader = () => <Track value={useStore(undefined, { schedule: frame() }).n} />
@@ -59,7 +57,7 @@ describe('schedule: frame', () => {
     seen.length = 0
 
     counter.count = 0
-    for (let i = 1; i <= 5; i++) await act(async () => getStore().get().setN!(i))
+    for (let i = 1; i <= 5; i++) await act(async () => storeRef().get().setN!(i))
     expect(seen).toEqual([])
     expect(counter.count).toBe(0)
 
@@ -70,11 +68,11 @@ describe('schedule: frame', () => {
 
   it('leaves sync readers of the same store on time', async () => {
     vi.useFakeTimers()
-    const { useStore, getStore } = counterStore()
+    const { useStore, storeRef } = counterStore()
     const Sync = () => <i data-testid="sync">{useStore().n}</i>
     const Frame = () => <b data-testid="frame">{useStore(undefined, { schedule: frame() }).n}</b>
     const { getByTestId } = render(<><AutoRootCtx /><Sync /><Frame /></>)
-    await act(async () => getStore().get().setN!(1))
+    await act(async () => storeRef().get().setN!(1))
     expect(getByTestId('sync').textContent).toBe('1')
     expect(getByTestId('frame').textContent).toBe('0')
     await act(async () => { vi.advanceTimersToNextFrame() })
@@ -119,7 +117,7 @@ describe('schedule: frame', () => {
 describe('schedule: throttle', () => {
   it('renders at once, then at most once per period with the last value', async () => {
     vi.useFakeTimers()
-    const { useStore, getStore } = counterStore()
+    const { useStore, storeRef } = counterStore()
     const { seen, Track } = committed()
     const Reader = () => <Track value={useStore(undefined, { schedule: throttle(100) }).n} />
     render(<><AutoRootCtx /><Reader /></>)
@@ -128,27 +126,27 @@ describe('schedule: throttle', () => {
     await act(async () => { await Promise.resolve(); vi.advanceTimersByTime(200) })
     seen.length = 0
 
-    await act(async () => getStore().get().setN!(1))
+    await act(async () => storeRef().get().setN!(1))
     expect(seen).toEqual([1])                        // leading
-    await act(async () => getStore().get().setN!(2))
-    await act(async () => getStore().get().setN!(3))
+    await act(async () => storeRef().get().setN!(2))
+    await act(async () => storeRef().get().setN!(3))
     expect(seen).toEqual([1])
     await act(async () => { vi.advanceTimersByTime(100) })
     expect(seen).toEqual([1, 3])                     // trailing, the last value
     await act(async () => { vi.advanceTimersByTime(100) })   // a quiet period: the clock goes idle
-    await act(async () => getStore().get().setN!(4))
+    await act(async () => storeRef().get().setN!(4))
     expect(seen).toEqual([1, 3, 4])                  // leading again
   })
 
   it('readers of one update render together, also on the leading edge', async () => {
     vi.useFakeTimers()
-    const { useStore, getStore } = counterStore()
+    const { useStore, storeRef } = counterStore()
     const { counter, Count } = commits()
     const Reader = ({ id }: { id: string }) => <b data-testid={id}>{useStore(undefined, { schedule: throttle(50) }).n}</b>
     const { getByTestId } = render(<><AutoRootCtx /><Count><Reader id="a" /><Reader id="b" /></Count></>)
     await act(async () => { await Promise.resolve(); vi.advanceTimersByTime(100) })
     counter.count = 0
-    await act(async () => getStore().get().setN!(1))
+    await act(async () => storeRef().get().setN!(1))
     expect([getByTestId('a').textContent, getByTestId('b').textContent]).toEqual(['1', '1'])
     expect(counter.count).toBe(1)
   })
@@ -157,13 +155,13 @@ describe('schedule: throttle', () => {
 describe('schedule: debounce', () => {
   it('renders once changes stop for the wait', async () => {
     vi.useFakeTimers()
-    const { useStore, getStore } = counterStore()
+    const { useStore, storeRef } = counterStore()
     const { seen, Track } = committed()
     const Reader = () => <Track value={useStore(undefined, { schedule: debounce(50) }).n} />
     render(<><AutoRootCtx /><Reader /></>)
     seen.length = 0
     for (let i = 1; i <= 3; i++) {
-      await act(async () => getStore().get().setN!(i))
+      await act(async () => storeRef().get().setN!(i))
       await act(async () => { vi.advanceTimersByTime(30) })
     }
     expect(seen).toEqual([])
@@ -173,14 +171,14 @@ describe('schedule: debounce', () => {
 
   it('renders at least every maxWait (default 1000 ms) while changes never stop', async () => {
     vi.useFakeTimers()
-    const { useStore, getStore } = counterStore()
+    const { useStore, storeRef } = counterStore()
     const { seen, Track } = committed()
     const Reader = () => <Track value={useStore(undefined, { schedule: debounce(50) }).n} />
     render(<><AutoRootCtx /><Reader /></>)
     seen.length = 0
     // 60 changes a second for two seconds: a debounce without maxWait never renders
     for (let i = 1; i <= 120; i++) {
-      await act(async () => getStore().get().setN!(i))
+      await act(async () => storeRef().get().setN!(i))
       await act(async () => { vi.advanceTimersByTime(16) })
     }
     expect(seen.length).toBe(1)
@@ -190,6 +188,7 @@ describe('schedule: debounce', () => {
     expect(seen).toEqual([seen[0], 120])
   })
 
+  // 1.x only: removed in 2.0
   it('useDataSubscribe(ctx, key, ms) is a debounce that no longer starves under a stream', async () => {
     vi.useFakeTimers()
     const ctx = getContext('schedule-raw-debounce')
@@ -212,13 +211,13 @@ describe('schedule: idle', () => {
     const callbacks: (() => void)[] = []
     vi.stubGlobal('requestIdleCallback', (cb: () => void) => callbacks.push(cb))
     vi.stubGlobal('cancelIdleCallback', () => { })
-    const { useStore, getStore } = counterStore()
+    const { useStore, storeRef } = counterStore()
     const { seen, Track } = committed()
     const Reader = () => <Track value={useStore(undefined, { schedule: idle(500) }).n} />
     render(<><AutoRootCtx /><Reader /></>)
     seen.length = 0
-    await act(async () => getStore().get().setN!(1))
-    await act(async () => getStore().get().setN!(2))
+    await act(async () => storeRef().get().setN!(1))
+    await act(async () => storeRef().get().setN!(2))
     expect(seen).toEqual([])
     expect(callbacks).toHaveLength(1)
     await act(async () => callbacks[0]!())
@@ -227,12 +226,12 @@ describe('schedule: idle', () => {
 
   it('without requestIdleCallback, renders within the timeout', async () => {
     vi.useFakeTimers()
-    const { useStore, getStore } = counterStore()
+    const { useStore, storeRef } = counterStore()
     const { seen, Track } = committed()
     const Reader = () => <Track value={useStore(undefined, { schedule: idle(200) }).n} />
     render(<><AutoRootCtx /><Reader /></>)
     seen.length = 0
-    await act(async () => getStore().get().setN!(1))
+    await act(async () => storeRef().get().setN!(1))
     await act(async () => { vi.advanceTimersByTime(199) })
     expect(seen).toEqual([])
     await act(async () => { vi.advanceTimersByTime(1) })
@@ -243,9 +242,9 @@ describe('schedule: idle', () => {
 describe('schedule: rules', () => {
   it('first data is never held back', async () => {
     vi.useFakeTimers()
-    const { useStore } = createStore(`schedule-first-${++names}`, () => ({ ready: 'yes' as const }), { initialState: { ready: 'no' as 'no' | 'yes' } })
+    const { useStore } = createStore(`schedule-first-${++names}`, () => ({ ready: 'yes' as const }))
     const Reader = () => <b data-testid="r">{useStore(undefined, { schedule: throttle(60_000) }).ready}</b>
-    const Select = () => <i data-testid="s">{useStore(undefined, s => s.ready, { schedule: debounce(60_000) })}</i>
+    const Select = () => <i data-testid="s">{useStore(undefined, { select: s => s.ready, schedule: debounce(60_000) })}</i>
     const { getByTestId } = render(<><AutoRootCtx /><Reader /><Select /></>)
     expect(getByTestId('r').textContent).toBe('yes')
     expect(getByTestId('s').textContent).toBe('yes')
@@ -253,25 +252,25 @@ describe('schedule: rules', () => {
 
   it('checks again when the run comes: a change undone meanwhile renders nothing', async () => {
     vi.useFakeTimers()
-    const { useStore, getStore } = counterStore()
+    const { useStore, storeRef } = counterStore()
     const { seen, Track } = committed()
     const Proxy = () => <Track value={`p${useStore(undefined, { schedule: frame() }).n}`} />
-    const Select = () => <Track value={`s${useStore(undefined, s => s.n, { schedule: frame() })}`} />
+    const Select = () => <Track value={`s${useStore(undefined, { select: s => s.n, schedule: frame() })}`} />
     render(<><AutoRootCtx /><Proxy /><Select /></>)
     seen.length = 0
-    await act(async () => getStore().get().setN!(1))
-    await act(async () => getStore().get().setN!(0))
+    await act(async () => storeRef().get().setN!(1))
+    await act(async () => storeRef().get().setN!(0))
     await act(async () => { vi.advanceTimersToNextFrame() })
     expect(seen).toEqual([])
   })
 
   it('an unmounted reader has nothing pending', async () => {
-    const { useStore, getStore } = counterStore()
+    const { useStore, storeRef } = counterStore()
     const Reader = () => <b>{useStore(undefined, { schedule: frame() }).n}</b>
     const App = ({ show }: { show: boolean }) => <><AutoRootCtx />{show && <Reader />}<Keep /></>
     const Keep = () => { useStore(); return null }
     const r = render(<App show={true} />)
-    await act(async () => getStore().get().setN!(1))
+    await act(async () => storeRef().get().setN!(1))
     r.rerender(<App show={false} />)
     let ran: boolean | undefined
     act(() => { ran = flushScheduled() })
@@ -280,11 +279,11 @@ describe('schedule: rules', () => {
 
   it('the store option is the default; a reader passes its own', async () => {
     vi.useFakeTimers()
-    const { useStore, getStore } = counterStore({ schedule: frame() })
+    const { useStore, storeRef } = counterStore({ schedule: frame() })
     const Frame = () => <b data-testid="frame">{useStore().n}</b>
     const Sync = () => <i data-testid="sync">{useStore(undefined, { schedule: sync() }).n}</i>
     const { getByTestId } = render(<><AutoRootCtx /><Frame /><Sync /></>)
-    await act(async () => getStore().get().setN!(1))
+    await act(async () => storeRef().get().setN!(1))
     expect(getByTestId('frame').textContent).toBe('0')
     expect(getByTestId('sync').textContent).toBe('1')
     await act(async () => { vi.advanceTimersToNextFrame() })
@@ -303,21 +302,21 @@ describe('schedule: rules', () => {
 
   it('a reader can change its schedule', async () => {
     vi.useFakeTimers()
-    const { useStore, getStore } = counterStore()
+    const { useStore, storeRef } = counterStore()
     const Reader = ({ schedule }: { schedule: Scheduler }) => <b data-testid="r">{useStore(undefined, { schedule }).n}</b>
     const { getByTestId, rerender } = render(<><AutoRootCtx /><Reader schedule={frame()} /></>)
     rerender(<><AutoRootCtx /><Reader schedule={sync()} /></>)
-    await act(async () => getStore().get().setN!(1))
+    await act(async () => storeRef().get().setN!(1))
     expect(getByTestId('r').textContent).toBe('1')
   })
 
   it('a bad delay or a value that is not a scheduler logs an error and renders at once', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => { })
-    const { useStore, getStore } = counterStore()
+    const { useStore, storeRef } = counterStore()
     const Bad = () => <b data-testid="bad">{useStore(undefined, { schedule: throttle(-5) }).n}</b>
     const Old = () => <i data-testid="old">{useStore(undefined, { schedule: 'frame' as any }).n}</i>
     const { getByTestId } = render(<><AutoRootCtx /><Bad /><Old /></>)
-    await act(async () => getStore().get().setN!(1))
+    await act(async () => storeRef().get().setN!(1))
     expect(getByTestId('bad').textContent).toBe('1')
     expect(getByTestId('old').textContent).toBe('1')
     const messages = error.mock.calls.map(([m]) => String(m))
@@ -335,9 +334,10 @@ describe('schedule: rules', () => {
   })
 })
 
+// 1.x only: removed in 2.0
 describe('useStore(selector) on a store without params', () => {
   it('reads like useStore(undefined, selector), with isEqual or options', async () => {
-    const { useStore, getStore } = counterStore()
+    const { useStore, storeRef } = counterStore()
     const Reader = () => {
       const odd = useStore(s => (s.n ?? 0) % 2 === 1)
       const n = useStore(s => s.n, { isEqual: Object.is })
@@ -345,7 +345,7 @@ describe('useStore(selector) on a store without params', () => {
       return <b data-testid="r">{`${odd} ${n} ${same}`}</b>
     }
     const { getByTestId } = render(<><AutoRootCtx /><Reader /></>)
-    await act(async () => getStore().get().setN!(3))
+    await act(async () => storeRef().get().setN!(3))
     expect(getByTestId('r').textContent).toBe('true 3 3')
   })
 })

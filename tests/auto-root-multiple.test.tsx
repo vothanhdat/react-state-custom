@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, act, fireEvent } from '@testing-library/react'
 import { useState } from 'react'
-import { createStore, AutoRootCtx, StateScopeProvider } from '../src/state-utils/createAutoCtx'
+import { createStore, AutoRootCtx } from '../src'
+import { StateScopeProvider } from '../src/state-utils/createAutoCtx'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
 afterEach(() => vi.restoreAllMocks())
@@ -51,6 +52,7 @@ describe('several AutoRootCtx in one scope', () => {
     expect(error.mock.calls.filter(c => String(c[0]).includes('More than one <AutoRootCtx />'))).toHaveLength(1)
   })
 
+  // 1.x only: removed in 2.0, with scopes
   it('a root in a StateScopeProvider is not a second root', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => { })
     const { useStore } = makeCounter('multi-root-scope')

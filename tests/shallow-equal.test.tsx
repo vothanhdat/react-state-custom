@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { render, act } from '@testing-library/react'
 import { useMemo, useState } from 'react'
-import { createStore, AutoRootCtx, shallowEqual } from '../src'
+import { createStore, AutoRootCtx } from '../src'
+import { shallowEqual } from '../src/state-utils/utils'
 
 describe('shallowEqual', () => {
   it('compares arrays, plain objects, maps and sets one level deep', () => {
@@ -30,19 +31,19 @@ describe('shallowEqual', () => {
     expect(shallowEqual(null, {})).toBe(false)
   })
 
-  it('keeps a selector reader from re-rendering when a derived array keeps its contents', async () => {
-    const { useStore, getStore } = createStore('shallow-equal-ids', () => {
+  it('is the default isEqual of select: a derived array that keeps its contents does not re-render', async () => {
+    const { useStore, storeRef } = createStore('shallow-equal-ids', () => {
       const [tasks, setTasks] = useState({ a: 'todo', b: 'todo' } as Record<string, string>)
       const ids = useMemo(() => Object.keys(tasks).sort(), [tasks])   // a new array whenever tasks changes
       return { tasks, ids, setStatus: (id: string, status: string) => setTasks(t => ({ ...t, [id]: status })) }
     })
     let plain = 0, shallow = 0
-    const Plain = () => { plain++; useStore(undefined, s => s.ids); return null }
-    const Shallow = () => { shallow++; useStore(undefined, s => s.ids, shallowEqual); return null }
+    const Plain = () => { plain++; useStore(undefined, { select: s => s.ids, isEqual: Object.is }); return null }
+    const Shallow = () => { shallow++; useStore(undefined, { select: s => s.ids }); return null }
     render(<><AutoRootCtx /><Plain /><Shallow /></>)
     await act(async () => { })
     const before = { plain, shallow }
-    await act(async () => { getStore().get().setStatus!('a', 'done') })
+    await act(async () => { storeRef().get().setStatus!('a', 'done') })
     expect(plain).toBeGreaterThan(before.plain)
     expect(shallow).toBe(before.shallow)
   })

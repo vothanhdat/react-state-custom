@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, act, screen } from '@testing-library/react'
-import { Profiler, useState, type ReactNode } from 'react'
-import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
+import { Profiler, useState } from 'react'
+import { createStore, AutoRootCtx } from '../src'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
 
@@ -11,7 +11,7 @@ const instanceStore = (name: string, timeToClean = 0) => {
   return createStore(name, () => {
     const [id] = useState(() => ++next)
     return { id }
-  }, timeToClean)
+  }, { timeToClean })
 }
 
 describe('AutoRootCtx reference counting', () => {
@@ -87,16 +87,16 @@ describe('AutoRootCtx reference counting', () => {
   })
 
   it('a retain keeps the instance after every consumer is gone', async () => {
-    const { useStore, getStore } = instanceStore('refcount-retain')
+    const { useStore, storeRef } = instanceStore('refcount-retain')
     const Reader = () => <b data-testid="id">{useStore().id}</b>
     const App = ({ show }: { show: boolean }) => <><AutoRootCtx />{show && <Reader />}</>
     const { rerender } = render(<App show={true} />)
     await tick()
     const first = screen.getByTestId('id').textContent
-    const release = getStore().retain()
+    const release = storeRef().retain()
     rerender(<App show={false} />)
     await tick()
-    expect(getStore().get().id).toBe(Number(first))
+    expect(storeRef().get().id).toBe(Number(first))
     rerender(<App show={true} />)
     await tick()
     expect(screen.getByTestId('id').textContent).toBe(first)
@@ -104,12 +104,12 @@ describe('AutoRootCtx reference counting', () => {
   })
 
   it('calling a release twice counts once', async () => {
-    const { useStore, getStore } = instanceStore('refcount-double-release')
+    const { useStore, storeRef } = instanceStore('refcount-double-release')
     const Reader = () => <b data-testid="id">{useStore().id}</b>
     render(<><AutoRootCtx /><Reader /></>)
     await tick()
     const first = screen.getByTestId('id').textContent
-    const release = getStore().retain()
+    const release = storeRef().retain()
     await tick()
     act(() => { release(); release() })
     await tick()
@@ -117,25 +117,23 @@ describe('AutoRootCtx reference counting', () => {
     expect(screen.getByTestId('id').textContent).toBe(first)
   })
 
-  it('starting an instance re-renders only a share of the running instances', async () => {
+  it('starting an instance re-renders only its bucket, not the running instances', async () => {
     const { useStore } = createStore('refcount-buckets', ({ id }: { id: number }) => ({ id }))
-    let wrapperRenders = 0
-    const CountingWrapper = ({ children }: { children?: ReactNode }) => { wrapperRenders++; return <>{children}</> }
     const Row = ({ id }: { id: number }) => <i>{useStore({ id }).id}</i>
     let setExtra!: (show: boolean) => void
     const Extra = () => { const [show, set] = useState(false); setExtra = set; return show ? <Row id={-1} /> : null }
-    render(<>
-      <AutoRootCtx Wrapper={CountingWrapper} />
+    const { container } = render(<>
+      <AutoRootCtx />
       {Array.from({ length: 640 }, (_, i) => <Row key={i} id={i} />)}
       <Extra />
     </>)
     await tick()
-    wrapperRenders = 0
+    expect(count(componentNames(container), 'Bucket')).toBe(64)
     act(() => setExtra(true))
-    await tick()
-    // one bucket of ~10 instances re-renders (twice under StrictMode), not all 640
-    expect(wrapperRenders).toBeGreaterThan(0)
-    expect(wrapperRenders).toBeLessThan(100)
+    // one of the 64 buckets, and in it only the new instance: the others are memoized
+    const buckets = renderedFibers(rootFiber(container), 'Bucket')
+    expect(buckets).toHaveLength(1)
+    expect(renderedFibers(buckets[0].child, 'StoreInstance')).toHaveLength(1)
   })
 })
 
@@ -159,6 +157,30 @@ const componentNames = (container: HTMLElement) => {
 }
 
 const count = (names: string[], name: string) => names.filter(n => n === name).length
+
+/**
+ * The fibers of the components named `name` under `fiber` that rendered in the last render that
+ * reached them: React marks those with PerformedWork (1), the flag React DevTools reads to highlight
+ * updates. A fiber that bailed out (a memo with equal props) has it cleared. A subtree that the last
+ * render did not reach keeps the flags of an earlier one, so only look under a fiber that rendered.
+ */
+const renderedFibers = (fiber: any, name: string) => {
+  const found: any[] = []
+  const walk = (first: any) => {
+    for (let f = first; f; f = f.sibling) {
+      const type = typeof f.type === 'object' && f.type ? f.type.type ?? f.type : f.type
+      if (typeof type === 'function' && type.displayName === name && (f.flags & 1)) found.push(f)
+      walk(f.child)
+    }
+  }
+  walk(fiber)
+  return found
+}
+
+const rootFiber = (container: HTMLElement) => {
+  const key = Object.keys(container).find(k => k.startsWith('__reactContainer$'))!
+  return (container as any)[key].stateNode.current.child
+}
 
 describe('AutoRootCtx component tree', () => {
   it('renders only the buckets that hold a running instance', async () => {

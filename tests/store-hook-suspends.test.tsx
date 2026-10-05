@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import * as React from 'react'
 import { Suspense, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
+import { createStore, AutoRootCtx } from '../src'
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 const waitFor = async (check: () => boolean, timeout = 2000) => {
@@ -44,24 +44,22 @@ const mount = (element: React.ReactNode) => {
 }
 
 describe('a store hook that suspends', () => {
-  it('suspends only itself: the app stays visible and consumers wait in their own boundaries', async () => {
+  it('suspends only itself: the app stays visible and readers render their loading state', async () => {
     const data = deferred<string>()
-    const { useStore, useStoreSuspense } = createStore('hook-suspends-mount', () => ({ value: use(data.promise) }))
+    const { useStore } = createStore('hook-suspends-mount', () => ({ value: use(data.promise) }))
     const Plain = () => { const { value } = useStore(); return <b>plain:{value ?? '…'}</b> }
-    const Waiting = () => { const { value } = useStoreSuspense(); return <b>waiting:{value}</b> }
     const { el, root } = mount(
       <Suspense fallback={<i>app-fallback</i>}>
         <AutoRootCtx />
         <span>other</span>
         <Plain />
-        <Suspense fallback={<i>local-fallback</i>}><Waiting /></Suspense>
       </Suspense>
     )
     await sleep(50)
-    expect(el.innerHTML).toBe('<span>other</span><b>plain:…</b><i>local-fallback</i>')
+    expect(el.innerHTML).toBe('<span>other</span><b>plain:…</b>')
 
     data.resolve('done')
-    await waitFor(() => el.textContent === 'otherplain:donewaiting:done')
+    await waitFor(() => el.textContent === 'otherplain:done')
     root.unmount()
   })
 
@@ -88,6 +86,7 @@ describe('a store hook that suspends', () => {
     root.unmount()
   })
 
+  // 1.x only: removed in 2.0
   it('an AttachedComponent that suspends does not hide the app either', async () => {
     const data = deferred<string>()
     const Attached = () => { use(data.promise); return null }

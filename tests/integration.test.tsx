@@ -1,14 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import React from 'react'
-import { createRootCtx } from '../src/state-utils/createRootCtx'
-import { createAutoCtx, AutoRootCtx } from '../src/state-utils/createAutoCtx'
-import { useQuickSubscribe } from '../src/state-utils/useQuickSubscribe'
-import {
-  useDataSubscribe,
-  useDataSubscribeMultiple,
-  useDataSubscribeWithTransform
-} from '../src/state-utils/ctx'
+import { createStore, AutoRootCtx } from '../src'
 import { withRealTimers } from './utils'
 
 describe('Integration scenarios', () => {
@@ -21,8 +14,8 @@ describe('Integration scenarios', () => {
     vi.useRealTimers()
   })
 
-  it('coordinates quick subscribers with action publishers', async () => {
-    const useTodoState = () => {
+  it('coordinates readers with action publishers', async () => {
+    const { useStore: useTodos } = createStore('integration-todo', () => {
       const [items, setItems] = React.useState(['initial'])
       const addItem = React.useCallback(() => {
         setItems(previous => [...previous, `item-${previous.length}`])
@@ -32,17 +25,10 @@ describe('Integration scenarios', () => {
       }, [])
       const count = items.length
       return { items, addItem, removeItem, count }
-    }
-
-    const rootCtx = createRootCtx('integration-todo', useTodoState)
-    const autoCtx = createAutoCtx(rootCtx, 10)
+    }, { timeToClean: 10 })
 
     function TodoList() {
-      const ctx = autoCtx.useCtxState({})
-      const proxy = useQuickSubscribe(ctx)
-      const count = useDataSubscribe(ctx, 'count')
-      const items = (proxy.items as string[] | undefined) ?? []
-
+      const { items = [], count } = useTodos()
       return (
         <div>
           <div data-testid="items">{items.join(',')}</div>
@@ -52,10 +38,7 @@ describe('Integration scenarios', () => {
     }
 
     function TodoControls() {
-      const ctx = autoCtx.useCtxState({})
-      const addItem = useDataSubscribe(ctx, 'addItem')
-      const removeItem = useDataSubscribe(ctx, 'removeItem')
-
+      const { addItem, removeItem } = useTodos()
       return (
         <div>
           <button data-testid="add" onClick={() => addItem?.()}>
@@ -101,8 +84,8 @@ describe('Integration scenarios', () => {
     })
   })
 
-  it('keeps multi-subscribers and transforms in sync', async () => {
-    const useProfileState = () => {
+  it('keeps proxy readers and selections in sync', async () => {
+    const { useStore: useProfile } = createStore('integration-profile', () => {
       const [firstName, setFirstName] = React.useState('Ada')
       const [lastName, setLastName] = React.useState('Lovelace')
       const fullName = `${firstName} ${lastName}`.trim()
@@ -112,35 +95,22 @@ describe('Integration scenarios', () => {
       }, [])
 
       return { firstName, lastName, fullName, updateName }
-    }
-
-    const rootCtx = createRootCtx('integration-profile', useProfileState)
-    const autoCtx = createAutoCtx(rootCtx)
+    })
 
     function ProfileView() {
-      const ctx = autoCtx.useCtxState({})
-      const names = useDataSubscribeMultiple(ctx, 'firstName', 'lastName') as {
-        firstName?: string
-        lastName?: string
-      }
-      const fullNameUpper = useDataSubscribeWithTransform(
-        ctx,
-        'fullName',
-        value => (value ? value.toUpperCase() : '')
-      )
+      const { firstName, lastName } = useProfile()
+      const fullNameUpper = useProfile(undefined, { select: s => s.fullName?.toUpperCase() ?? '' })
 
       return (
         <div>
-          <div data-testid="name">{`${names.firstName ?? ''} ${names.lastName ?? ''}`.trim()}</div>
+          <div data-testid="name">{`${firstName ?? ''} ${lastName ?? ''}`.trim()}</div>
           <div data-testid="fullNameUpper">{fullNameUpper}</div>
         </div>
       )
     }
 
     function RenameButton() {
-      const ctx = autoCtx.useCtxState({})
-      const updateName = useDataSubscribe(ctx, 'updateName')
-
+      const { updateName } = useProfile()
       return (
         <button
           data-testid="rename"
@@ -174,36 +144,26 @@ describe('Integration scenarios', () => {
     })
   })
 
-  it('allows one context to derive values from another context', async () => {
-    const useSettingsState = () => {
+  it('allows one store to derive values from another store', async () => {
+    const { useStore: useSettings } = createStore('integration-settings', () => {
       const [theme, setTheme] = React.useState<'light' | 'dark'>('light')
       const toggleTheme = React.useCallback(() => {
         setTheme(previous => (previous === 'light' ? 'dark' : 'light'))
       }, [])
 
       return { theme, toggleTheme }
-    }
+    }, { timeToClean: 10 })
 
-    const settingsRoot = createRootCtx('integration-settings', useSettingsState)
-    const settingsAuto = createAutoCtx(settingsRoot, 10)
-
-    const useSummaryState = () => {
-      const settingsCtx = settingsAuto.useCtxState({})
-      const theme = useDataSubscribe(settingsCtx, 'theme') ?? 'light'
+    const { useStore: useSummary } = createStore('integration-summary', () => {
+      const { theme = 'light' } = useSettings()
       return {
         theme,
         isDark: theme === 'dark'
       }
-    }
-
-    const summaryRoot = createRootCtx('integration-summary', useSummaryState)
-    const summaryAuto = createAutoCtx(summaryRoot, 10)
+    }, { timeToClean: 10 })
 
     function ThemeSummary() {
-      const ctx = summaryAuto.useCtxState({})
-      const theme = useDataSubscribe(ctx, 'theme')
-      const isDark = useDataSubscribe(ctx, 'isDark')
-
+      const { theme, isDark } = useSummary()
       return (
         <div>
           <div data-testid="theme">{theme}</div>
@@ -213,10 +173,7 @@ describe('Integration scenarios', () => {
     }
 
     function ThemeToggle() {
-      const ctx = settingsAuto.useCtxState({})
-      const theme = useDataSubscribe(ctx, 'theme')
-      const toggleTheme = useDataSubscribe(ctx, 'toggleTheme')
-
+      const { theme, toggleTheme } = useSettings()
       return (
         <button data-testid="toggle" onClick={() => toggleTheme?.()}>
           toggle-{theme}

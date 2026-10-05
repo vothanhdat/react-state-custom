@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import React from 'react'
-import { createAutoCtx, AutoRootCtx } from '../src/state-utils/createAutoCtx'
+import { createStore, AutoRootCtx } from '../src'
+import { createAutoCtx } from '../src/state-utils/createAutoCtx'
 import { createRootCtx } from '../src/state-utils/createRootCtx'
 import { useDataSubscribe } from '../src/state-utils/ctx'
 import { withRealTimers } from './utils'
@@ -13,17 +14,13 @@ describe('AutoRootCtx', () => {
   })
 
   it('should render subscribed roots', async () => {
-    const useCounter = () => {
+    const { useStore } = createStore('auto-render-test', () => {
       const [count] = React.useState(42)
       return { count }
-    }
-
-    const rootCtx = createRootCtx('auto-render-test', useCounter)
-    const autoCtx = createAutoCtx(rootCtx)
+    })
 
     function Consumer() {
-      const ctx = autoCtx.useCtxState({})
-      const count = useDataSubscribe(ctx, 'count')
+      const { count } = useStore()
       return <div data-testid="count">{count}</div>
     }
 
@@ -40,17 +37,13 @@ describe('AutoRootCtx', () => {
   })
 
   it('should handle multiple subscribers with same params', async () => {
-    const useCounter = () => {
+    const { useStore } = createStore('multi-subscriber-test', () => {
       const [count] = React.useState(100)
       return { count }
-    }
-
-    const rootCtx = createRootCtx('multi-subscriber-test', useCounter)
-    const autoCtx = createAutoCtx(rootCtx)
+    })
 
     function Consumer({ id }: { id: string }) {
-      const ctx = autoCtx.useCtxState({})
-      const count = useDataSubscribe(ctx, 'count')
+      const { count } = useStore()
       return <div data-testid={`count-${id}`}>{count}</div>
     }
 
@@ -71,17 +64,13 @@ describe('AutoRootCtx', () => {
   })
 
   it('should handle multiple roots with different params', async () => {
-    const useStore = ({ id }: { id: string }) => {
+    const { useStore } = createStore('multi-root-test', ({ id }: { id: string }) => {
       const [value] = React.useState(`value-${id}`)
       return { value }
-    }
-
-    const rootCtx = createRootCtx('multi-root-test', useStore)
-    const autoCtx = createAutoCtx(rootCtx)
+    })
 
     function Consumer({ id }: { id: string }) {
-      const ctx = autoCtx.useCtxState({ id })
-      const value = useDataSubscribe(ctx, 'value')
+      const { value } = useStore({ id })
       return <div data-testid={`value-${id}`}>{value}</div>
     }
 
@@ -101,16 +90,278 @@ describe('AutoRootCtx', () => {
     })
   })
 
+  it('treats params with a different key order as the same instance', async () => {
+    let started = 0
+    const { useStore } = createStore('order-ctx', ({ a, b }: { a: number; b: number }) => {
+      const [value] = React.useState(() => `${a}:${b}:${++started}`)
+      return { value }
+    })
+
+    function Unordered() {
+      const { value } = useStore({ b: 2, a: 1 })
+      return <div data-testid="value-unordered">{value}</div>
+    }
+
+    function Ordered() {
+      const { value } = useStore({ a: 1, b: 2 })
+      return <div data-testid="value-ordered">{value}</div>
+    }
+
+    render(
+      <>
+        <AutoRootCtx />
+        <Unordered />
+        <Ordered />
+      </>
+    )
+
+    await waitFor(() => expect(screen.getByTestId('value-unordered').textContent).toMatch(/^1:2:/))
+    expect(screen.getByTestId('value-ordered').textContent).toBe(screen.getByTestId('value-unordered').textContent)
+  })
+
+  it('follows the instance of the new params when they change', async () => {
+    const { useStore } = createStore('switch-ctx', ({ id }: { id: string }) => {
+      const [value] = React.useState(id)
+      return { value }
+    })
+
+    function Consumer() {
+      const [id, setId] = React.useState('a')
+      const { value } = useStore({ id })
+      return <button data-testid="value" onClick={() => setId('b')}>{value}</button>
+    }
+
+    render(
+      <>
+        <AutoRootCtx />
+        <Consumer />
+      </>
+    )
+
+    await waitFor(() => expect(screen.getByTestId('value').textContent).toBe('a'))
+    await act(async () => { fireEvent.click(screen.getByTestId('value')) })
+    await waitFor(() => expect(screen.getByTestId('value').textContent).toBe('b'))
+  })
+})
+
+describe('createStore instances', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.useRealTimers()
+  })
+
+  it('should share instances for identical params', async () => {
+    let renderCount = 0
+    let mounted = 0
+    const { useStore } = createStore('share-instance-test', () => {
+      const [count] = React.useState(() => {
+        renderCount++
+        return renderCount
+      })
+      React.useEffect(() => {
+        mounted++
+        return () => { mounted-- }
+      }, [])
+      return { count }
+    })
+
+    function Consumer({ id }: { id: string }) {
+      const { count } = useStore()
+      return <div data-testid={`count-${id}`}>{count}</div>
+    }
+
+    render(
+      <>
+        <AutoRootCtx />
+        <Consumer id="1" />
+        <Consumer id="2" />
+      </>
+    )
+
+    await withRealTimers(async () => {
+      await waitFor(() => {
+        const count1 = screen.getByTestId('count-1').textContent
+        const count2 = screen.getByTestId('count-2').textContent
+        // Both should have the same count, proving they share the same instance
+        expect(count1).toBe(count2)
+        expect(count1).not.toBe('')
+        // one instance mounted (StrictMode in React 18 runs the useState initializer of a discarded render too)
+        expect(mounted).toBe(1)
+      }, { timeout: 5000 })
+    })
+  }, 5000)
+
+  it('should create separate instances for different params', async () => {
+    const { useStore } = createStore('separate-instance-test', ({ id }: { id: number }) => {
+      const [value] = React.useState(id * 10)
+      return { value }
+    })
+
+    function Consumer({ id }: { id: number }) {
+      const { value } = useStore({ id })
+      return <div data-testid={`value-${id}`}>{value}</div>
+    }
+
+    render(
+      <>
+        <AutoRootCtx />
+        <Consumer id={1} />
+        <Consumer id={2} />
+      </>
+    )
+
+    await withRealTimers(async () => {
+      await waitFor(() => {
+        expect(screen.getByTestId('value-1').textContent).toBe('10')
+        expect(screen.getByTestId('value-2').textContent).toBe('20')
+      }, { timeout: 5000 })
+    })
+  }, 5000)
+
+  it('should handle unmounting and cleanup', async () => {
+    const { useStore } = createStore('cleanup-test', () => {
+      const [count] = React.useState(99)
+      return { count }
+    }, { timeToClean: 100 })
+
+    function Consumer({ show }: { show: boolean }) {
+      const { count } = useStore()
+      return show ? <div data-testid="count">{count}</div> : null
+    }
+
+    const { rerender } = render(
+      <>
+        <AutoRootCtx />
+        <Consumer show={true} />
+      </>
+    )
+
+    await withRealTimers(async () => {
+      await waitFor(() => {
+        expect(screen.getByTestId('count').textContent).toBe('99')
+      }, { timeout: 5000 })
+
+      rerender(
+        <>
+          <AutoRootCtx />
+          <Consumer show={false} />
+        </>
+      )
+
+      // past timeToClean: no error while the instance goes
+      await new Promise(resolve => setTimeout(resolve, 150))
+      expect(screen.queryByTestId('count')).toBeNull()
+    })
+  }, 5000)
+
+  it('should handle rapid mount/unmount cycles', async () => {
+    const { useStore } = createStore('rapid-mount-test', () => {
+      const [count] = React.useState(88)
+      return { count }
+    }, { timeToClean: 50 })
+
+    function Consumer({ show }: { show: boolean }) {
+      const { count } = useStore()
+      return show ? <div data-testid="count">{count}</div> : null
+    }
+
+    const { rerender } = render(
+      <>
+        <AutoRootCtx />
+        <Consumer show={true} />
+      </>
+    )
+
+    await withRealTimers(async () => {
+      await waitFor(() => {
+        expect(screen.getByTestId('count').textContent).toBe('88')
+      }, { timeout: 5000 })
+
+      rerender(
+        <>
+          <AutoRootCtx />
+          <Consumer show={false} />
+        </>
+      )
+
+      // less than timeToClean
+      await new Promise(resolve => setTimeout(resolve, 25))
+
+      rerender(
+        <>
+          <AutoRootCtx />
+          <Consumer show={true} />
+        </>
+      )
+
+      await waitFor(() => {
+        // the same value: the instance was kept
+        expect(screen.getByTestId('count').textContent).toBe('88')
+      }, { timeout: 5000 })
+    })
+  }, 5000)
+
+  it('should handle updates after auto-mounting', async () => {
+    const { useStore } = createStore('auto-update-test', () => {
+      const [count, setCount] = React.useState(0)
+      return { count, increment: () => setCount(c => c + 1) }
+    })
+
+    function Consumer() {
+      const { count, increment } = useStore()
+      return (
+        <div>
+          <div data-testid="count">{count}</div>
+          <button onClick={increment} data-testid="increment">
+            Increment
+          </button>
+        </div>
+      )
+    }
+
+    const { getByTestId } = render(
+      <>
+        <AutoRootCtx />
+        <Consumer />
+      </>
+    )
+
+    await withRealTimers(async () => {
+      await waitFor(() => {
+        expect(getByTestId('count').textContent).toBe('0')
+      }, { timeout: 5000 })
+
+      fireEvent.click(getByTestId('increment'))
+
+      await waitFor(() => {
+        expect(getByTestId('count').textContent).toBe('1')
+      }, { timeout: 5000 })
+
+      fireEvent.click(getByTestId('increment'))
+
+      await waitFor(() => {
+        expect(getByTestId('count').textContent).toBe('2')
+      }, { timeout: 5000 })
+    })
+  }, 5000)
+})
+
+// 1.x only: removed in 2.0
+
+describe('AutoRootCtx Wrapper', () => {
   it('should wrap roots with provided Wrapper component', async () => {
     const useCounter = () => {
       const [count] = React.useState(50)
       return { count }
     }
 
-    const rootCtx = createRootCtx('wrapper-test', useCounter)
-    const autoCtx = createAutoCtx(rootCtx)
+    const autoCtx = createAutoCtx(createRootCtx('wrapper-test', useCounter))
 
-    const WrapperComponent = ({ children }: { children: React.ReactNode }) => {
+    const WrapperComponent = ({ children }: { children?: React.ReactNode }) => {
       return <div data-testid="wrapper">{children}</div>
     }
 
@@ -134,312 +385,6 @@ describe('AutoRootCtx', () => {
   })
 })
 
-describe('createAutoCtx', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-  })
-
-  afterEach(() => {
-    vi.restoreAllMocks()
-    vi.useRealTimers()
-  })
-
-  it('should create auto context hooks', () => {
-    const useCounter = () => {
-      const [count] = React.useState(0)
-      return { count }
-    }
-
-    const rootCtx = createRootCtx('create-test', useCounter)
-    const autoCtx = createAutoCtx(rootCtx)
-
-    expect(autoCtx.useCtxState).toBeDefined()
-    expect(typeof autoCtx.useCtxState).toBe('function')
-  })
-
-  it('should share instances for identical params', async () => {
-    let renderCount = 0
-    let mounted = 0
-    const useCounter = () => {
-      const [count] = React.useState(() => {
-        renderCount++
-        return renderCount
-      })
-      React.useEffect(() => {
-        mounted++
-        return () => { mounted-- }
-      }, [])
-      return { count }
-    }
-
-    const rootCtx = createRootCtx('share-instance-test', useCounter)
-    const autoCtx = createAutoCtx(rootCtx)
-
-    function Consumer({ id }: { id: string }) {
-      const ctx = autoCtx.useCtxState({})
-      const count = useDataSubscribe(ctx, 'count')
-      return <div data-testid={`count-${id}`}>{count}</div>
-    }
-
-    render(
-      <>
-        <AutoRootCtx />
-        <Consumer id="1" />
-        <Consumer id="2" />
-      </>
-    )
-
-    await withRealTimers(async () => {
-      await waitFor(() => {
-        const count1 = screen.getByTestId('count-1').textContent
-        const count2 = screen.getByTestId('count-2').textContent
-        // Both should have the same count, proving they share the same Root instance
-        expect(count1).toBe(count2)
-        expect(count1).not.toBe('')
-        // one instance mounted (StrictMode in React 18 runs the useState initializer of a discarded render too)
-        expect(mounted).toBe(1)
-      }, { timeout: 5000 })
-    })
-  }, 5000)
-
-  it('should create separate instances for different params', async () => {
-    const useStore = ({ id }: { id: number }) => {
-      const [value] = React.useState(id * 10)
-      return { value }
-    }
-
-    const rootCtx = createRootCtx('separate-instance-test', useStore)
-    const autoCtx = createAutoCtx(rootCtx)
-
-    function Consumer({ id }: { id: number }) {
-      const ctx = autoCtx.useCtxState({ id })
-      const value = useDataSubscribe(ctx, 'value')
-      return <div data-testid={`value-${id}`}>{value}</div>
-    }
-
-    render(
-      <>
-        <AutoRootCtx />
-        <Consumer id={1} />
-        <Consumer id={2} />
-      </>
-    )
-
-    await withRealTimers(async () => {
-      await waitFor(() => {
-        expect(screen.getByTestId('value-1').textContent).toBe('10')
-        expect(screen.getByTestId('value-2').textContent).toBe('20')
-      }, { timeout: 5000 })
-    })
-  }, 5000)
-
-  it('should handle unmounting and cleanup', async () => {
-    const useCounter = () => {
-      const [count] = React.useState(99)
-      return { count }
-    }
-
-    const rootCtx = createRootCtx('cleanup-test', useCounter)
-    const autoCtx = createAutoCtx(rootCtx, 100) // 100ms unmount delay
-
-    function Consumer({ show }: { show: boolean }) {
-      const ctx = autoCtx.useCtxState({})
-      const count = useDataSubscribe(ctx, 'count')
-      return show ? <div data-testid="count">{count}</div> : null
-    }
-
-    const { rerender } = render(
-      <>
-        <AutoRootCtx />
-        <Consumer show={true} />
-      </>
-    )
-
-    await withRealTimers(async () => {
-      await waitFor(() => {
-        expect(screen.getByTestId('count').textContent).toBe('99')
-      }, { timeout: 5000 })
-
-      // Unmount consumer
-      rerender(
-        <>
-          <AutoRootCtx />
-          <Consumer show={false} />
-        </>
-      )
-
-      // Wait for cleanup delay - use real timers
-      await new Promise(resolve => setTimeout(resolve, 150))
-
-      // Root should be cleaned up after delay
-      // Note: This is hard to test directly, but we're verifying no errors occur
-      expect(screen.queryByTestId('count')).toBeNull()
-    })
-  }, 5000)
-
-  it('should handle rapid mount/unmount cycles', async () => {
-    const useCounter = () => {
-      const [count] = React.useState(88)
-      return { count }
-    }
-
-    const rootCtx = createRootCtx('rapid-mount-test', useCounter)
-    const autoCtx = createAutoCtx(rootCtx, 50) // 50ms unmount delay
-
-    function Consumer({ show }: { show: boolean }) {
-      const ctx = autoCtx.useCtxState({})
-      const count = useDataSubscribe(ctx, 'count')
-      return show ? <div data-testid="count">{count}</div> : null
-    }
-
-    const { rerender } = render(
-      <>
-        <AutoRootCtx />
-        <Consumer show={true} />
-      </>
-    )
-
-    await withRealTimers(async () => {
-      await waitFor(() => {
-        expect(screen.getByTestId('count').textContent).toBe('88')
-      }, { timeout: 5000 })
-
-      // Rapid unmount and remount
-      rerender(
-        <>
-          <AutoRootCtx />
-          <Consumer show={false} />
-        </>
-      )
-
-      // Wait less than unmount delay
-      await new Promise(resolve => setTimeout(resolve, 25))
-
-      rerender(
-        <>
-          <AutoRootCtx />
-          <Consumer show={true} />
-        </>
-      )
-
-      await waitFor(() => {
-        // Should still show the same value, Root wasn't actually unmounted
-        expect(screen.getByTestId('count').textContent).toBe('88')
-      }, { timeout: 5000 })
-    })
-  }, 5000)
-
-  it('should handle updates after auto-mounting', async () => {
-    const useCounter = () => {
-      const [count, setCount] = React.useState(0)
-      return { count, increment: () => setCount(c => c + 1) }
-    }
-
-    const rootCtx = createRootCtx('auto-update-test', useCounter)
-    const autoCtx = createAutoCtx(rootCtx)
-
-    function Consumer() {
-      const ctx = autoCtx.useCtxState({})
-      const count = useDataSubscribe(ctx, 'count')
-      const increment = useDataSubscribe(ctx, 'increment')
-      
-      return (
-        <div>
-          <div data-testid="count">{count}</div>
-          <button onClick={increment} data-testid="increment">
-            Increment
-          </button>
-        </div>
-      )
-    }
-
-    const { getByTestId } = render(
-      <>
-        <AutoRootCtx />
-        <Consumer />
-      </>
-    )
-
-    await withRealTimers(async () => {
-      await waitFor(() => {
-        expect(getByTestId('count').textContent).toBe('0')
-      }, { timeout: 5000 })
-
-      // Click increment via RTL helper so the update is wrapped in act
-      fireEvent.click(getByTestId('increment'))
-
-      await waitFor(() => {
-        expect(getByTestId('count').textContent).toBe('1')
-      }, { timeout: 5000 })
-
-      // Click again
-      fireEvent.click(getByTestId('increment'))
-
-      await waitFor(() => {
-        expect(getByTestId('count').textContent).toBe('2')
-      }, { timeout: 5000 })
-    })
-  }, 5000)
-})
-
-describe('AutoRootCtx error handling', () => {
-  it('should handle errors with Wrapper component', async () => {
-    const useCounter = () => {
-      throw new Error('Test error')
-    }
-
-    const rootCtx = createRootCtx('error-test', useCounter)
-    const autoCtx = createAutoCtx(rootCtx)
-
-    const ErrorBoundaryWrapper = ({ children }: { children: React.ReactNode }) => {
-      const [hasError, setHasError] = React.useState(false)
-
-      React.useEffect(() => {
-        const errorHandler = () => {
-          setHasError(true)
-        }
-        window.addEventListener('error', errorHandler)
-        return () => window.removeEventListener('error', errorHandler)
-      }, [])
-
-      if (hasError) {
-        return <div data-testid="error-boundary">Error caught</div>
-      }
-      return <>{children}</>
-    }
-
-    function Consumer() {
-      const ctx = autoCtx.useCtxState({})
-      const count = useDataSubscribe(ctx, 'count')
-      return <div data-testid="count">{count}</div>
-    }
-
-    // Suppress console errors for this test
-    const consoleError = console.error
-    console.error = vi.fn()
-
-    try {
-      render(
-        <>
-          <AutoRootCtx Wrapper={ErrorBoundaryWrapper} />
-          <Consumer />
-        </>
-      )
-
-      // The error should be thrown and caught
-      await waitFor(() => {
-        // Test passes if we get here without crashing
-        expect(true).toBe(true)
-      })
-    } catch (error) {
-      // Expected to throw, test passes
-      expect(error).toBeDefined()
-    } finally {
-      console.error = consoleError
-    }
-  })
-})
-
 describe('createAutoCtx with AttatchedComponent', () => {
   it('should render AttatchedComponent alongside the state runner', async () => {
     const useCounter = () => {
@@ -447,13 +392,11 @@ describe('createAutoCtx with AttatchedComponent', () => {
       return { count }
     }
 
-    const rootCtx = createRootCtx('attached-test', useCounter)
-    
     const AttatchedComponent: React.FC<{}> = () => {
       return <div data-testid="attached">Attached Component Rendered</div>
     }
-    
-    const autoCtx = createAutoCtx(rootCtx, 0, AttatchedComponent)
+
+    const autoCtx = createAutoCtx(createRootCtx('attached-test', useCounter), 0, AttatchedComponent)
 
     function Consumer() {
       const ctx = autoCtx.useCtxState({})
@@ -474,52 +417,17 @@ describe('createAutoCtx with AttatchedComponent', () => {
     })
   })
 
-  it('should pass params to AttatchedComponent', async () => {
+  it('should render one AttatchedComponent per instance, with its params', async () => {
     const useStore = ({ id }: { id: string }) => {
       const [value] = React.useState(`value-${id}`)
       return { value }
     }
 
-    const rootCtx = createRootCtx('attached-params-test', useStore)
-    
-    const AttatchedComponent: React.FC<{ id: string }> = ({ id }) => {
-      return <div data-testid={`attached-${id}`}>ID: {id}</div>
-    }
-    
-    const autoCtx = createAutoCtx(rootCtx, 0, AttatchedComponent)
-
-    function Consumer({ id }: { id: string }) {
-      const ctx = autoCtx.useCtxState({ id })
-      const value = useDataSubscribe(ctx, 'value')
-      return <div data-testid={`value-${id}`}>{value}</div>
-    }
-
-    render(
-      <>
-        <AutoRootCtx />
-        <Consumer id="test-id" />
-      </>
-    )
-
-    await waitFor(() => {
-      expect(screen.getByTestId('value-test-id').textContent).toBe('value-test-id')
-      expect(screen.getByTestId('attached-test-id').textContent).toBe('ID: test-id')
-    })
-  })
-
-  it('should render multiple AttatchedComponents for different params', async () => {
-    const useStore = ({ id }: { id: string }) => {
-      const [value] = React.useState(`value-${id}`)
-      return { value }
-    }
-
-    const rootCtx = createRootCtx('attached-multi-test', useStore)
-    
     const AttatchedComponent: React.FC<{ id: string }> = ({ id }) => {
       return <div data-testid={`attached-${id}`}>Attached: {id}</div>
     }
-    
-    const autoCtx = createAutoCtx(rootCtx, 0, AttatchedComponent)
+
+    const autoCtx = createAutoCtx(createRootCtx('attached-multi-test', useStore), 0, AttatchedComponent)
 
     function Consumer({ id }: { id: string }) {
       const ctx = autoCtx.useCtxState({ id })
