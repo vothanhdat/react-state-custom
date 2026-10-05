@@ -103,12 +103,17 @@ function Total() {
 ```
 
 - **Data**: read with `?.`, fall back with `??`, or return a placeholder early.
-- **Actions**: call them with `?.()` from event handlers. By the time anyone clicks, the store has run and the action exists. A call made while rendering, or from an effect when the component mounts, comes before the store has run and does nothing. Start loading inside the store, which runs its own effects; if a component must call an action from an effect, list the action as a dependency so the effect runs again once it exists. Actions keep their identity after that, so it runs once more, not on every render.
+- **Actions**: call them with `?.()` from event handlers. By the time anyone clicks, the store has run and the action exists. A call made while rendering, or from an effect when the component mounts, comes before the store has run and does nothing. Start loading inside the store, which runs its own effects. When an effect exists only to call an action, list the action as a dependency and return early while it is missing: the effect runs again once the action exists. Actions keep their identity while their instance runs, so it runs once more, not on every render. An instance that restarts has new actions, and the effect calls the new one.
 
   ```ts
   const { load } = useReport({ id })
-  useEffect(() => { load?.(range) }, [load, range])   // runs again when `load` arrives
+  useEffect(() => {
+    if (!load) return                    // the store has not run yet
+    load(range)
+  }, [load, range])
   ```
+
+  Keep an action out of the dependencies of an effect that does other work, such as opening a socket whose messages call `notify` from another store. The effect would close the socket and open it again when `notify` arrives, and whether that happens depends on whether the other store was already running. Return early only when the effect cannot work without the action; otherwise read the action from [`useEffectEvent`](https://react.dev/reference/react/useEffectEvent) or a ref, or emit an event the other side subscribes to (see [Events from a store](/guide/events)).
 
 - **Lookups by id**: a record can lack an id even after loading, when the item was deleted while a list still holds its id. Turn on TypeScript's [`noUncheckedIndexedAccess`](https://www.typescriptlang.org/tsconfig/#noUncheckedIndexedAccess) so the compiler asks for the check. See [Data across stores](/guide/how-it-works#data-across-stores).
 

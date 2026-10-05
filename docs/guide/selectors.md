@@ -159,7 +159,7 @@ export const useTaskDetail = (id: string) => {
 }
 ```
 
-- `subscribe` is `undefined` until the store has run, so it is a dependency of the effect.
+- `subscribe` is `undefined` until the store has run: the effect does nothing then and runs again once it exists. The effect does nothing else, so running again costs nothing. A restarted instance has a new `subscribe`, and the effect subscribes to it.
 - The store needs a `timeToClean` longer than the grace period. Its readers are its only consumers: without it, the store is torn down with its last reader, entries and all, and a reader that comes back starts over.
 - Readers select their own id, so a change to one entry re-renders that entry's readers only. Every reader's selector still runs on every change; with thousands of entries changing many times a second, publish each id as its own top-level key (above) instead.
 - A dropped id keeps its data in `details` as a cache until the store is torn down. Delete it in the drop timer to free it.
