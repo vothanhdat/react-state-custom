@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.10.0] - 2026-10-06
 ### Added
 - The 2.0 API, next to the 1.x one. 2.0 keeps the idea (stores that are lazy, shared, automatic and composable) and trims the API to `createStore`, which returns `useStore` and `storeRef`, plus `useMultipleStore` and `<AutoRootCtx />`. Move to it on 1.10, then upgrade; the docs have a Migrating to 2.0 page.
 - `storeRef(params)`: one instance of a store, for code outside React and for `useMultipleStore`. It is the handle `getStore(params)` returned (`get()`, `subscribe()`, `retain()`, `ready`, `error`), under its new name; `getStore` returns the same and is deprecated.
@@ -287,7 +289,8 @@ Marked `@deprecated`, so editors strike them through; they work as before in 1.x
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.6.0...v1.7.0
