@@ -1,9 +1,11 @@
 import { act, render } from '@testing-library/react'
 import { AutoRootCtx } from 'react-state-custom'
-import { storeHandle, waitForStore } from 'react-state-custom/testing'
+import { mockStore, storeHandle, waitForStore } from 'react-state-custom/testing'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AccountMessage, AccountSnapshot, Order } from '../src/sim/types'
+import type { AccountMessage, AccountSnapshot, Fill, Order } from '../src/sim/types'
 import { useAccount } from '../src/stores/account'
+import { useToasts } from '../src/stores/app'
+import { useFillToasts } from '../src/stores/notifications'
 
 // a scripted exchange: the test decides when each response and each event arrives
 const fake = vi.hoisted(() => {
@@ -99,5 +101,48 @@ describe('account store', () => {
     await act(async () => second.resolve({ seq: 3, balances: [{ asset: 'USD', free: 5, locked: 0 }], orders: [] }))
     expect(storeHandle(useAccount).get().balances?.USD?.free).toBe(5)
     release()
+  })
+})
+
+const fill = (patch: Partial<Fill>): Fill => ({
+  id: 1, orderId: 'o1', symbol: 'BTC-USD', side: 'buy', price: 100, size: 0.5, fee: 0.05, liquidity: 'maker', ts: 0, ...patch,
+})
+
+// two components start the notifier, as two screens with a toast area would
+const Notifier = () => { useFillToasts(); return null }
+
+describe('fill toasts', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const startWithNotifiers = () => {
+    const snapshot = fake.deferred<AccountSnapshot>()
+    fake.api.getAccount.mockReturnValueOnce(snapshot.promise)
+    render(<><AutoRootCtx /><Notifier /><Notifier /></>)
+    return snapshot
+  }
+
+  it('toasts each accepted fill once, however many components start the notifier', async () => {
+    const snapshot = startWithNotifiers()
+    await waitForStore(useAccount, undefined, ['onFill'])
+    emit({ type: 'fill', seq: 5, fill: fill({ id: 1 }) })            // the snapshot already holds it
+    emit({ type: 'fill', seq: 6, fill: fill({ id: 2, size: 0.25 }) }) // newer than the snapshot
+    await act(async () => snapshot.resolve({ seq: 5, balances: [], orders: [] }))
+
+    expect(storeHandle(useToasts).get().toasts.map(t => t.title)).toEqual(['Bought 0.25 BTC'])
+    emit({ type: 'fill', seq: 7, fill: fill({ id: 3, side: 'sell', size: 0.1 }) })
+    expect(storeHandle(useToasts).get().toasts.map(t => t.title)).toEqual(['Bought 0.25 BTC', 'Sold 0.1 BTC'])
+  })
+
+  it('keeps the account running when the toasts store fails', async () => {
+    mockStore(useToasts, () => { throw new Error('toasts crashed') })
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const snapshot = startWithNotifiers()
+    await act(async () => snapshot.resolve({ seq: 1, balances: [{ asset: 'USD', free: 10, locked: 0 }], orders: [] }))
+    emit({ type: 'fill', seq: 2, fill: fill({}) })
+
+    const state = await waitForStore(useAccount, undefined, s => s.status === 'ready')
+    expect(state.fills).toHaveLength(1)
+    expect(state.balances?.USD?.free).toBe(10)
+    quiet.mockRestore()
   })
 })

@@ -24,7 +24,8 @@ npx tsc -p demos/trading                                 # types
   | `book-view` | `symbol, grouping, depth` | grouped ladder rows, derived from `book` |
   | `trades` | `symbol` | last 60 trades, once per frame |
   | `candles` | `symbol, interval` | history over REST merged with live trades by trade id; refetched after a reconnect |
-  | `account` | none | balances, orders, fills; snapshot + sequenced events; optimistic orders reconciled by version |
+  | `account` | none | balances, orders, fills; snapshot + sequenced events; optimistic orders reconciled by version; `onFill(listener)` for fill events |
+  | `fill-toasts` | none | fill → toast; its own store, so the account never waits for or fails with the toasts |
   | `order-form` | `symbol` | the ticket; validation reads markets, account (minus in-flight orders), book and trades through selectors |
   | `portfolio` | none | balances valued at live prices |
 

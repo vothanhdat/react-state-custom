@@ -2,7 +2,7 @@
 // that change them. Orders are reconciled from three sources that race each other: the
 // optimistic entry, the REST response and the stream events.
 
-import { useEffect, useEffectEvent, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createStore, shallowEqual } from 'react-state-custom'
 import { roundTo } from '../lib/num'
 import { api, FEE_RATE, socket } from '../sim/exchange'
@@ -40,16 +40,9 @@ const useAccountState = () => {
   const [synced, setSynced] = useState(false)
   // bumped after a gap in the stream or a failed snapshot: subscribe and fetch again
   const [epoch, setEpoch] = useState(0)
-
-  // `toast` is undefined until the toasts store has run; an effect event reads the latest one
-  // without making the subscription below depend on it
-  const notifyFill = useEffectEvent((fill: Fill) => {
-    toast?.({
-      kind: 'success',
-      title: `${fill.side === 'buy' ? 'Bought' : 'Sold'} ${fill.size} ${fill.symbol.split('-')[0]}`,
-      body: `at ${fill.price} · ${fill.liquidity}`,
-    })
-  })
+  // fills are events: readers that react to each one (a toast, a sound) register here instead of
+  // diffing `fills`. A ref, so listeners stay registered when the effect below runs again.
+  const fillListeners = useRef(new Set<(fill: Fill) => void>())
 
   useEffect(() => {
     if (!online) return
@@ -67,7 +60,10 @@ const useAccountState = () => {
         setBalances(prev => ({ ...prev, ...byAsset(msg.balances) }))
       } else {
         setFills(prev => [msg.fill, ...prev].slice(0, 100))
-        notifyFill(msg.fill)
+        // after the sequence check: a fill the snapshot already holds, or a replay, never notifies
+        for (const listener of fillListeners.current) {
+          try { listener(msg.fill) } catch (e) { console.error(e) } // a broken listener must not stop the stream
+        }
       }
     }
     const resync = () => {
@@ -135,6 +131,12 @@ const useAccountState = () => {
     }
   }
 
+  /** Calls `listener` once for each fill accepted from now on; returns the unsubscribe */
+  const onFill = (listener: (fill: Fill) => void) => {
+    fillListeners.current.add(listener)
+    return () => { fillListeners.current.delete(listener) }
+  }
+
   const cancelAll = (symbol?: string) => {
     for (const o of Object.values(orders)) {
       if (o && isOpen(o) && !cancelling[o.id] && (!symbol || o.symbol === symbol)) void cancelOrder(o.id)
@@ -151,6 +153,7 @@ const useAccountState = () => {
     placeOrder,
     cancelOrder,
     cancelAll,
+    onFill,
   }
 }
 

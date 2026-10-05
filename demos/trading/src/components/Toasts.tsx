@@ -1,6 +1,8 @@
 import { useToasts } from '../stores/app'
+import { useFillToasts } from '../stores/notifications'
 
 export function Toasts() {
+  useFillToasts()
   const { toasts, dismiss } = useToasts()
   return (
     <div className="toasts" aria-live="polite">
