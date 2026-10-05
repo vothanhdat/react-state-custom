@@ -42,6 +42,7 @@ The fake backend and socket at the top of `app.tsx` record every call in `calls`
 | `fixes.test.tsx` | the fixes: a stable `ids` array, rows read from the derived store, the keyed-collection shape |
 | `initial-state-types.tsx` | which keys `initialState` types as present |
 | `initial-state-runtime.test.tsx` | a key typed present by mistake, undefined on the first render |
+| `testing.test.tsx` | component tests with `react-state-custom/testing`, which assert: mocked stores in place of the api and the socket, a mocked action, a real derived store on a mocked one, waiting for the real tasks store |
 
 ## Run
 
@@ -71,3 +72,6 @@ The library keeps its model: values from different stores can disagree for one r
 - **A torn-down store leaves nothing behind.** Its context used to stay cached for 100 ms, so coming back to a project right away mixed the old `visible` ids with a fresh `tasks` store and rendered a row whose task was `undefined` (scenario G). The context is now dropped with the instance: `G zombies []`.
 - **The docs** teach this: Getting started "Before the data arrives", How it works "Stores as services" and "Data across stores", and the Collections section of Selectors.
 
+## After 1.7.0
+
+- **Tests have helpers** in `react-state-custom/testing` (`testing.test.tsx`). `mockStore(A.useTasks, { tasks })` renders `TaskList`, `Toolbar` or `Stats` without the fake api, and `set()` changes what the mock publishes; `waitForStore(A.useTasks, params, s => s.status === 'ready')` waits for the real store. The scenarios reach the search store with `storeHandle(A.useSearch, params)` instead of its internal instance name `'search?projectId=p1'`, and clear state between tests with `resetStores()` instead of `getContext.cache.clear()`.

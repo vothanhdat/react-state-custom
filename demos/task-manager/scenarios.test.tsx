@@ -1,6 +1,7 @@
 import React, { Profiler, useState } from 'react'
 import { render, act, cleanup, configure } from '@testing-library/react'
-import { AutoRootCtx, getContext } from '../../src'
+import { AutoRootCtx } from '../../src'
+import { resetStores, storeHandle } from '../../src/testing'
 import * as A from './app'
 
 configure({ reactStrictMode: false })
@@ -24,7 +25,7 @@ const Page = ({ projectId }: { projectId: string }) => <>
 </>
 
 beforeEach(() => { A.zombies.length = 0; A.step.name = ''; for (const k in A.db) delete A.db[k]; A.calls.length = 0; reset() })
-afterEach(() => { cleanup(); getContext.cache.clear() })
+afterEach(() => { cleanup(); resetStores() })
 
 it('A. load, one update, one delete', async () => {
   seed('p1', 50)
@@ -132,9 +133,9 @@ it('H. search: the slow early response does not overwrite the later one', async 
   const { container } = render(<><AutoRootCtx /><Search /></>)
   await flush()
   A.control.searchDelays = [40, 5]
-  const ctx = getContext<any>('search?projectId=p1')
-  await act(async () => { ctx.data.setQuery('task') })
-  await act(async () => { ctx.data.setQuery('task 03') })
+  const search = storeHandle(A.useSearch, { projectId: 'p1' })
+  await act(async () => { search.get().setQuery?.('task') })
+  await act(async () => { search.get().setQuery?.('task 03') })
   await flush(80)
   log('H search after typing "task" then "task 03":', container.textContent)
 })

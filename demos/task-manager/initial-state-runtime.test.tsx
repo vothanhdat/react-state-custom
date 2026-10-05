@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { render, act, cleanup } from '@testing-library/react'
-import { AutoRootCtx, createStore, getContext } from '../../src'
-afterEach(() => { cleanup(); getContext.cache.clear() })
+import { AutoRootCtx, createStore } from '../../src'
+import { resetStores } from '../../src/testing'
+afterEach(() => { cleanup(); resetStores() })
 it('a key typed present by the fallback is undefined on the first render', async () => {
   const { useStore } = createStore('rt', () => {
     const [status] = useState<'loading' | 'ready'>('loading')

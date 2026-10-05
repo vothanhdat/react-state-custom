@@ -1,11 +1,12 @@
 import React, { useMemo, useRef, useState } from 'react'
 import { render, act, cleanup, configure } from '@testing-library/react'
-import { AutoRootCtx, createStore, getContext } from '../../src'
+import { AutoRootCtx, createStore } from '../../src'
+import { resetStores } from '../../src/testing'
 
 configure({ reactStrictMode: false })
 const flush = (ms = 5) => act(() => new Promise(r => setTimeout(r, ms)))
 const log = (...a: unknown[]) => console.log('[fix]', ...a)
-afterEach(() => { cleanup(); getContext.cache.clear() })
+afterEach(() => { cleanup(); resetStores() })
 
 type Task = { id: string; title: string; done: boolean }
 const shallowEqual = (a: readonly unknown[], b: readonly unknown[]) => a.length === b.length && a.every((x, i) => Object.is(x, b[i]))
