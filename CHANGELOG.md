@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.9.0] - 2026-10-05
 ### Added
 - A `schedule` for readers: when a component re-renders for a change of the store it reads. `useStore(params, { schedule })` and `useStore(params, selector, { isEqual, schedule })` take a scheduler from a factory exported by the package: `frame()` (once per animation frame), `throttle(ms)` (at once, then at most once per period with the last change), `debounce(ms, { maxWait })` (once changes stop, and at least every `maxWait`, 1000 ms by default), `idle(ms)` (when the browser is idle, at most `ms` later) or `sync()` (at once, the default). Only the factories an app imports end up in its bundle, and each returns the same scheduler for the same arguments, so it can be called inline. A scheduler is an object with a `task(run)` method, so an app can write its own. `createStore(name, useFn, { schedule })` sets the default for every reader of a store, `useStoreSuspense` included. Only the reader's re-render waits: the store, `getStore()`, actions and the other readers see a change at once, and the render reads the data of its moment, so a change undone meanwhile renders nothing. A store's first data is never held back. Readers due at the same moment (one frame, one throttle tick, one idle callback) render in one React commit. For views that follow fast data without needing every value, such as charts, logs and totals; see Update cadence in the docs. In the trading demo, throttling the depth chart and equity and rendering history and fills when idle took the depth chart from 60 to 10 commits per second and script time down by about 5% at 20× and 50× feed speed (headless Chrome, production build); the order book ladder, which stays on every frame, is most of that app's work.
 - `useFrameState(initial)`: a `useState` whose updates apply once per animation frame, in order, with one render. In a store fed by a socket, the store renders and publishes once per frame instead of once per message, in the same frame as its readers on `frame()`.
@@ -264,7 +266,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.5.1...v1.6.0
