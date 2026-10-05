@@ -92,12 +92,12 @@ Subscribe to specific context keys. Built on `useSyncExternalStore`.
 ```ts
 const value = useDataSubscribe(ctx, 'key')
 const value = useDataSubscribe(ctx, 'key', 100)                        // debounced 100 ms
-const value = useDataSubscribe(ctx, 'key', 'frame')                    // any Schedule
+const value = useDataSubscribe(ctx, 'key', frame())                    // any scheduler
 const { key1, key2 } = useDataSubscribeMultiple(ctx, 'key1', 'key2')
 const [key1, key2] = useDataSubscribeMultipleWithDebounce(ctx, 50, 'key1', 'key2')
 ```
 
-A number of milliseconds is `{ debounce: ms }`: it renders once changes stop for that long, and at least once a second while they go on. Up to 1.8 the debounce had no such limit, so a key that changed more often than the wait never rendered. The last argument also takes a [`Schedule`](/api/types#schedule).
+A number of milliseconds is `debounce(ms)`: it renders once changes stop for that long, and at least once a second while they go on. Up to 1.8 the debounce had no such limit, so a key that changed more often than the wait never rendered. The last argument also takes a [scheduler](/api/schedulers).
 
 ## `useDataSubscribeWithTransform`
 
@@ -117,7 +117,7 @@ const tags = useDataSelector(ctx, data => data.tags ?? [], shallowEqual)
 const name = useDataSelector(ctx, data => data.user?.name, Object.is, () => serverData) // see below
 ```
 
-The optional fourth argument returns what the server rendered for this context. While hydrating, the selector runs on it when the live data has moved on, so the hydrated output matches the server HTML; `useStore` passes the store's `initialState`. The optional fifth is a [`Schedule`](/api/types#schedule): React hears about changes when it says, and the selector runs then.
+The optional fourth argument returns what the server rendered for this context. While hydrating, the selector runs on it when the live data has moved on, so the hydrated output matches the server HTML; `useStore` passes the store's `initialState`. The optional fifth is a [scheduler](/api/schedulers): React hears about changes when it says, and the selector runs then.
 
 ## `useQuickSubscribe`
 
@@ -128,35 +128,9 @@ const { a, b } = useQuickSubscribe(ctx) // re-renders only when a or b changes
 const { a, b } = useQuickSubscribe(ctx, () => serverData)
 ```
 
-The optional second argument returns what the server rendered for this context. While hydrating, reads come from it when the live data has already moved on, and React re-renders with the live data afterwards; `useStore` passes the store's `initialState`. The optional third is a [`Schedule`](/api/types#schedule).
+The optional second argument returns what the server rendered for this context. While hydrating, reads come from it when the live data has already moved on, and React re-renders with the live data afterwards; `useStore` passes the store's `initialState`. The optional third is a [scheduler](/api/schedulers).
 
 The proxy is a new object on every render, over one subscription tracker per component, so that the React Compiler re-reads it instead of caching work keyed on its identity. Use the values read from it as dependencies, never the proxy itself.
-
-## `scheduled`
-
-`fn` on a [`Schedule`](/api/types#schedule), for code outside render. Calling the returned function asks for a run; the calls made before that run are one run, with the arguments of the last call. `cancel()` forgets a pending run, `flush()` makes it now.
-
-```ts
-useEffect(() => {
-  const levels = new Map<number, number>()
-  const publish = scheduled(() => setBook(snapshotOf(levels)), 'frame')
-  const off = socket.subscribe(symbol, delta => { apply(levels, delta); publish() })
-  return () => { off(); publish.cancel() }
-}, [symbol])
-```
-
-Runs due at the same moment share one batch with the readers scheduled the same way, so React renders them in one commit.
-
-## `useFrameState`
-
-`useState` whose updates apply once per animation frame. The updates set during a frame apply in order, and the component renders once, in the frame, together with the readers scheduled `'frame'`. The setter is stable.
-
-```ts
-const [tickers, setTickers] = useFrameState<Record<string, Ticker>>({})
-useEffect(() => socket.subscribe('tickers', batch => setTickers(prev => merge(prev, batch))), [])
-```
-
-In a store hook, the store publishes once per frame instead of once per message. Use `scheduled` instead when the messages go into a mutable buffer and one function turns it into state.
 
 ## `paramsToId`
 

@@ -7,7 +7,7 @@ createStore('name', useFn, {
   initialState: { ... },     // values consumers read before the hook has run
   timeToClean: 5000,         // keep the instance alive 5 s after its last consumer leaves (default 0)
   AttachedComponent: Logger, // optional component rendered next to each instance, receives params
-  schedule: 'frame',         // when readers re-render for a change (default 'sync')
+  schedule: frame(),         // when readers re-render for a change (default: at once)
 })
 ```
 
@@ -92,11 +92,11 @@ The Live Rooms example of the [demo](https://vothanhdat.github.io/react-state-cu
 
 ## `schedule`
 
-When the store's readers re-render for a change: `'sync'` (default), `'frame'`, `{ throttle: ms }`, `{ debounce: ms, maxWait? }` or `{ idle: ms }`. A reader can pass its own: `useStore(params, { schedule })`. The store itself, `getStore()` and actions are never delayed. See [Update cadence](/guide/update-cadence).
+When the store's readers re-render for a change: a [scheduler](/api/schedulers) such as `frame()`, `throttle(ms)`, `debounce(ms, { maxWait })` or `idle(ms)`, imported from the package (default: at once). A reader can pass its own: `useStore(params, { schedule })`. The store itself, `getStore()` and actions are never delayed. See [Update cadence](/guide/update-cadence).
 
 ```ts
 // equity moves with every price tick: its readers show it four times a second
-createStore('portfolio', usePortfolioState, { schedule: { throttle: 250 } })
+createStore('portfolio', usePortfolioState, { schedule: throttle(250) })
 ```
 
 ## `AttachedComponent`

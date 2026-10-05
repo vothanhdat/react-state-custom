@@ -18,7 +18,7 @@ const useBookState = ({ symbol }: { symbol: string }) => {
     const asks = new Map<number, number>()
     let seq: number | undefined
     let broken = false
-    const publish = scheduled(() => setBook({ bids: sortLevels(bids, true), asks: sortLevels(asks, false) }), 'frame')
+    const publish = scheduled(() => setBook({ bids: sortLevels(bids, true), asks: sortLevels(asks, false) }), frame())
 
     const unsubscribe = socket.subscribe('book', symbol, msg => {
       if (broken) return
@@ -54,7 +54,7 @@ export const { useStore: useBook } = createStore('book', useBookState, { timeToC
 
 - **A gap starts over.** The effect cannot repair a copy that missed a delta. Bumping `epoch` re-runs it: the cleanup unsubscribes, the new run subscribes and receives a new snapshot. Readers keep the last book, marked `resyncing`, meanwhile.
 - **Messages before the snapshot are dropped** here, because the snapshot contains them. When the snapshot comes from a separate request instead, buffer them (see [Snapshot by request](#snapshot-by-request)).
-- **Plain maps, published per frame.** A store that set state per message would render and publish per message. `scheduled(publish, 'frame')` turns any number of messages into one store render per frame. For a value that is replaced or merged per message, [`useFrameState`](/api/primitives#useframestate) does the same with less code.
+- **Plain maps, published per frame.** A store that set state per message would render and publish per message. `scheduled(publish, frame())` turns any number of messages into one store render per frame. For a value that is replaced or merged per message, [`useFrameState`](/api/schedulers#useframestate-initial) does the same with less code.
 - **`timeToClean`** keeps the subscription for two seconds after the last reader leaves, so flipping between two symbols does not resubscribe each time.
 
 ## Reconnects
@@ -93,7 +93,7 @@ useEffect(() => {
     const trades = pending
     pending = []
     setCandles(prev => (prev ? mergeTrades(prev, trades, interval) : prev))
-  }, 'frame')
+  }, frame())
   const unsubscribe = socket.subscribe('trades', symbol, batch => {
     pending.push(...batch)
     if (lastTradeId !== undefined) publish()

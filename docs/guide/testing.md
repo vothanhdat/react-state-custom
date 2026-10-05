@@ -199,7 +199,7 @@ A component reading with a [`schedule`](/guide/update-cadence) renders a change 
 
 ```ts
 const book = mockStore(useBook, { mid: 100 })
-render(<><AutoRootCtx /><DepthChart /></>)          // reads with { schedule: { throttle: 100 } }
+render(<><AutoRootCtx /><DepthChart /></>)          // reads with { schedule: throttle(100) }
 act(() => book.set({ mid: 101 }))
 act(() => { flushScheduled() })
 expect(screen.getByTestId('mid')).toHaveTextContent('101')

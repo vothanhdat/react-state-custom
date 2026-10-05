@@ -3,24 +3,28 @@
 By default a component re-renders in the commit right after the store it reads changes. For data that changes faster than anyone reads it, such as a price feed, a sensor, a progress counter or a log, each reader can choose how often it follows:
 
 ```tsx
+import { idle, shallowEqual, throttle } from 'react-state-custom'
+
 // a depth chart of a few hundred points: ten times a second is plenty
-const { bids, asks } = useBook({ symbol }, { schedule: { throttle: 100 } })
+const { bids, asks } = useBook({ symbol }, { schedule: throttle(100) })
 
 // order history: render when the browser has time, within half a second
-const ids = useAccount(s => closedOrderIds(s.orders), { isEqual: shallowEqual, schedule: { idle: 500 } })
+const ids = useAccount(s => closedOrderIds(s.orders), { isEqual: shallowEqual, schedule: idle(500) })
 ```
 
-## Schedules
+## Schedulers
+
+A schedule is a scheduler from one of these factories, imported from `react-state-custom`. Only the ones you import end up in your bundle: an app that schedules nothing ships none of them.
 
 | `schedule` | the component re-renders | for |
 |---|---|---|
-| `'sync'` | in the commit after the change (default) | what the user acts on: inputs, the price they are about to trade at |
-| `'frame'` | once per animation frame, with the latest data | many changes per frame on a view that should look live |
-| `{ throttle: ms }` | at once, then at most once every `ms`, the last change included | expensive views that should look alive: charts, aggregates, totals |
-| `{ debounce: ms, maxWait? }` | once changes stop for `ms`, and at least every `maxWait` while they go on (default 1000 ms, or `ms` when longer) | results that settle: a summary after edits, a filtered count |
-| `{ idle: ms }` | when the browser is idle, at most `ms` later | logs, history tables, statistics, debug panels |
+| `sync()` | in the commit after the change (the default) | what the user acts on: inputs, the price they are about to trade at |
+| `frame()` | once per animation frame, with the latest data | many changes per frame on a view that should look live |
+| `throttle(ms)` | at once, then at most once every `ms`, the last change included | expensive views that should look alive: charts, aggregates, totals |
+| `debounce(ms, { maxWait })` | once changes stop for `ms`, and at least every `maxWait` while they go on (default 1000 ms, or `ms` when longer) | results that settle: a summary after edits, a filtered count |
+| `idle(ms)` | when the browser is idle, at most `ms` later | logs, history tables, statistics, debug panels |
 
-`0` ms means `'sync'`. A value that is not a schedule logs a development error and renders at once.
+A factory returns the same scheduler for the same arguments, so calling it in render is fine. `0` ms gives `sync()`. A negative or non-numeric delay, or a value that is not a scheduler, logs a development error and renders at once. You can also [write your own](/api/schedulers#writing-a-scheduler).
 
 ## What waits and what does not
 
@@ -28,23 +32,23 @@ const ids = useAccount(s => closedOrderIds(s.orders), { isEqual: shallowEqual, s
 - **The render reads the data of its moment.** Nothing is queued: a throttled reader skips the values in between, and a change that is undone before the run renders nothing.
 - **First data is never held back.** When a store publishes for the first time, its readers render at once, whatever their schedule: a schedule limits how often the UI updates, not how soon it loads.
 - **A render for another reason reads the latest data.** A parent re-render or the component's own state renders it with what the store holds now.
-- **Readers due at the same moment render together.** All readers scheduled `'frame'` render in one commit per frame, those with the same throttle on the same tick, the idle ones in the same idle callback.
+- **Readers due at the same moment render together.** All readers scheduled `frame()` render in one commit per frame, those with the same throttle on the same tick, the idle ones in the same idle callback.
 - **Unmounting cancels.** So does a change of params or of schedule.
 - `useStoreSuspense` suspends on first load only, as before. Afterwards it follows the store's `schedule` option. `useStoreStatus` is never scheduled.
 
 ## Where to set it
 
-- **Per reader**: the last argument of `useStore`. Pass a new object on every render if you like; equal schedules are recognized.
+- **Per reader**: the last argument of `useStore`.
 
   ```ts
-  useStore(params, { schedule: 'frame' })
-  useStore(params, selector, { isEqual: shallowEqual, schedule: { throttle: 250 } })
-  useStore(selector, { schedule: { idle: 500 } })           // a store without params
-  useStore(undefined, { schedule: 'frame' })                // proxy form, store without params
+  useStore(params, { schedule: frame() })
+  useStore(params, selector, { isEqual: shallowEqual, schedule: throttle(250) })
+  useStore(selector, { schedule: idle(500) })               // a store without params
+  useStore(undefined, { schedule: frame() })                // proxy form, store without params
   ```
 
-- **Per store**: `createStore(name, useFn, { schedule })` sets the default of every reader. A reader that must stay current passes `{ schedule: 'sync' }`.
-- **In the store itself**: when messages arrive faster than frames, publish once per frame from the store hook, with `useFrameState` or `scheduled(fn, 'frame')`. That saves the store's own renders and helps every reader. Do this first in stores that read a socket; then schedule the readers that need less than every frame.
+- **Per store**: `createStore(name, useFn, { schedule })` sets the default of every reader. A reader that must stay current passes `{ schedule: sync() }`.
+- **In the store itself**: when messages arrive faster than frames, publish once per frame from the store hook, with `useFrameState` or `scheduled(fn, frame())`. That saves the store's own renders and helps every reader. Do this first in stores that read a socket; then schedule the readers that need less than every frame.
 
   ```ts
   // one publish per frame however many batches arrive
@@ -54,7 +58,7 @@ const ids = useAccount(s => closedOrderIds(s.orders), { isEqual: shallowEqual, s
   // messages go into plain maps; one function turns them into state, once per frame
   useEffect(() => {
     const levels = new Map<number, number>()
-    const publish = scheduled(() => setLevels(sorted(levels)), 'frame')
+    const publish = scheduled(() => setLevels(sorted(levels)), frame())
     const off = socket.subscribe('book', symbol, delta => { apply(levels, delta); publish() })
     return () => { off(); publish.cancel() }
   }, [symbol])
@@ -66,16 +70,16 @@ In an app [organized in layers](/guide/layers), the UI layer, which knows what e
 
 A scheduled reader lags behind the store by up to its period. Two components showing the same value at different cadences can disagree for that long. So:
 
-- Schedule leaf views: charts, tables, logs, counters. Keep readers that make decisions, and values the user compares while acting, on `'sync'`.
+- Schedule leaf views: charts, tables, logs, counters. Keep readers that make decisions, and values the user compares while acting, on `sync()`.
 - Effects of a scheduled component run late too. Do not drive side effects (a request, a save, a scroll) from scheduled reads.
 - A handler that needs the current value reads `getStore().get()`, which is never delayed.
 
 ## Choosing
 
-- **`'frame'`** helps when a store publishes several times per frame and a reader renders a lot. When the store already publishes once per frame, it changes nothing.
-- **`throttle`** keeps a view alive at a fixed rate. The leading run shows the first change at once.
-- **`debounce`** suits values that settle. `maxWait` keeps it rendering under a stream that never pauses; pass `maxWait: Infinity` to wait for a pause however long it takes.
-- **`idle`** moves a render out of the way of input and animation; it does not make it less frequent. When the main thread has time left in every frame, an idle reader renders about once per frame. React renders it in one go, so a slow render still takes its time. To render less often, use `throttle`.
+- **`frame()`** helps when a store publishes several times per frame and a reader renders a lot. When the store already publishes once per frame, it changes nothing.
+- **`throttle(ms)`** keeps a view alive at a fixed rate. The leading run shows the first change at once.
+- **`debounce(ms)`** suits values that settle. `maxWait` keeps it rendering under a stream that never pauses; pass `debounce(ms, { maxWait: Infinity })` to wait for a pause however long it takes.
+- **`idle(ms)`** moves a render out of the way of input and animation; it does not make it less frequent. When the main thread has time left in every frame, an idle reader renders about once per frame. React renders it in one go, so a slow render still takes its time. To render less often, use `throttle(ms)`.
 
 `useDeferredValue` is the React way to keep input responsive: the urgent render goes first and the deferred one follows in an interruptible background render. A schedule skips renders instead. They combine; see [Concurrent rendering](/guide/concurrent).
 

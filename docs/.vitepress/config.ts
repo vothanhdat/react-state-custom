@@ -72,6 +72,7 @@ export default defineConfig({
             { text: 'AutoRootCtx', link: '/api/auto-root-ctx' },
             { text: 'StateScopeProvider', link: '/api/state-scope-provider' },
             { text: 'StoreErrorBoundary', link: '/api/store-error-boundary' },
+            { text: 'Schedulers', link: '/api/schedulers' },
             { text: 'Types', link: '/api/types' },
           ],
         },

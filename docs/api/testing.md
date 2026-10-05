@@ -44,7 +44,7 @@ Removes every mock and drops every cached context with the state it holds, so th
 function flushScheduled(): boolean
 ```
 
-Makes every pending scheduled render happen now: those of components reading with a `schedule` (`'frame'`, throttle, debounce, idle), `useFrameState` updates and [`scheduled`](/api/primitives#scheduled) functions. Wrap it in `act`. Returns whether anything was pending. What those renders publish can schedule more: a component reading a store that is fed by a frame-buffered one needs a second call. With fake timers, advancing them does the same (`vi.advanceTimersToNextFrame()` for frames).
+Makes every pending scheduled render happen now: those of components reading with a `schedule` (`frame()`, `throttle(ms)`, `debounce(ms)`, `idle(ms)`), `useFrameState` updates and [`scheduled`](/api/schedulers#scheduled-fn-scheduler) functions. A [scheduler of your own](/api/schedulers#writing-a-scheduler) is not reached. Wrap it in `act`. Returns whether anything was pending. What those renders publish can schedule more: a component reading a store that is fed by a frame-buffered one needs a second call. With fake timers, advancing them does the same (`vi.advanceTimersToNextFrame()` for frames).
 
 ## `storeHandle`
 

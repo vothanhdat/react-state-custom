@@ -42,33 +42,27 @@ type StoreOptions<Params, State, Initial = {}> = {
   timeToClean?: number
   AttachedComponent?: React.ComponentType<Params>
   initialState?: Initial | ((params: Params) => Initial)
-  schedule?: Schedule
+  schedule?: Scheduler
 }
 ```
 
 `createStore` passes `Pick<State, Seeded>` as `Initial`, with `Seeded` inferred from the keys of `initialState`.
 
-## `Schedule`
+## `Scheduler` / `ScheduledTask`
 
-When a reader re-renders for a change of a store (the `schedule` option of `useStore` and `createStore`), or when a [`scheduled`](/api/primitives#scheduled) function runs.
+What the `schedule` options take: made by `sync()`, `frame()`, `throttle(ms)`, `debounce(ms, { maxWait })` and `idle(ms)`, or written by you. See [Schedulers](/api/schedulers).
 
 ```ts
-type Schedule =
-  | 'sync'                                  // at once (default)
-  | 'frame'                                 // once per animation frame
-  | { throttle: number }                    // at once, then at most once every ms, the last change included
-  | { debounce: number, maxWait?: number }  // once changes stop for ms; at least every maxWait (default 1000, or ms when longer)
-  | { idle: number }                        // when the browser is idle, at most ms later
+type Scheduler = { readonly name: string, task(run: () => void): ScheduledTask }
+type ScheduledTask = { request(): void, cancel(): void }
 ```
-
-`0` ms means `'sync'`. A value that is not a schedule logs a development error and renders at once. See [Update cadence](/guide/update-cadence).
 
 ## `StoreReadOptions` / `StoreSelectOptions`
 
 The last argument of `useStore`.
 
 ```ts
-type StoreReadOptions = { schedule?: Schedule }                // useStore(params, options)
+type StoreReadOptions = { schedule?: Scheduler }               // useStore(params, options)
 type StoreSelectOptions<R> = StoreReadOptions & {              // useStore(params, selector, options)
   isEqual?: (a: R, b: R) => boolean
 }

@@ -40,7 +40,7 @@ Otherwise make it a plain hook over the core stores. It runs inside the componen
 ```ts
 // stores/ui/marketViews.ts: one reader, so a hook
 export const useDepth = (symbol: string, zoom: number) => {
-  const { bids, asks, mid } = useBook({ symbol }, { schedule: { throttle: 100 } })
+  const { bids, asks, mid } = useBook({ symbol }, { schedule: throttle(100) })
   return useMemo(() => depthView(bids, asks, mid, zoom), [bids, asks, mid, zoom])
 }
 

@@ -53,7 +53,7 @@ An object, or a bare number treated as `timeToClean`.
 | `timeToClean` | `number` | `0` | Milliseconds to keep the instance alive after its last consumer or retainer leaves. `Infinity` keeps it until `AutoRootCtx` unmounts. |
 | `initialState` | `Initial \| (params) => Initial` | | Values consumers read before the hook has published. Keys listed here are typed as always present; values are checked against the hook's types. |
 | `AttachedComponent` | `ComponentType<Params>` | | Rendered next to each instance, inside its error boundary, with the store params as props. |
-| `schedule` | [`Schedule`](/api/types#schedule) | `'sync'` | When readers re-render for a change, unless they pass their own `schedule`. Applies to `useStore` and `useStoreSuspense`. See [Update cadence](/guide/update-cadence). |
+| `schedule` | [`Scheduler`](/api/schedulers) | `sync()` | When readers re-render for a change, unless they pass their own `schedule`. Applies to `useStore` and `useStoreSuspense`. See [Update cadence](/guide/update-cadence). |
 
 See [Store options](/guide/store-options) for guidance.
 
@@ -63,7 +63,7 @@ See [Store options](/guide/store-options) for guidance.
 
 The consumer hook. Returns a proxy that records which keys the component reads during render and subscribes to exactly those. The proxy is a new object on every render. Reads outside render return the current value, are not tracked, and log a development warning. The proxy is read-only: writing to it throws in development. See [Reads outside render](/guide/reads-outside-render).
 
-`options.schedule` says when the component re-renders for a change: `'sync'` (the default, or the store's `schedule` option), `'frame'`, `{ throttle: ms }`, `{ debounce: ms, maxWait? }` or `{ idle: ms }`. See [Update cadence](/guide/update-cadence). A store without params takes `undefined` as `params` here: `useStore(undefined, { schedule: 'frame' })`. Passed alone, the options object would be read as params (a development warning says so).
+`options.schedule` says when the component re-renders for a change: a [scheduler](/api/schedulers) such as `frame()`, `throttle(ms)`, `debounce(ms)` or `idle(ms)`; by default the store's `schedule` option, or at once. See [Update cadence](/guide/update-cadence). A store without params takes `undefined` as `params` here: `useStore(undefined, { schedule: frame() })`. Passed alone, the options object would be read as params (a development error says so).
 
 ### `useStore(params, selector, isEqual | options?)`
 
