@@ -13,17 +13,20 @@ export default defineConfig({
       babel: (id) => ({ plugins: isExample(id) ? ["babel-plugin-react-compiler"] : [] }),
     }),
     dts({
-      include: ['src/index.ts', 'src/state-utils', 'src/dev-tool'],
+      include: ['src/index.ts', 'src/state-utils', 'src/dev-tool', 'src/testing'],
     }),
   ],
   build: {
     lib: {
-      // Three entries: the state library, the dev tool (which carries the only CSS), and the
-      // react-obj-view renderer for the dev tool (so that optional peer stays out of the other two).
+      // Four entries: the state library, the dev tool (which carries the only CSS), the
+      // react-obj-view renderer for the dev tool (so that optional peer stays out of the other ones),
+      // and the test helpers. Code they share goes into a common chunk, so the testing entry reaches
+      // the same store registry as the library.
       entry: {
         'index': 'src/index.ts',
         'dev-tool': 'src/dev-tool/index.ts',
         'dev-tool/obj-view': 'src/dev-tool/obj-view.tsx',
+        'testing': 'src/testing/index.ts',
       },
       formats: ['es', 'cjs'],
       // package.json has "type": "module", so CommonJS output must use the .cjs extension

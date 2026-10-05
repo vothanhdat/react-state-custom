@@ -2,6 +2,7 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useDataContext, StateScopeContext, type Context, useIsomorphicLayoutEffect, functionSources, selectorScope, type FunctionSource } from "./ctx"
 import { paramsToId, type ParamsToIdRecord, type StoreParamsShape } from "./paramsToId"
 import { DependencyTracker } from "./utils"
+import { storeMocks } from "./storeRegistry"
 
 type StableFn = FunctionSource & { stable: Function }
 
@@ -146,11 +147,14 @@ export const createRootCtx = <U extends StoreParamsShape<U>, V extends object>(n
     const ctx = useDataContext<V>(ctxName)
     // what an earlier instance with this identity published (warm start); read once, on mount
     const [preState] = useState(() => ({ ...ctx.data }) as Partial<V>)
+    // A test double set with mockStore (react-state-custom/testing) runs in place of the hook, for the
+    // whole life of the instance: switching hooks in a running instance would break their order.
+    const [mock] = useState(() => storeMocks.get(name))
 
     DependencyTracker.enter(scopedCtxName);
     let rawState: V;
     try {
-      rawState = useFn(e, preState)
+      rawState = mock ? mock(e, preState) as V : useFn(e, preState)
     } finally {
       DependencyTracker.leave();
     }

@@ -22,6 +22,11 @@
       "import": "./dist/dev-tool/obj-view.es.js",
       "require": "./dist/dev-tool/obj-view.cjs"
     },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing.es.js",
+      "require": "./dist/testing.cjs"
+    },
     "./style.css": "./dist/react-state-custom.css",
     "./dist/react-state-custom.css": "./dist/react-state-custom.css",
     "./package.json": "./package.json"
@@ -33,6 +38,9 @@
       ],
       "dev-tool/obj-view": [
         "./dist/dev-tool/obj-view.d.ts"
+      ],
+      "testing": [
+        "./dist/testing/index.d.ts"
       ]
     }
   },

@@ -4,6 +4,7 @@ import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord, type StoreParamsShape } from "./paramsToId"
 import { useQuickSubscribe } from "./useQuickSubscribe"
 import { isProduction, formatState } from "./utils"
+import { storeEntries, storeMocks } from "./storeRegistry"
 
 /**
  * Renders one store instance's state when `debugging` is on. `name` is the instance key,
@@ -647,7 +648,9 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
     const unsub = autoCtx.subscribe("subscribe", (subscribe: Function | undefined) => {
       if (!active) return
       release?.()
-      release = subscribe ? subscribe(name, useRootState, params, timeToClean, AttachedComponent) : undefined
+      // a store replaced by mockStore (react-state-custom/testing) runs without its AttachedComponent
+      const attached = storeMocks.has(name) ? undefined : AttachedComponent
+      release = subscribe ? subscribe(name, useRootState, params, timeToClean, attached) : undefined
     })
     // No AutoRootCtx has published its subscribe fn yet. Give it a moment, then tell the developer
     // instead of failing silently.
@@ -820,6 +823,10 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
     const source = statusOf(useCtxState(...args))
     return useSyncExternalStore(source.subscribe, source.get, serverStatus)
   }
+
+  // so that react-state-custom/testing finds this store from whichever of these a module exports
+  const entry = { name, getStore: getStore as (params?: object) => StoreHandle<any, any> }
+  for (const fn of [useCtxState, useStore, useStoreSuspense, useStoreStatus, getStore]) storeEntries.set(fn, entry)
 
   return {
     useCtxState,
