@@ -26,7 +26,7 @@ export const paramsLabel = (name: string) => {
     const query = name.slice(name.indexOf("?") + 1)
     if (!name.includes("?") || !query) return "(no params)"
     return query.split("&").map(pair => {
-        const [key, value = ""] = pair.split("=")
+        const [key = "", value = ""] = pair.split("=")
         return `${decodeURIComponent(key)}=${decodeURIComponent(value)}`
     }).join(", ")
 }

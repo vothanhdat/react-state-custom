@@ -3,7 +3,7 @@ import { INSTALLATION_CODE, CODE_EXAMPLES, CodeExample } from './code-snippets'
 
 export const DocumentationSection = () => {
     const [activeTab, setActiveTab] = useState<string>('basic')
-    const activeExample = CODE_EXAMPLES.find(ex => ex.id === activeTab) || CODE_EXAMPLES[0]
+    const activeExample = CODE_EXAMPLES.find(ex => ex.id === activeTab) ?? CODE_EXAMPLES[0]!
 
     // Re-highlight code when tab changes
     useEffect(() => {

@@ -11,7 +11,7 @@ const connect = (roomId: string, onOpen: () => void, onMessage: (message: Messag
     const opening = setTimeout(onOpen, 300)
     const feed = setInterval(() => onMessage({
         id: nextId++,
-        author: people[Math.floor(Math.random() * people.length)],
+        author: people[Math.floor(Math.random() * people.length)]!,
         text: `${lines[Math.floor(Math.random() * lines.length)]} (#${roomId})`,
     }), 2000)
     return () => { clearTimeout(opening); clearInterval(feed) }

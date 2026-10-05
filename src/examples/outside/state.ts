@@ -26,9 +26,10 @@ export const connectFeed = () => {
     const store = getPricesStore()
     const release = store.retain()
     const timer = setInterval(() => {
-        const symbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]
+        const symbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]!
         const { prices, setPrice } = store.get()
-        setPrice?.(symbol, Math.round(prices[symbol] * (1 + (Math.random() - 0.5) * 0.02)))
+        const price = prices[symbol]
+        if (price !== undefined) setPrice?.(symbol, Math.round(price * (1 + (Math.random() - 0.5) * 0.02)))
     }, 500)
     return () => {
         clearInterval(timer)

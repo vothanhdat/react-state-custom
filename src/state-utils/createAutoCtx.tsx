@@ -144,7 +144,7 @@ const setRecord = (state: Records, key: string, next: StoreRecord | undefined) =
   if (next === state[key]) return state
   const out = createRecords()
   for (const k of Object.keys(state)) {
-    if (k !== key) out[k] = state[k]
+    if (k !== key) out[k] = state[k]!
     else if (next) out[k] = next
   }
   return out
@@ -228,7 +228,7 @@ const createBuckets = () => {
   return {
     update(key: string, next: (current: StoreRecord | undefined) => StoreRecord | undefined) {
       const i = bucketOf(key)
-      const before = records[i]
+      const before = records[i]!
       const updated = setRecord(before, key, next(before[key]))
       if (updated === before) return
       records[i] = updated
@@ -238,13 +238,14 @@ const createBuckets = () => {
         used = empty ? used.filter(j => j !== i) : [...used, i].sort((a, b) => a - b)
         usedListeners.forEach(l => l())
       }
-      listeners[i].forEach(l => l())
+      listeners[i]!.forEach(l => l())
     },
     subscribe(i: number, listener: () => void) {
-      listeners[i].add(listener)
-      return () => { listeners[i].delete(listener) }
+      const bucket = listeners[i]!
+      bucket.add(listener)
+      return () => { bucket.delete(listener) }
     },
-    get: (i: number) => records[i],
+    get: (i: number) => records[i]!,
     subscribeUsed(listener: () => void) {
       usedListeners.add(listener)
       return () => { usedListeners.delete(listener) }
@@ -897,7 +898,7 @@ const watchSeedReads = <V extends object>(ctx: Context<V>, state: V): V => new P
         seedReads.set(ctx, missing)
         ctx.onReady(() => {
           seedReads.delete(ctx)
-          const name = ctx.name.split("?")[0]
+          const name = ctx.name.split("?")[0]!
           for (const key of missing) {
             if ((ctx.data as Record<string, unknown>)[key] === undefined || warnedSeedReads.has(`${name}:${key}`)) continue
             warnedSeedReads.add(`${name}:${key}`)

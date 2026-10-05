@@ -17,7 +17,7 @@ const usePlayerState = () => {
     const [player, setPlayer] = useState(first)
     const addPoint = () => setPlayer(p => ({ ...p, score: p.score + 1 }))
     const rename = () => setPlayer(p => ({ ...p, name: p.name === 'Ada' ? 'Grace' : 'Ada' }))
-    const move = () => setPlayer(p => ({ ...p, city: cities[(cities.indexOf(p.city) + 1) % cities.length] }))
+    const move = () => setPlayer(p => ({ ...p, city: cities[(cities.indexOf(p.city) + 1) % cities.length]! }))
     const resend = () => setPlayer(p => ({ ...p })) // the same values in a new object
     return { player, addPoint, rename, move, resend }
 }
