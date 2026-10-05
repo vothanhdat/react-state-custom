@@ -1,68 +1,58 @@
 # Error handling
 
-Each store instance is wrapped in `StoreErrorBoundary` by default. If a store hook throws, during render or in an effect, the boundary catches the error, logs it with `console.error`, and stops rendering that store. Every other store and the UI keep running. Consumers of the failed store keep reading its last published values.
+Each store instance runs inside its own error boundary. If a store hook throws, during render or in an effect, the boundary catches the error, logs it with `console.error`, and stops running that store. Every other store and the UI keep running.
 
-## Errors in consumers
+## Expected failures are state
 
-- `useStoreSuspense` throws the store's error into the consumer's own error boundary, whether the hook failed before its first result or later. A component waiting in a `<Suspense>` boundary therefore never waits forever on a store that crashed.
-- `useStore` keeps returning the last published values, as above: a store that failed before its first result keeps showing `initialState`, a loading flag included. Its actions do nothing: the hook that defined them no longer runs. Read `useStoreStatus(params)` next to it to render the failure.
-- `useStoreStatus(params)` returns `{ ready, failed, error }` for the instance and re-renders only when that changes. It works in a `StateScopeProvider` and inside another store, which can then publish the failure of a store it reads.
-- `getStore(params).error` is what the hook threw while the instance is disabled, and `undefined` while it runs.
-
-```tsx
-const { useStore: useUser, useStoreStatus: useUserStatus } = createStore('user', useUserState, {
-  initialState: { user: null, isLoading: true },
-})
-
-function Profile({ userId }: { userId: string }) {
-  const { user, isLoading } = useUser({ userId })
-  const { failed, error } = useUserStatus({ userId })
-  if (failed) return <ErrorPanel error={error} />  // instead of a spinner that never stops
-  if (isLoading) return <Spinner />
-  return <h1>{user!.name}</h1>
-}
-```
-
-`useStoreStatus` reports a hook that crashed, a bug. Failures you expect, such as a request that fails, are better caught in the hook and published as state (see below): the store keeps running and can retry.
-
-The `Wrapper` passed to `AutoRootCtx` still receives every error, so reporting keeps working.
-
-## Reporting or rendering errors
-
-Pass your own `Wrapper` to `AutoRootCtx` (or `StateScopeProvider`) to report errors or render a fallback. The wrapper receives `children`, the store component.
-
-```tsx
-import { ErrorBoundary } from 'react-error-boundary'
-
-// Defined once at module scope: an inline component would be a new type on every render
-// and remount every store, losing their state.
-const ReportStoreErrors = ({ children }: { children?: React.ReactNode }) => (
-  <ErrorBoundary fallback={null} onError={reportError}>
-    {children}
-  </ErrorBoundary>
-)
-
-<AutoRootCtx Wrapper={ReportStoreErrors} />
-```
-
-Never write the `Wrapper` inline (`Wrapper={({ children }) => ...}`): whenever the component that renders `AutoRootCtx` re-renders, the inline function is a new component type and React remounts every store under it. A development error is logged when that happens.
-
-A wrapper that renders a visible fallback will render it where `AutoRootCtx` sits in the tree. Keep store fallbacks invisible and show error state through the store's own values instead:
+A request that fails, a socket that drops, a validation error: catch them in the hook and publish them, next to the data. The store keeps running, its readers render the failure, and a retry is an action of the store.
 
 ```ts
 const useUserState = ({ userId }: { userId: string }) => {
-  const [state, setState] = useState<{ user?: User; error?: Error }>({})
+  const [user, setUser] = useState<User>()
+  const [error, setError] = useState<Error>()
+  const [attempt, setAttempt] = useState(0)
   useEffect(() => {
-    fetchUser(userId).then(user => setState({ user })).catch(error => setState({ error }))
-  }, [userId])
-  return state
+    let cancelled = false
+    setError(undefined)
+    fetchUser(userId).then(u => { if (!cancelled) setUser(u) }, e => { if (!cancelled) setError(e) })
+    return () => { cancelled = true }
+  }, [userId, attempt])
+  return { user, error, isLoading: !user && !error, retry: () => setAttempt(a => a + 1) }
 }
 ```
 
+Work that can be retried retries in the store, in code: a store that crashed is not restarted.
+
+## A store that throws
+
+A hook that throws is a bug. In 1.x, the failed store's readers keep reading its last published values, and its actions do nothing: the hook that defined them no longer runs. A store that failed before its first result leaves its readers on `undefined`, the loading state.
+
+From 2.0, the components reading a failed store throw its error, for their own error boundary: the failure shows where the store is used, and every other store keeps running.
+
+## Reporting errors
+
+React 19 hands every error an error boundary caught to the root's `onCaughtError`, the stores' boundaries included:
+
+```tsx
+createRoot(document.getElementById('root')!, {
+  onCaughtError: (error, info) => reportError(error, info.componentStack),
+}).render(<App />)
+```
+
+`storeRef(params).error` is what the hook threw while the instance is disabled, and `undefined` while it runs.
+
 ## Errors thrown by subscribers
 
-Listeners registered with `getStore().subscribe()`, `Context.subscribe()` or `Context.subscribeAll()` must not throw. When a listener throws, every other listener is still notified, then the first error is rethrown to the store that published the change. The publish happens in the store's layout effect, so the error reaches that store's boundary and disables it, the same way a throwing subscriber surfaces at `dispatch` in Redux or `setState` in Zustand.
+Listeners registered with `storeRef(params).subscribe()` must not throw. When a listener throws, every other listener is still notified, then the first error is rethrown to the store that published the change. The publish happens in the store's layout effect, so the error reaches that store's boundary and disables it, the same way a throwing subscriber surfaces at `dispatch` in Redux or `setState` in Zustand.
 
 ## Recovery
 
-A disabled store stays disabled until its instance is torn down and mounted again: when the last consumer unmounts (after `timeToClean`) and a new consumer appears. There is no in-place retry. A `useStoreSuspense` consumer that suspended keeps the instance alive for about a second after it gave up, so a retry right away shows the same error; a retry after that starts a fresh instance. If a store must recover without a remount, catch the error inside the hook and expose it as state, as above.
+A disabled store stays disabled until its instance is torn down and mounted again: when the last reader unmounts (after `timeToClean`) and a new reader appears. There is no in-place restart. If a store must recover without a remount, catch the error inside the hook and expose it as state, as above.
+
+## Deprecated
+
+These keep working in 1.x and are removed in 2.0. See [Migrating to 2.0](/guide/migrating-to-2).
+
+- **`useStoreStatus(params)`** returns `{ ready, failed, error }` for the instance and re-renders only when that changes. Instead, keep loading state in the store; from 2.0 a failed store throws in its readers.
+- **`useStoreSuspense`** throws the store's error into the reader's error boundary, as every reader does from 2.0.
+- **The `Wrapper` prop** of `AutoRootCtx` (and `StateScopeProvider`) replaces `StoreErrorBoundary` around each store, to report errors or render a fallback. Define it at module scope: an inline component is a new type on every render and remounts every store. Instead, report errors with `onCaughtError`.

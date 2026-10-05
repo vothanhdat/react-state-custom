@@ -81,6 +81,10 @@ Or pass your own `Component`. It receives `{ name, value }` for each store, wher
 
 ## Debugging without the UI
 
+::: warning Deprecated
+The `debugging` prop is removed in 2.0. Use the dev tool, or read the store in a test with `storeRef(params).get()`.
+:::
+
 `AutoRootCtx` and `StateScopeProvider` accept `debugging`. With `true`, each store instance renders its state as a `<pre data-store="<store>?<params>">` element next to where the store hook runs, useful in tests and when the dev-tool bundle is not wanted:
 
 ```tsx
@@ -88,4 +92,4 @@ render(<><AutoRootCtx debugging /><App /></>)
 expect(document.querySelector('[data-store="user?userId=42"]')!.textContent).toContain('"isLoading": false')
 ```
 
-Pass a component instead of `true` to render the state your own way; it receives `{ name, value }` like a dev tool renderer. `formatState(value)` from the main entry is the JSON formatter used by both.
+Pass a component instead of `true` to render the state your own way; it receives `{ name, value }` like a dev tool renderer. `formatState(value)` from the main entry, deprecated as well, is the JSON formatter used by both.

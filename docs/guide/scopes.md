@@ -1,5 +1,9 @@
 # Scopes
 
+::: warning Deprecated
+`StateScopeProvider` is removed in 2.0: stores become global only. When two subtrees need separate instances of the same store, put what tells them apart in the params, `useDocument({ documentId, editorId })`, and every reader that passes the same params shares one instance. To start every store afresh (an example preview, a test), remount `AutoRootCtx` with a new `key`. This page documents the 1.x API. See [Migrating to 2.0](/guide/migrating-to-2#scopes).
+:::
+
 `AutoRootCtx` is the global scope: every `useStore` call in the tree shares its instances. `StateScopeProvider` creates an isolated scope with its own instances of every store, even when they share a definition and params.
 
 ```tsx
@@ -35,4 +39,4 @@ Scopes nest. A store used inside an inner `StateScopeProvider` belongs to the in
 
 ## Reaching a scoped store from outside React
 
-`getStore(params)` always targets the **global** scope. Components inside a `StateScopeProvider` reach their own instance through `useCtxState(params)`, which returns the scope's `Context` object, and can subscribe or read `ctx.data` from there. The [Outside React](/guide/outside-react) page shows both.
+`storeRef(params)` always targets the **global** scope. Components inside a `StateScopeProvider` read their own instance with `useStore`, or through `useCtxState(params)`, which returns the scope's `Context` object.

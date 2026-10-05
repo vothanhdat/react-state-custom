@@ -66,7 +66,7 @@ export const { useStore: useConnection } = createStore('connection', () => {
   const [status, setStatus] = useState<ConnectionStatus>(socket.status)
   useEffect(() => socket.onStatus(setStatus), [])
   return { status, online: status === 'open' }
-}, { initialState: { status: 'connecting', online: false } })
+})
 
 // in a store that must refetch after a drop
 const { online } = useConnection()

@@ -3,6 +3,27 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Added
+- The 2.0 API, next to the 1.x one. 2.0 keeps the idea (stores that are lazy, shared, automatic and composable) and trims the API to `createStore`, which returns `useStore` and `storeRef`, plus `useMultipleStore` and `<AutoRootCtx />`. Move to it on 1.10, then upgrade; the docs have a Migrating to 2.0 page.
+- `storeRef(params)`: one instance of a store, for code outside React and for `useMultipleStore`. It is the handle `getStore(params)` returned (`get()`, `subscribe()`, `retain()`, `ready`, `error`), under its new name; `getStore` returns the same and is deprecated.
+- `useMultipleStore(refs, options?)`: reads several store instances in one call, `useMultipleStore(ids.map(id => taskRef({ id })))`. The refs may come from one store or several, and their number may change between renders, which the rules of hooks did not allow with `useStore`. Each instance starts, is shared and stops as with `useStore`, in components and inside store hooks. It returns one tracking proxy per ref, typed by position for a tuple, or with `{ select, isEqual }` one value over all the states (`shallowEqual` by default). `schedule` applies to every instance; by default each follows its store's. On the server every state is `{}`, and while hydrating it reads what the server rendered, as `useStore` does.
+- `useStore(params, { select, isEqual, schedule })`: the selector as an option. Its `isEqual` defaults to `shallowEqual`, so a selector that returns a fresh array or object with the same items does not re-render.
+- `react-state-custom/schedulers`: `sync`, `frame`, `throttle`, `debounce`, `idle`, `scheduled`, `useFrameState` and the `Scheduler`/`ScheduledTask` types, sharing their queues with the main entry.
+- Types `StoreRef`, `StoreSelect`, `StatesOf` and `Store` (what `createStore` returns).
+- The playground's Scoped State example became Many Instances: counters by id, all of them read with `useMultipleStore`, and their total with `select`.
+
+### Deprecated
+Marked `@deprecated`, so editors strike them through; they work as before in 1.x and are removed in 2.0:
+- `initialState` (default at the read: `count ?? 0`; on the server `useStore` returns `{}`), `AttachedComponent` (an effect in the store hook), a number or a fourth argument to `createStore`, and the `preState` argument of the store hook.
+- `useStore(params, selector, isEqual)` and `useStore(selector)`: use `useStore(params, { select, isEqual })`.
+- `getStore` (renamed `storeRef`), `useStoreSuspense` (render the fallback from the store's values), `useStoreStatus` (loading state in the store; from 2.0 a store that throws throws in the components reading it), `useCtxState`.
+- `StateScopeProvider` (put what tells instances apart in the params; remount `AutoRootCtx` with a new `key` to start every store afresh), `StoreErrorBoundary` and the `Wrapper` and `debugging` props of `AutoRootCtx` (each store keeps its own error boundary; report with React's `onCaughtError`).
+- `createRootCtx`, `createAutoCtx`, the `Context` class and its hooks (`getContext`, `acquireContext`, `useDataContext`, `useDataSource*`, `useDataSubscribe*`, `useDataSelector`, `useQuickSubscribe`), `useArrayChangeId`, `paramsToId`, `shallowEqual`, `formatState` and their types. They become internal.
+- Importing the schedulers, `scheduled` and `useFrameState` from the main entry: import them from `react-state-custom/schedulers`.
+
+### Changed
+- Docs, README, AI context, demos and examples use the 2.0 API only. The trading demo has no `initialState` left: readers default at the read, and the panels that need a symbol render once the workspace has published it. Its script time per second stayed within the noise of before (headless Chrome, production build, three alternating runs).
+- A Vite production app that uses `createStore` and `AutoRootCtx` only grows by about 0.9 kB minified, 0.3 kB gzipped (18.5 → 19.4 kB, 7.4 → 7.7 kB), mostly the `shallowEqual` that `select` compares with. It still ships no scheduler and no `useMultipleStore` code.
 
 ## [1.9.0] - 2026-10-05
 ### Added

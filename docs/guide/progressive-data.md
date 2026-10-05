@@ -73,8 +73,6 @@ A store is lazy: until its hook has run once, every key is `undefined`. A `loadi
 const { loading = true } = useTicker({ symbol })
 ```
 
-Pass [`initialState`](/guide/store-options#initialstate) instead, such as `{ loading: true }`, when you want the key typed as always present.
-
 ## Switching params
 
 When `symbol` changes from `BTC` to `ETH`, the component reads the `ETH` instance right away:

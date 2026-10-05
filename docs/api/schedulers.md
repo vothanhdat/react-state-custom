@@ -1,15 +1,18 @@
 # Schedulers
 
-When a reader re-renders for a change of a store, and when a `scheduled` function runs. Each scheduler is a factory exported by the package; only the ones you import end up in your bundle. See [Update cadence](/guide/update-cadence) for when to use which.
+When a reader re-renders for a change of a store, and when a `scheduled` function runs. Each scheduler is a factory exported by `react-state-custom/schedulers`; only the ones you import end up in your bundle. See [Update cadence](/guide/update-cadence) for when to use which.
 
 ```ts
-import { sync, frame, throttle, debounce, idle, scheduled, useFrameState } from 'react-state-custom'
-import type { Scheduler, ScheduledTask } from 'react-state-custom'
+import { sync, frame, throttle, debounce, idle, scheduled, useFrameState } from 'react-state-custom/schedulers'
+import type { Scheduler, ScheduledTask } from 'react-state-custom/schedulers'
 
 useStore(params, { schedule: throttle(100) })
-useStore(params, selector, { isEqual, schedule: frame() })
+useStore(params, { select, schedule: frame() })
+useMultipleStore(refs, { schedule: idle(500) })
 createStore('portfolio', usePortfolioState, { schedule: throttle(250) })
 ```
+
+The main entry still exports them in 1.x, marked deprecated; they leave it in 2.0.
 
 Every factory returns the same scheduler for the same arguments (`throttle(100) === throttle(100)`), so calling one in render is fine. Runs due at the same moment (one frame, one throttle tick, one debounce timer, one idle callback) happen in one batch, and React renders them in one commit.
 

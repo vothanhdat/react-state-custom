@@ -10,23 +10,23 @@ const useCartState = ({ userId }: { userId: string }) => {
   return { items, addItem, total }
 }
 
-export const { useStore: useCartStore } = createStore('cart', useCartState, {
-  initialState: { items: [], total: 0 },
-})
+export const { useStore: useCartStore } = createStore('cart', useCartState)
 ```
 
 Every component that calls `useCartStore({ userId: '42' })` shares one running instance of that hook. Each component re-renders only when a key it read changes. When the last consumer unmounts, the hook's effects clean up and the instance is discarded.
+
+The whole API is `createStore`, which returns `useStore` and `storeRef`, plus `useMultipleStore` and `<AutoRootCtx />`. Stores are lazy, shared, automatic and composable: a store starts when something first reads it, every reader shares it, it stops by itself, and a store hook can read other stores.
 
 ## What you get
 
 - **Shared, not duplicated.** A store is called like a hook, anywhere. The hook runs once per params, however many components and stores call it.
 - **Composition.** A store hook can call other stores, so dependencies update automatically.
 - **Progressive data.** Each source fetches on its own and a combining store shows every piece as soon as it arrives. See [Progressive data](/guide/progressive-data).
-- **Selective re-renders.** `useStore` returns a proxy that records which keys a component reads during render and subscribes to exactly those. Selectors handle deep or derived reads, and a [schedule](/guide/update-cadence) lets a reader follow fast data once per frame, throttled, debounced or when idle.
+- **Selective re-renders.** `useStore` returns a proxy that records which keys a component reads during render and subscribes to exactly those. `{ select }` handles deep or derived reads, and a [schedule](/guide/update-cadence) lets a reader follow fast data once per frame, throttled, debounced or when idle.
 - **Automatic lifecycle.** No providers per store. `AutoRootCtx` mounts a store when it is first needed and tears it down when it is no longer used, after an optional grace period.
-- **Parameterized instances.** `useStore({ listId: 'work' })` and `useStore({ listId: 'home' })` are two independent instances of one definition.
-- **Escape hatches.** `getStore()` for sockets, routers and tests; `useStoreSuspense()` for Suspense; `StateScopeProvider` for isolated subtrees.
-- **TypeScript first.** Params and state are inferred from the hook. Keys given in `initialState` are typed as always present.
+- **Parameterized instances.** `useStore({ listId: 'work' })` and `useStore({ listId: 'home' })` are two independent instances of one definition, and [`useMultipleStore`](/api/use-multiple-store) reads a list of them in one call.
+- **Outside React.** `storeRef(params)` reads, drives and keeps running an instance from sockets, routers and tests.
+- **TypeScript first.** Params and state are inferred from the hook. Every key is typed as optional, because it is `undefined` until the store has run once.
 
 ## When it fits
 
@@ -42,7 +42,7 @@ A store pays off when several components need the same running piece of state, e
   - Server data you only fetch and cache: a query library already shares responses per key. Combine its results in a store when you need more.
   - State that belongs to one component: keep it in `useState`.
 - **Not a fit**
-  - Logic that must run without React. A store is a hook: `getStore()` reads and drives it from outside, but it runs only under a mounted `AutoRootCtx`.
+  - Logic that must run without React. A store is a hook: `storeRef()` reads and drives it from outside, but it runs only under a mounted `AutoRootCtx`.
 
 Sharing changes behaviour: callers with the same params share everything the hook holds. Decide what belongs to the shared instance and what stays with each view; see [What an instance shares](/guide/parameterized-stores#what-an-instance-shares).
 
@@ -53,4 +53,4 @@ An update takes two commits: the store renders and publishes, then its consumers
 - [Getting started](/guide/getting-started) walks through the four steps of a real app.
 - [How it works](/guide/how-it-works) explains the model in one page.
 - The [API reference](/api/create-store) documents every export.
-- The [live demo](https://vothanhdat.github.io/react-state-custom/) has editable examples: counter, live chat rooms, todo list, selectors and Suspense, nested state read three ways, timer, outside React, async data, composed stores and scoped state. Live Rooms shows the model best: one connection per room shared by several widgets, closed with the room, and messages kept in a store of their own.
+- The [live demo](https://vothanhdat.github.io/react-state-custom/) has editable examples: counter, live chat rooms, todo list, selectors, nested state read three ways, timer, outside React, async data, composed stores and many instances. Live Rooms shows the model best: one connection per room shared by several widgets, closed with the room, and messages kept in a store of their own.

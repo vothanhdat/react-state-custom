@@ -4,53 +4,12 @@
 
 ```ts
 createStore('name', useFn, {
-  initialState: { ... },     // values consumers read before the hook has run
-  timeToClean: 5000,         // keep the instance alive 5 s after its last consumer leaves (default 0)
-  AttachedComponent: Logger, // optional component rendered next to each instance, receives params
-  schedule: frame(),         // when readers re-render for a change (default: at once)
+  timeToClean: 5000, // keep the instance alive 5 s after its last reader leaves (default 0)
+  schedule: frame(), // when readers re-render for a change (default: at once)
 })
 ```
 
-A bare number is accepted as `timeToClean`: `createStore('name', useFn, 5000)`.
-
-## `initialState`
-
-Stores are lazy: nothing exists until the first consumer asks, and until the hook has run once its values read as `undefined`. Many stores are fine with that. The consumer renders once more on mount and reads with `??` or `?.`:
-
-```ts
-const { user } = useUserStore({ userId })   // User | undefined until the hook has run
-return <span>{user?.name ?? '…'}</span>
-```
-
-Pass `initialState` when you want more than that: consumers get those values on the very first render, and the keys listed there are typed as always present on the `useStore` result.
-
-```ts
-export const { useStore: useUserStore } = createStore('user', useUserState, {
-  initialState: { user: null, isLoading: true },
-})
-
-const { user, isLoading } = useUserStore({ userId }) // never undefined
-```
-
-Only the keys it holds are typed as present; the others, actions included, stay optional. Each value is checked against the hook's type for that key, so `{ status: 'loading' }` needs no `as const`, and a misspelled key or a value the hook never returns is a type error.
-
-`initialState` can also be a function of the params:
-
-```ts
-createStore('todos', useTodoState, {
-  initialState: ({ listId }) => ({ listId, items: [] }),
-})
-```
-
-TypeScript widens a string literal returned from a function, so write `'loading' as const` in this form.
-
-It seeds the store's context once per instance, before the first consumer render. Three effects follow:
-
-- On the server and during hydration, consumers render the seeded values, so server HTML shows a loading state instead of empty markup. See [Server-side rendering](/guide/ssr).
-- A consumer whose first render reads only seeded keys renders once instead of twice when the hook's first publish matches the seed.
-- `useStoreSuspense` with an `isReady` predicate resolves immediately when the seed already satisfies it. That render sees only the seeded keys; see [Suspense](/guide/suspense#behaviour).
-
-The hook's own first publish overwrites the seed key by key, so a key whose published value differs still triggers a re-render.
+Stores are lazy: nothing exists until the first reader asks, and until the hook has run once its values read as `undefined`. Readers default at the read with `??` or `?.`; see [Before the data arrives](/guide/getting-started#before-the-data-arrives).
 
 ## `timeToClean`
 
@@ -60,7 +19,7 @@ How long an instance stays mounted after its last consumer unmounts, in millisec
 createStore('search', useSearchState, { timeToClean: 30_000 })
 ```
 
-Retainers from `getStore().retain()` count as consumers.
+Retainers from `storeRef(params).retain()` count as readers.
 
 `Infinity` keeps the instance until `AutoRootCtx` unmounts: for a store the whole app shares, such as the session or a socket connection. Any value of 2³¹ − 1 ms (about 24.8 days) or more does the same. Earlier versions tore such an instance down at once, because a timer that long fires immediately.
 
@@ -75,7 +34,7 @@ To keep only the values once the screen closes, split the store: one store holds
 export const { useStore: useRoomHistory } = createStore('room-history', ({ roomId }: { roomId: string }) => {
   const [messages, setMessages] = useState<Message[]>([])
   return { messages, setMessages }
-}, { initialState: { messages: [] }, timeToClean: 5 * 60_000 })
+}, { timeToClean: 5 * 60_000 })
 
 // the resource: the socket closes as soon as the last screen leaves
 export const { useStore: useRoom } = createStore('room', ({ roomId }: { roomId: string }) => {
@@ -92,37 +51,38 @@ The Live Rooms example of the [demo](https://vothanhdat.github.io/react-state-cu
 
 ## `schedule`
 
-When the store's readers re-render for a change: a [scheduler](/api/schedulers) such as `frame()`, `throttle(ms)`, `debounce(ms, { maxWait })` or `idle(ms)`, imported from the package (default: at once). A reader can pass its own: `useStore(params, { schedule })`. The store itself, `getStore()` and actions are never delayed. See [Update cadence](/guide/update-cadence).
+When the store's readers re-render for a change: a [scheduler](/api/schedulers) such as `frame()`, `throttle(ms)`, `debounce(ms, { maxWait })` or `idle(ms)`, imported from `react-state-custom/schedulers` (default: at once). A reader can pass its own: `useStore(params, { schedule })`. The store itself, `storeRef(params).get()` and actions are never delayed. See [Update cadence](/guide/update-cadence).
 
 ```ts
 // equity moves with every price tick: its readers show it four times a second
 createStore('portfolio', usePortfolioState, { schedule: throttle(250) })
 ```
 
-## `AttachedComponent`
+## Deprecated options
 
-A component rendered next to each store instance, inside the same error boundary, receiving the store params as props. Use it for side effects that should run once per instance rather than once per consumer.
+These keep working in 1.x and are removed in 2.0. See [Migrating to 2.0](/guide/migrating-to-2).
 
-```tsx
-const Analytics = ({ userId }: { userId: string }) => {
-  useEffect(() => { track('user-store-mounted', userId) }, [userId])
-  return null
-}
+### `initialState`
 
-createStore('user', useUserState, { AttachedComponent: Analytics })
-```
+Values readers got before the hook had run, typed as always present: `initialState: { user: null, isLoading: true }`, or a function of the params. It also gave the server HTML a loading state.
 
-Most of what `AttachedComponent` can do also fits inside the store hook itself as an effect. Reach for it when the side effect must not share a render with the hook, for example when it should keep running after the hook throws.
+Instead, default at the read: `const { isLoading = true, user } = useUserStore({ userId })`, or `user?.name ?? '…'`. On the server `useStore` returns `{}`, so the server renders the same loading state the first client render shows.
 
-## The `preState` argument
+### `AttachedComponent`
 
-The store hook receives a second argument: the values previously published by an instance with the same identity, or an empty object. It is read once, when the instance mounts, and stays the same object for the life of the instance. It lets a store pick up where the previous instance stopped when it remounts while something still holds its context: a hot update or an error that restarts the hook, an [`<Activity>`](/guide/concurrent#hidden-content-with-activity) shown again, a `getStore().subscribe` listener. It holds values only, never the old instance's actions. When an instance is torn down and nothing holds its context, the context is dropped at once, and a component mounting after that starts a fresh instance, so `preState` does not carry values across a navigation; use `timeToClean`, or [keep the values in a store of their own](#keeping-the-values-not-the-resource).
+A component rendered next to each instance with the params as props, for side effects once per instance. Instead, write the effect in the store hook: it runs once per instance too.
 
 ```ts
-const useDraft = ({ id }: { id: string }, preState: Partial<{ text: string }>) => {
-  const [text, setText] = useState(preState.text ?? '')
-  return { text, setText }
+const useUserState = ({ userId }: { userId: string }) => {
+  useEffect(() => { track('user-store-mounted', userId) }, [userId])
+  // ...
 }
 ```
 
-Most stores ignore it.
+### A number, or a fourth argument
+
+`createStore('name', useFn, 5000)` meant `{ timeToClean: 5000 }`, and a fourth argument was the `AttachedComponent`. Pass an options object.
+
+### The `preState` argument
+
+The store hook received a second argument: the values previously published by an instance with the same identity while something still held its context (a hot update that restarted the hook, an `<Activity>` shown again). Instead, keep the instance with `timeToClean`, or [keep the values in a store of their own](#keeping-the-values-not-the-resource). From 2.0, a hot update that changes the hook's hooks restarts it from its initial state, as Fast Refresh does with a component.

@@ -56,7 +56,7 @@ function App() {
 - **Emit after the store has accepted the message**: after its sequence check, its deduplication, its validation. A listener must never hear about a message the store dropped.
 - **Send the whole event.** The store publishes its new state one commit later, so a listener that reads the store to complete the event reads the old state. Put everything the listener needs in the payload.
 - **Catch per listener.** One listener that throws must not stop the store from applying the message, nor the other listeners from hearing it.
-- **The listener lives in a store, not in a plain hook.** A plain hook called by two components subscribes twice, and each fill shows two toasts. A store has one instance however many components start it. Start it once near the root, or keep it running with `getStore().retain()`.
+- **The listener lives in a store, not in a plain hook.** A plain hook called by two components subscribes twice, and each fill shows two toasts. A store has one instance however many components start it. Start it once near the root, or keep it running with `storeRef().retain()`.
 - **Listing the actions here is fine.** The effect only subscribes, so running it again when `onFill` or `push` arrives costs nothing, and a restarted account instance gets a new `onFill`, which the effect then subscribes to. Return early while either is missing: without both there is nothing to do.
 - **Order does not matter.** The toast store may start before or after the account store, and either may restart. If the toast store fails, the account keeps applying fills; it only loses that listener.
 

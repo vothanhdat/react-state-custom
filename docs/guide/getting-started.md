@@ -37,19 +37,19 @@ Nothing here is specific to the library. The hook can use any other hook, includ
 
 ## 2. Create the store
 
-`createStore` registers the hook under a name and returns the consumer hooks.
+`createStore` registers the hook under a name and returns `useStore`, the hook components read it with, and `storeRef`, which reaches an instance from anywhere else.
 
 ```ts
 // features/userStore.ts
 import { createStore } from 'react-state-custom'
 import { useUserState } from './userState'
 
-export const { useStore: useUserStore } = createStore('user', useUserState, {
-  initialState: { user: null, isLoading: true },
+export const { useStore: useUserStore, storeRef: userRef } = createStore('user', useUserState, {
+  timeToClean: 10_000, // keep a user 10 s after its last reader leaves
 })
 ```
 
-`initialState` is what consumers read before the hook has run for the first time. Without it those keys are `undefined` on the very first render and typed as optional. See [Store options](/guide/store-options).
+Every option is optional. See [Store options](/guide/store-options).
 
 ## 3. Mount the root once
 
@@ -87,11 +87,11 @@ Two components rendering `useUserStore({ userId: '42' })` share one instance of 
 
 ## Before the data arrives
 
-A store starts when its first reader mounts, so on that reader's first render the hook has not run yet: every key is `undefined`, actions included, unless [`initialState`](/guide/store-options#initialstate) seeds it. Data from a fetch or a socket stays `undefined`, or the `null` you start it with, until it arrives. The types say so: every key of the `useStore` result is optional. Check values before using them.
+Stores are lazy: a store starts when its first reader mounts, so on that reader's first render the hook has not run yet. Every key is `undefined`, actions included, and nothing is ready at the start by design. Data from a fetch or a socket stays `undefined`, or the `null` you start it with, until it arrives. The types say so: every key of the `useStore` result is optional. Check values before using them.
 
 ```tsx
 function TaskTitle({ projectId, id }: { projectId: string; id: string }) {
-  const task = useTasks({ projectId }, s => s.tasks?.[id])
+  const task = useTasks({ projectId }, { select: s => s.tasks?.[id] })
   if (!task) return null                 // not loaded yet, or just deleted
   return <span>{task.title}</span>
 }
@@ -120,6 +120,7 @@ function Total() {
 ## What's next
 
 - [How it works](/guide/how-it-works): the model behind these four steps.
-- [Store options](/guide/store-options): `initialState`, `timeToClean`, `AttachedComponent`.
-- [Selectors](/guide/selectors) and [Suspense](/guide/suspense) for finer control over rendering.
+- [Store options](/guide/store-options): `timeToClean` and `schedule`.
+- [Selectors](/guide/selectors) and [Update cadence](/guide/update-cadence) for finer control over rendering.
+- [`useMultipleStore`](/api/use-multiple-store) to read a list of instances in one call.
 - [Testing](/guide/testing) for how to test components that use a store.

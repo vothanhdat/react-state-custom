@@ -84,7 +84,7 @@ const Pnl = ({ symbol }: { symbol: string }) => {
 
 A store is a hook running inside a **headless component**.
 
-- `createStore(name, useFn)` registers your hook under a name.
+- `createStore(name, useFn)` registers your hook under a name and returns `useStore`, plus `storeRef` for code outside React.
 - The first time a component calls `useStore(params)`, `AutoRootCtx` mounts a hidden component that runs `useFn(params)`. Its return value is published, key by key, to a shared context.
 - `useStore` returns a proxy. Every key you read during render becomes a subscription, so the component re-renders only when one of those keys changes (`Object.is`).
 - Components that call `useStore` with the same `params` share one instance. Different `params` get their own instance.
@@ -104,33 +104,38 @@ export const useUserState = ({ userId }: { userId: string }) => {
   return { user, isLoading: !user }
 }
 
-// 2. Create the store (initialState: what consumers see before the hook runs)
-export const { useStore: useUserStore } = createStore('user', useUserState, {
-  initialState: { user: null, isLoading: true },
-})
+// 2. Create the store
+export const { useStore: useUserStore, storeRef: userRef } = createStore('user', useUserState)
 ```
 
 ```tsx
 // 3. Mount the root once
 <AutoRootCtx />
 
-// 4. Read it anywhere; two components with the same params share one instance and one fetch
+// 4. Read it anywhere; two components with the same params share one instance and one fetch.
+//    Every key is undefined until the store has run once: stores are lazy.
 function UserName({ userId }: { userId: string }) {
   const { user } = useUserStore({ userId })
   if (!user) return <Spinner />
   return <span>{user.name}</span>
 }
+
+// Derived values re-render only when they change; a list of instances is one call
+const initial = useUserStore({ userId }, { select: s => s.user?.name[0] })
+const users = useMultipleStore(ids.map(userId => userRef({ userId })))
 ```
+
+The whole API is `createStore` (which returns `useStore` and `storeRef`), `useMultipleStore` and `<AutoRootCtx />`. Schedulers live in `react-state-custom/schedulers`. 1.10 marks everything else deprecated for 2.0: see [Migrating to 2.0](https://vothanhdat.github.io/react-state-custom/docs/guide/migrating-to-2).
 
 ## 📚 Guide
 
 The full guide lives on the **[documentation site](https://vothanhdat.github.io/react-state-custom/docs/)**:
 
-- **Start**: [getting started](https://vothanhdat.github.io/react-state-custom/docs/guide/getting-started), [how it works](https://vothanhdat.github.io/react-state-custom/docs/guide/how-it-works)
-- **Stores**: [store options](https://vothanhdat.github.io/react-state-custom/docs/guide/store-options) (`initialState`, `timeToClean`, `AttachedComponent`, `schedule`), [organizing stores in layers](https://vothanhdat.github.io/react-state-custom/docs/guide/layers), [events from a store](https://vothanhdat.github.io/react-state-custom/docs/guide/events), [realtime data](https://vothanhdat.github.io/react-state-custom/docs/guide/realtime), [parameterized stores](https://vothanhdat.github.io/react-state-custom/docs/guide/parameterized-stores), [composing stores](https://vothanhdat.github.io/react-state-custom/docs/guide/composing-stores), [progressive data](https://vothanhdat.github.io/react-state-custom/docs/guide/progressive-data), [scopes](https://vothanhdat.github.io/react-state-custom/docs/guide/scopes) with `StateScopeProvider`, [error handling](https://vothanhdat.github.io/react-state-custom/docs/guide/error-handling)
-- **Reading state**: [selectors](https://vothanhdat.github.io/react-state-custom/docs/guide/selectors), [update cadence](https://vothanhdat.github.io/react-state-custom/docs/guide/update-cadence) (render a reader per frame, throttled, debounced or when idle), [nested objects](https://vothanhdat.github.io/react-state-custom/docs/guide/composing-stores#flatten-a-nested-source), [Suspense](https://vothanhdat.github.io/react-state-custom/docs/guide/suspense), [concurrent rendering](https://vothanhdat.github.io/react-state-custom/docs/guide/concurrent), [outside React](https://vothanhdat.github.io/react-state-custom/docs/guide/outside-react) with `getStore()`, [reads outside render](https://vothanhdat.github.io/react-state-custom/docs/guide/reads-outside-render)
+- **Start**: [getting started](https://vothanhdat.github.io/react-state-custom/docs/guide/getting-started), [how it works](https://vothanhdat.github.io/react-state-custom/docs/guide/how-it-works), [migrating to 2.0](https://vothanhdat.github.io/react-state-custom/docs/guide/migrating-to-2)
+- **Stores**: [store options](https://vothanhdat.github.io/react-state-custom/docs/guide/store-options) (`timeToClean`, `schedule`), [organizing stores in layers](https://vothanhdat.github.io/react-state-custom/docs/guide/layers), [events from a store](https://vothanhdat.github.io/react-state-custom/docs/guide/events), [realtime data](https://vothanhdat.github.io/react-state-custom/docs/guide/realtime), [parameterized stores](https://vothanhdat.github.io/react-state-custom/docs/guide/parameterized-stores), [composing stores](https://vothanhdat.github.io/react-state-custom/docs/guide/composing-stores), [progressive data](https://vothanhdat.github.io/react-state-custom/docs/guide/progressive-data), [error handling](https://vothanhdat.github.io/react-state-custom/docs/guide/error-handling)
+- **Reading state**: [selectors](https://vothanhdat.github.io/react-state-custom/docs/guide/selectors), [update cadence](https://vothanhdat.github.io/react-state-custom/docs/guide/update-cadence) (render a reader per frame, throttled, debounced or when idle), [nested objects](https://vothanhdat.github.io/react-state-custom/docs/guide/composing-stores#flatten-a-nested-source), [many instances](https://vothanhdat.github.io/react-state-custom/docs/api/use-multiple-store) with `useMultipleStore`, [concurrent rendering](https://vothanhdat.github.io/react-state-custom/docs/guide/concurrent), [outside React](https://vothanhdat.github.io/react-state-custom/docs/guide/outside-react) with `storeRef()`, [reads outside render](https://vothanhdat.github.io/react-state-custom/docs/guide/reads-outside-render)
 - **Integration**: [developer tools](https://vothanhdat.github.io/react-state-custom/docs/guide/devtools), [server-side rendering](https://vothanhdat.github.io/react-state-custom/docs/guide/ssr), [React Compiler](https://vothanhdat.github.io/react-state-custom/docs/guide/react-compiler), [testing](https://vothanhdat.github.io/react-state-custom/docs/guide/testing), [limitations and FAQ](https://vothanhdat.github.io/react-state-custom/docs/guide/limitations)
-- **[API reference](https://vothanhdat.github.io/react-state-custom/docs/api/create-store)**: every export, including the low-level primitives
+- **[API reference](https://vothanhdat.github.io/react-state-custom/docs/api/create-store)**: every export, the deprecated ones included
 
 ---
 
@@ -207,7 +212,7 @@ What it costs: each update commits twice, first the store, then the consumers th
 - React 18 or newer (`react` and `react-dom` are peer dependencies).
 - Ships ESM and CommonJS builds with TypeScript declarations.
 - Development checks and warnings are removed from production bundles built with Vite, Rollup or webpack (terser): like React, the library reads `process.env.NODE_ENV`, which your bundler replaces.
-- SSR-safe: consumers render `initialState` on the server, stores run after hydration. In the Next.js App Router, `AutoRootCtx` and every `useStore` caller live in a `'use client'` module.
+- SSR-safe: on the server `useStore` returns `{}` and no store runs; stores run after hydration. In the Next.js App Router, `AutoRootCtx` and every `useStore` caller live in a `'use client'` module.
 - Works with the React Compiler; covered by `yarn test:compiler` in CI.
 
 ## 📖 Documentation

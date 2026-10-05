@@ -1,6 +1,6 @@
 # Concurrent rendering
 
-Stores keep loading and progress in their own state (`isLoading`, values that stay `undefined` until they arrive; see [Progressive data](/guide/progressive-data)), so most apps need none of the features on this page. It is for apps that combine stores with transitions, deferred values, Suspense or `<Activity>`.
+Stores keep loading and progress in their own state (`isLoading`, values that stay `undefined` until they arrive; see [Progressive data](/guide/progressive-data)), so most apps need none of the features on this page. It is for apps that combine stores with transitions, deferred values or `<Activity>`.
 
 A store is React state inside a headless component, and its consumers read it through `useSyncExternalStore`. That decides how stores behave with these features.
 
@@ -8,7 +8,7 @@ A store is React state inside a headless component, and its consumers read it th
 
 A transition (`startTransition`, `useTransition`) marks an update as non-urgent. React renders it in the background, gives way to clicks and typing in between, and keeps the current UI on screen instead of showing a Suspense fallback while something new loads.
 
-- **Params in a transition work as usual.** Switch the params of a `useStoreSuspense` consumer inside `startTransition` and React keeps the previous content until the new instance is ready. See [Suspense](/guide/suspense#transitions).
+- **Params in a transition work as usual.** The new instance starts when the transition commits; its readers render their loading state until it has run.
 - **A store action in a transition stops at the store.** The store renders as a transition, but its consumers update in a blocking render once it publishes: React renders every change of an external store as blocking, even inside a transition. Zustand and Redux behave the same way.
 
 To keep the UI responsive while many consumers update, defer the expensive part instead.
@@ -21,15 +21,15 @@ To keep the UI responsive while many consumers update, defer the expensive part 
 export const { useStore: useSearch } = createStore('search', () => {
   const [query, setQuery] = useState('')
   return { query, setQuery }
-}, { initialState: { query: '' } })
+})
 
 const SearchPage = () => {
   const { query, setQuery } = useSearch()
   const deferredQuery = useDeferredValue(query)
   return <>
-    <input value={query} onChange={e => setQuery?.(e.target.value)} />
+    <input value={query ?? ''} onChange={e => setQuery?.(e.target.value)} />
     <div style={{ opacity: query !== deferredQuery ? 0.6 : 1 }}>
-      <Results query={deferredQuery} />
+      <Results query={deferredQuery ?? ''} />
     </div>
   </>
 }
@@ -44,33 +44,20 @@ For a store that changes on its own, such as a price feed, a [`schedule`](/guide
 
 ## Load in parallel
 
-A store that keeps its loading state in its values never holds back a commit: every consumer commits right away and every store starts at once. Only Suspense can make a store wait. `useStore` starts its store from an effect, once the component has committed, and a component in a boundary that is showing its fallback has rendered but not committed, so its store waits for the boundary:
+A store that keeps its loading state in its values never holds back a commit: every reader commits right away and every store starts at once. Only Suspense can make a store wait. `useStore` starts its store from an effect, once the component has committed, and a component in a boundary that is showing its fallback has rendered but not committed, so its store waits for the boundary. Give independent sections their own boundary, or keep loading state in the stores.
 
-```tsx
-// Feed's store starts only after the user has loaded: two 200 ms requests take 400 ms
-<Suspense fallback={<Spinner />}>
-  <Header />  {/* useUserSuspense({ userId }, s => !s.isLoading) */}
-  <Feed />    {/* useFeed({ userId }) */}
-</Suspense>
-```
-
-Either fix starts both at once:
-
-- **Give independent sections their own boundary.** Feed then commits while Header waits.
-- **Read every source of the boundary with `useStoreSuspense`.** It starts its store while the component is suspended.
-
-To start a store before its screen renders, for example a screen behind a lazy component, retain it from a hover handler or a route loader. The screen's consumers attach to the same instance:
+To start a store before its screen renders, for example a screen behind a lazy component, retain it from a hover handler or a route loader. The screen's readers attach to the same instance:
 
 ```ts
 const prefetchUser = (userId: string) => {
-  const release = getUserStore({ userId }).retain()
-  setTimeout(release, 10_000) // once mounted, the screen's consumers keep it running
+  const release = userRef({ userId }).retain()
+  setTimeout(release, 10_000) // once mounted, the screen's readers keep it running
 }
 
 <Link to={`/users/${id}`} onMouseEnter={() => prefetchUser(id)}>
 ```
 
-`getStore` reaches the global scope only. See [Outside React](/guide/outside-react#retain).
+See [Outside React](/guide/outside-react#retain).
 
 ## Hidden content with `<Activity>`
 
@@ -79,7 +66,7 @@ React 19.2's `<Activity mode="hidden">` keeps the state of hidden components but
 To keep a store's state while its consumers are hidden:
 
 - **`timeToClean` longer than the content stays hidden.** The instance keeps running while hidden, effects and subscriptions included.
-- **A warm start from `preState`.** The new instance starts from what the old one published: `useState(preState.count ?? 0)`. Its effects run again, so it fetches or subscribes again. See [`preState`](/guide/store-options#the-prestate-argument).
-- **Another consumer that stays visible**, or `getStore(params).retain()`.
+- **The values in a store of their own**, with a long `timeToClean` and no effects, while the resource runs in another. See [Keeping the values, not the resource](/guide/store-options#keeping-the-values-not-the-resource).
+- **Another reader that stays visible**, or `storeRef(params).retain()`.
 
 Keep `AutoRootCtx` outside every `<Activity>`. Hiding it stops every store, and when it is shown again every store starts over, for the consumers outside the hidden part too.

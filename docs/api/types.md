@@ -1,52 +1,71 @@
 # Types
 
-All types are exported from the package entry.
+The types of the main API are exported from `react-state-custom`; `Scheduler` and `ScheduledTask` from `react-state-custom/schedulers`.
 
-## `StoreHandle`
+## `StoreState`
 
-Returned by `getStore(params)`.
+What `useStore` returns, and what `select` and `storeRef(params).get()` see: every key of `State` is optional, because it is `undefined` until the store has run once.
 
 ```ts
-type StoreHandle<State, Initial> = {
+type StoreState<State> = { [K in keyof State]?: State[K] }
+```
+
+In 1.x it takes a second parameter, the keys of the deprecated `initialState`, which it types as always present.
+
+## `StoreRef`
+
+Returned by `storeRef(params)`. See [`storeRef`](/api/create-store#storeref-params).
+
+```ts
+type StoreRef<State> = {
   readonly name: string            // "name?params"
   readonly ready: boolean          // the running instance has published at least once; false once it is torn down
   readonly error: unknown          // what the hook threw while the instance is disabled, else undefined
-  get(): StoreState<State, Initial>
-  subscribe(listener: (state: StoreState<State, Initial>, changedKey: keyof State) => void): () => void
+  get(): StoreState<State>
+  subscribe(listener: (state: StoreState<State>, changedKey: keyof State) => void): () => void
   retain(): () => void
 }
 ```
 
-- `get()` never subscribes and never creates a store. It returns `initialState` merged with the live data, or `initialState` (or `{}`) before anything has run.
+- `get()` never subscribes and never starts a store. Before anything runs the instance it returns `{}`.
 - `subscribe()` keeps the context alive while subscribed and fires once per changed key. All calls of one store update get the same snapshot object, the complete new state: all keys of the update are applied before the first call. Treat it as read-only; the next update gets a new one. The listener must not throw: an error thrown by any subscriber is rethrown to the store that published the change, and its error boundary disables that store.
-- `retain()` mounts the store through the global `AutoRootCtx` and counts as a consumer. Call the returned function to release. Logs a development error if no `AutoRootCtx` is mounted within a second.
+- `retain()` runs the instance through the global `AutoRootCtx` and counts as a reader. Call the returned function to release. Logs a development error if no `AutoRootCtx` is mounted within a second.
 
-## `StoreStatus`
+## `StatesOf`
 
-Returned by `useStoreStatus(params)`.
+What `useMultipleStore(refs)` returns: the `StoreState` of each ref, in order. A tuple of refs gives a tuple, an array gives an array.
 
 ```ts
-type StoreStatus = {
-  readonly ready: boolean   // the running instance has published at least once; false once it is torn down
-  readonly failed: boolean  // the store hook threw and the instance is disabled until it is torn down
-  readonly error: unknown   // what the hook threw, while failed
-}
+type StatesOf<Refs extends readonly StoreRef<any>[]> = { -readonly [K in keyof Refs]: /* StoreState of Refs[K] */ }
 ```
-
-`failed` is kept apart from `error` because a hook can throw `undefined`. The object is the same from one render to the next until the status changes.
 
 ## `StoreOptions`
 
+The options of `createStore`.
+
 ```ts
-type StoreOptions<Params, State, Initial = {}> = {
+type StoreOptions = {
   timeToClean?: number
-  AttachedComponent?: React.ComponentType<Params>
-  initialState?: Initial | ((params: Params) => Initial)
   schedule?: Scheduler
 }
 ```
 
-`createStore` passes `Pick<State, Seeded>` as `Initial`, with `Seeded` inferred from the keys of `initialState`.
+In 1.x it also takes the deprecated `initialState` and `AttachedComponent`.
+
+## `StoreReadOptions` / `StoreSelect`
+
+The options of `useStore` and `useMultipleStore`.
+
+```ts
+type StoreReadOptions = { schedule?: Scheduler }     // useStore(params, options)
+type StoreSelect<S, R> = {                           // useStore(params, { select, ... })
+  select: (state: S) => R
+  isEqual?: (a: R, b: R) => boolean                   // default shallowEqual
+  schedule?: Scheduler
+}
+```
+
+`StoreSelectOptions<R>`, `StoreSelect` without `select`, is what the deprecated `useStore(params, selector, options)` takes.
 
 ## `Scheduler` / `ScheduledTask`
 
@@ -57,54 +76,22 @@ type Scheduler = { readonly name: string, task(run: () => void): ScheduledTask }
 type ScheduledTask = { request(): void, cancel(): void }
 ```
 
-## `StoreReadOptions` / `StoreSelectOptions`
-
-The last argument of `useStore`.
-
-```ts
-type StoreReadOptions = { schedule?: Scheduler }               // useStore(params, options)
-type StoreSelectOptions<R> = StoreReadOptions & {              // useStore(params, selector, options)
-  isEqual?: (a: R, b: R) => boolean
-}
-```
-
 ## `StoreParams`
 
-The argument list of `useStore` / `useCtxState` / `getStore`: `[params?: Params]` when `Params` has no required keys, `[params: Params]` otherwise.
+The argument list of `useStore` and `storeRef`: `[params?: Params]` when `Params` has no required keys, `[params: Params]` otherwise.
 
-## `StoreState`
+Every value of the params must be a primitive (`string`, `number`, `bigint`, `boolean`, `null` or `undefined`), so the identity of an instance is deterministic. The constraint is written over the keys of the params type, so an `interface` qualifies as well as a `type`.
 
-What `useStore` returns: every key of `State` is optional (it is `undefined` until the hook runs), except the keys present in `Initial`, which are always defined.
+## `Store`
 
-```ts
-type StoreState<State, Initial> =
-  { [K in keyof State]?: State[K] } & { [K in keyof Initial & keyof State]: State[K] }
-```
+What `createStore` returns: `Store<Params, State>`.
 
-## `StoreStateWith`
+## Deprecated
 
-What `useStoreSuspense(params, keys)` returns when `keys` is a tuple, written in the call or kept `as const`: the listed keys hold a value, the others are as in `StoreState`. A widened array, such as `(keyof State)[]`, does not say which keys it holds, so the result is `StoreState`.
+Removed in 2.0, with the APIs that use them.
 
-```ts
-type StoreStateWith<State, Initial, K extends keyof State> =
-  StoreState<State, Initial> & { [P in K]-?: Exclude<State[P], undefined> }
-```
-
-## `StoreParamsShape` / `ParamValue`
-
-Constraint for store parameters: every value must be a primitive so the identity is deterministic. It is written over the keys of the params type, so an `interface` qualifies as well as a `type`.
-
-```ts
-type ParamValue = string | number | bigint | boolean | null | undefined
-type StoreParamsShape<Params> = { [K in keyof Params]: ParamValue }
-// createStore<Params extends StoreParamsShape<Params>, State extends object, ...>
-```
-
-## `ParamsToIdRecord` / `ParamsToIdInput`
-
-What `paramsToId` accepts. `ParamsToIdInput` additionally allows `undefined` for the whole object.
-
-```ts
-type ParamsToIdRecord = Record<string, ParamValue>
-type ParamsToIdInput = ParamsToIdRecord | undefined
-```
+- `StoreHandle`: renamed `StoreRef`.
+- `StoreStatus`: what `useStoreStatus` returns, `{ ready, failed, error }`.
+- `StoreStateWith`: what `useStoreSuspense(params, keys)` returns.
+- `StateDebugRenderer`: the component the `debugging` prop of `AutoRootCtx` takes.
+- `StoreParamsShape`, `ParamValue`, `ParamsToIdRecord`, `ParamsToIdInput`: the params constraint and what `paramsToId` takes. They become internal.

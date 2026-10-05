@@ -3,18 +3,18 @@
 By default a component re-renders in the commit right after the store it reads changes. For data that changes faster than anyone reads it, such as a price feed, a sensor, a progress counter or a log, each reader can choose how often it follows:
 
 ```tsx
-import { idle, shallowEqual, throttle } from 'react-state-custom'
+import { idle, throttle } from 'react-state-custom/schedulers'
 
 // a depth chart of a few hundred points: ten times a second is plenty
 const { bids, asks } = useBook({ symbol }, { schedule: throttle(100) })
 
 // order history: render when the browser has time, within half a second
-const ids = useAccount(s => closedOrderIds(s.orders), { isEqual: shallowEqual, schedule: idle(500) })
+const ids = useAccount(undefined, { select: s => closedOrderIds(s.orders ?? {}), schedule: idle(500) })
 ```
 
 ## Schedulers
 
-A schedule is a scheduler from one of these factories, imported from `react-state-custom`. Only the ones you import end up in your bundle: an app that schedules nothing ships none of them.
+A schedule is a scheduler from one of these factories, imported from `react-state-custom/schedulers`. Only the ones you import end up in your bundle: an app that schedules nothing ships none of them.
 
 | `schedule` | the component re-renders | for |
 |---|---|---|
@@ -28,23 +28,22 @@ A factory returns the same scheduler for the same arguments, so calling it in re
 
 ## What waits and what does not
 
-- **Only the reader's re-render waits.** The store runs and publishes at once. `getStore().get()`, actions, `subscribe` listeners and the other readers see the change immediately.
+- **Only the reader's re-render waits.** The store runs and publishes at once. `storeRef(params).get()`, actions, `subscribe` listeners and the other readers see the change immediately.
 - **The render reads the data of its moment.** Nothing is queued: a throttled reader skips the values in between, and a change that is undone before the run renders nothing.
 - **First data is never held back.** When a store publishes for the first time, its readers render at once, whatever their schedule: a schedule limits how often the UI updates, not how soon it loads.
 - **A render for another reason reads the latest data.** A parent re-render or the component's own state renders it with what the store holds now.
 - **Readers due at the same moment render together.** All readers scheduled `frame()` render in one commit per frame, those with the same throttle on the same tick, the idle ones in the same idle callback.
 - **Unmounting cancels.** So does a change of params or of schedule.
-- `useStoreSuspense` suspends on first load only, as before. Afterwards it follows the store's `schedule` option. `useStoreStatus` is never scheduled.
 
 ## Where to set it
 
-- **Per reader**: the last argument of `useStore`.
+- **Per reader**: the options of `useStore` or `useMultipleStore`.
 
   ```ts
   useStore(params, { schedule: frame() })
-  useStore(params, selector, { isEqual: shallowEqual, schedule: throttle(250) })
-  useStore(selector, { schedule: idle(500) })               // a store without params
-  useStore(undefined, { schedule: frame() })                // proxy form, store without params
+  useStore(params, { select, schedule: throttle(250) })
+  useStore(undefined, { schedule: frame() })                // a store without params
+  useMultipleStore(refs, { select, schedule: idle(500) })
   ```
 
 - **Per store**: `createStore(name, useFn, { schedule })` sets the default of every reader. A reader that must stay current passes `{ schedule: sync() }`.
@@ -72,7 +71,7 @@ A scheduled reader lags behind the store by up to its period. Two components sho
 
 - Schedule leaf views: charts, tables, logs, counters. Keep readers that make decisions, and values the user compares while acting, on `sync()`.
 - Effects of a scheduled component run late too. Do not drive side effects (a request, a save, a scroll) from scheduled reads.
-- A handler that needs the current value reads `getStore().get()`, which is never delayed.
+- A handler that needs the current value reads `storeRef(params).get()`, which is never delayed.
 
 ## Choosing
 
@@ -92,7 +91,7 @@ In the trading demo (`demos/trading`), the core stores publish once per frame an
 Pending scheduled renders wait for a frame, a timer or an idle callback. In tests, run them with `flushScheduled()` from `react-state-custom/testing`:
 
 ```ts
-act(() => getStore().get().setPrice!(101))
+act(() => priceRef().get().setPrice!(101))
 act(() => { flushScheduled() })
 expect(screen.getByTestId('chart')).toHaveTextContent('101')
 ```

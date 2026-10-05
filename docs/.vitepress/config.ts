@@ -26,6 +26,7 @@ export default defineConfig({
             { text: 'Introduction', link: '/guide/introduction' },
             { text: 'Getting started', link: '/guide/getting-started' },
             { text: 'How it works', link: '/guide/how-it-works' },
+            { text: 'Migrating to 2.0', link: '/guide/migrating-to-2' },
           ],
         },
         {
@@ -38,7 +39,6 @@ export default defineConfig({
             { text: 'Events from a store', link: '/guide/events' },
             { text: 'Realtime data', link: '/guide/realtime' },
             { text: 'Progressive data', link: '/guide/progressive-data' },
-            { text: 'Scopes', link: '/guide/scopes' },
             { text: 'Error handling', link: '/guide/error-handling' },
           ],
         },
@@ -47,7 +47,6 @@ export default defineConfig({
           items: [
             { text: 'Selectors', link: '/guide/selectors' },
             { text: 'Update cadence', link: '/guide/update-cadence' },
-            { text: 'Suspense', link: '/guide/suspense' },
             { text: 'Concurrent rendering', link: '/guide/concurrent' },
             { text: 'Outside React', link: '/guide/outside-react' },
             { text: 'Reads outside render', link: '/guide/reads-outside-render' },
@@ -63,24 +62,39 @@ export default defineConfig({
             { text: 'Limitations and FAQ', link: '/guide/limitations' },
           ],
         },
+        {
+          text: 'Deprecated (removed in 2.0)',
+          collapsed: true,
+          items: [
+            { text: 'Scopes', link: '/guide/scopes' },
+            { text: 'Suspense', link: '/guide/suspense' },
+          ],
+        },
       ],
       '/api/': [
         {
-          text: 'Primary API',
+          text: 'API',
           items: [
             { text: 'createStore', link: '/api/create-store' },
+            { text: 'useMultipleStore', link: '/api/use-multiple-store' },
             { text: 'AutoRootCtx', link: '/api/auto-root-ctx' },
-            { text: 'StateScopeProvider', link: '/api/state-scope-provider' },
-            { text: 'StoreErrorBoundary', link: '/api/store-error-boundary' },
-            { text: 'Schedulers', link: '/api/schedulers' },
             { text: 'Types', link: '/api/types' },
           ],
         },
         {
           text: 'Other entries',
           items: [
-            { text: 'Developer tools', link: '/api/dev-tools' },
+            { text: 'Schedulers', link: '/api/schedulers' },
             { text: 'Testing helpers', link: '/api/testing' },
+            { text: 'Developer tools', link: '/api/dev-tools' },
+          ],
+        },
+        {
+          text: 'Deprecated (removed in 2.0)',
+          collapsed: true,
+          items: [
+            { text: 'StateScopeProvider', link: '/api/state-scope-provider' },
+            { text: 'StoreErrorBoundary', link: '/api/store-error-boundary' },
             { text: 'Primitives', link: '/api/primitives' },
           ],
         },

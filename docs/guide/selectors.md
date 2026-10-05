@@ -1,18 +1,20 @@
 # Selectors
 
-Pass a selector as the second argument of `useStore` to re-render only when a derived or deep value changes.
+Pass `select` in the options of `useStore` to re-render only when a derived or deep value changes.
 
 ```ts
-const name = useUserStore({ userId }, s => s.user?.name)
-const total = useCartStore(s => s.items.reduce((sum, i) => sum + i.price, 0))   // a store without params
-const tags = usePostStore({ id }, s => s.post?.tags ?? [], shallowEqual)
+const name = useUserStore({ userId }, { select: s => s.user?.name })
+const total = useCartStore(undefined, { select: s => (s.items ?? []).reduce((sum, i) => sum + i.price, 0) }) // a store without params
+const tags = usePostStore({ id }, { select: s => s.post?.tags ?? [] })
 ```
 
-- The selector receives the **plain state object** (`initialState` merged with the live data), not the tracking proxy, so it can read as deep as it likes and compute anything.
-- The result is compared with `Object.is` after every publish. Pass an `isEqual` as the third argument when the selector returns a fresh array or object each time: [`shallowEqual`](/api/primitives#shallowequal), exported by the library, compares arrays and plain objects one level deep.
-- The third argument can also be an object: `{ isEqual, schedule }`, where [`schedule`](/guide/update-cadence) says how often the component follows the store.
-- A new selector function on every render is fine; it is not used as a dependency.
-- For a store without params the selector comes first: `useCartStore(s => s.total)`, the same as `useCartStore(undefined, s => s.total)`.
+- `select` receives the **plain state object**, not the tracking proxy, so it can read as deep as it likes and compute anything. Every key is `undefined` until the store has run once.
+- The result is compared with `shallowEqual` after every publish: `Object.is` one level deep, so a fresh array or plain object holding the same items is no change. Pass `isEqual` next to `select` to compare otherwise, `Object.is` included.
+- [`schedule`](/guide/update-cadence) goes in the same options: `{ select, schedule: throttle(100) }`.
+- A new `select` function on every render is fine; it is not used as a dependency.
+- A store without params takes `undefined` as its params: `useCartStore(undefined, { select: s => s.total })`.
+
+In 1.x the selector can also be passed on its own, `useStore(params, selector, isEqual?)` or `useStore(selector)`, compared with `Object.is` by default. That form is deprecated.
 
 ## Proxy or selector?
 
@@ -21,13 +23,13 @@ The proxy returned by `useStore(params)` tracks **top-level keys**. Reading `use
 | Need | Use |
 |---|---|
 | A few top-level keys | `const { a, b } = useStore(params)` |
-| One deep value | `useStore(params, s => s.user?.name)` |
-| A derived value | `useStore(params, s => s.items.length)` |
-| Several deep values | `useStore(params, s => ({ ... }), shallowEqual)` or several selector calls |
+| One deep value | `useStore(params, { select: s => s.user?.name })` |
+| A derived value | `useStore(params, { select: s => s.items?.length ?? 0 })` |
+| Several deep values | `useStore(params, { select: s => ({ ... }) })` or several selector calls |
 | Many components reading different fields of one nested object | Return the fields as top-level keys, or [flatten it in a shared store](/guide/composing-stores#flatten-a-nested-source) |
 | A derived value many components read | Compute it in a store and return it as a key: it runs once per change, a selector once per reader ([Composing stores](/guide/composing-stores)) |
 | A list of items that change independently | An object keyed by id ([Collections](#collections-keys-not-arrays)) |
-| A resource per id, with its own effects | A [parameterized store](/guide/parameterized-stores) |
+| A resource per id, with its own effects | A [parameterized store](/guide/parameterized-stores), several of them read with [`useMultipleStore`](/api/use-multiple-store) |
 
 Both can be combined in one component. Each call is an independent subscription. Flattening is one level deep: a key that holds an object re-renders all its readers when it changes.
 
@@ -84,18 +86,18 @@ Pass each row its id, not its item, and let the row read its own item with a sel
 
 ```tsx
 const TaskRow = memo(({ projectId, id }: { projectId: string; id: string }) => {
-  const task = useTasks({ projectId }, s => s.tasks?.[id])
+  const task = useTasks({ projectId }, { select: s => s.tasks?.[id] })
   if (!task) return null                 // deleted while the list still had its id
   return <li>{task.title}</li>
 })
 
 const TaskList = ({ projectId }: { projectId: string }) => {
-  const ids = useVisible({ projectId }, s => s.ids ?? [], shallowEqual)
+  const ids = useVisible({ projectId }, { select: s => s.ids ?? [] })
   return <ul>{ids.map(id => <TaskRow key={id} projectId={projectId} id={id} />)}</ul>
 }
 ```
 
-- A change to one task re-renders its row only. The row's selector picks its own task; `memo` skips the other rows when the list re-renders, since their props are the same strings; and [`shallowEqual`](/api/primitives#shallowequal) keeps the list from re-rendering when a store computes a new `ids` array holding the same ids.
+- A change to one task re-renders its row only. The row's selector picks its own task; `memo` skips the other rows when the list re-renders, since their props are the same strings; and the shallow comparison of `select` keeps the list from re-rendering when a store computes a new `ids` array holding the same ids.
 - The row checks for a missing task. The ids come from `visible`, a store derived from `tasks` that publishes one commit later: when a task is deleted, its row renders once more before the list drops it. See [Data across stores](/guide/how-it-works#data-across-stores).
 - For a short list, the list can read the items from the store that holds them and pass each row its item, with `memo` on the row. A store that replaces only the changed item keeps the other items' identity, and the list and its rows always see the same data.
 
@@ -103,8 +105,8 @@ const TaskList = ({ projectId }: { projectId: string }) => {
 
 Two shapes work:
 
-- **A store per id.** `createStore('task-detail', ({ taskId }) => ...)` is one instance per id, mounted while someone reads it ([Parameterized stores](/guide/parameterized-stores)). The library counts its readers, keeps it for `timeToClean` after the last one leaves, and confines a failure to that item. This is the least code. Another store cannot call it once per id in a loop; see [Many instances at once](/guide/composing-stores#many-instances-at-once).
-- **One store for the whole collection**: a record per id for the data and one for its status, and a `subscribe(id)` action that starts loading the first time an id is asked for. You count readers and drop entries yourself. In exchange one store can batch the requests of many ids into one, apply one policy (how many requests at a time, prefetching, how many entries to keep) and share one socket, and a store that combines many items reads them with one call.
+- **A store per id.** `createStore('task-detail', ({ taskId }) => ...)` is one instance per id, mounted while someone reads it ([Parameterized stores](/guide/parameterized-stores)). The library counts its readers, keeps it for `timeToClean` after the last one leaves, and confines a failure to that item. This is the least code. A component or a store that needs a list of them reads them in one call with [`useMultipleStore`](/api/use-multiple-store): `useMultipleStore(ids.map(taskId => taskDetailRef({ taskId })))`.
+- **One store for the whole collection**: a record per id for the data and one for its status, and a `subscribe(id)` action that starts loading the first time an id is asked for. You count readers and drop entries yourself. In exchange one store can batch the requests of many ids into one, apply one policy (how many requests at a time, prefetching, how many entries to keep) and share one socket.
 
 ```ts
 type Entry = { readers: number; drop?: ReturnType<typeof setTimeout>; stop: () => void }
@@ -154,8 +156,8 @@ export const { useStore: useTaskDetails } = createStore('task-details', () => {
 export const useTaskDetail = (id: string) => {
   const { subscribe } = useTaskDetails()
   useEffect(() => subscribe?.(id), [subscribe, id])   // runs again once `subscribe` exists
-  const detail = useTaskDetails(s => s.details?.[id])
-  const status = useTaskDetails(s => s.status?.[id])
+  const detail = useTaskDetails(undefined, { select: s => s.details?.[id] })
+  const status = useTaskDetails(undefined, { select: s => s.status?.[id] })
   return { detail, status }
 }
 ```
@@ -165,7 +167,3 @@ export const useTaskDetail = (id: string) => {
 - Readers select their own id, so a change to one entry re-renders that entry's readers only. Every reader's selector still runs on every change; with thousands of entries changing many times a second, publish each id as its own top-level key (above) instead.
 - A dropped id keeps its data in `details` as a cache until the store is torn down. Delete it in the drop timer to free it.
 - A store that combines entries, such as a comment count over the selected tasks, reads `useTaskDetails()` once and checks each entry, since some are still loading.
-
-## Under the hood
-
-Selectors are implemented by `useDataSelector(ctx, selector, isEqual?)`, exported for use with raw contexts. See [Primitives](/api/primitives).

@@ -15,7 +15,7 @@ Because the store *is* a hook, everything you already know works inside it: `use
 ```
 <AutoRootCtx />                     <YourComponent />
    │                                     │
-   │                                     │ useStore(params)       render 1: initialState or undefined
+   │                                     │ useStore(params)       render 1: every key undefined
    │  ◄─── "mount name?params" ──────────┤
    │ mounts <Store(name)>                │
    │   runs useFn(params)                │
@@ -26,7 +26,7 @@ Because the store *is* a hook, everything you already know works inside it: `use
    │   publishes changed key ───────────►│ re-render only if that key was read
 ```
 
-A consumer therefore renders twice on its way to first data, or once when `initialState` already matches what the hook publishes first. Each later update is two commits: the store component re-renders and publishes from a layout effect, then the subscribed consumers re-render in one synchronous pass through `useSyncExternalStore`.
+A consumer therefore renders twice on its way to first data. Each later update is two commits: the store component re-renders and publishes from a layout effect, then the subscribed consumers re-render in one synchronous pass through `useSyncExternalStore`.
 
 ## Identity
 
@@ -60,10 +60,10 @@ Values travel one store at a time: a store publishes one commit after the stores
 
 Reading everything a component needs from one store avoids the question: values published by the same store always arrive together.
 
-## Scopes
+## Many instances
 
-`AutoRootCtx` is the global scope. A `StateScopeProvider` is a separate scope with its own instances of every store, even for the same name and params. See [Scopes](/guide/scopes).
+`useStore` reads one instance, and the rules of hooks keep its calls fixed in number. [`useMultipleStore(refs)`](/api/use-multiple-store) reads a list of instances in one call, refs made by `storeRef(params)`, so a component or a store can follow one instance per item of a list whose length changes. Each instance starts, is shared and stops as with `useStore`.
 
 ## Lower layers
 
-`createStore` is `createAutoCtx(createRootCtx(name, useFn), options)`. `createRootCtx` builds the headless `Root` component and the `Context` plumbing; `createAutoCtx` connects it to `AutoRootCtx` for automatic mounting. These, and the `Context` pub/sub class with its subscribe hooks, are exported for building custom abstractions. See [Primitives](/api/primitives).
+In 1.x, `createStore` is `createAutoCtx(createRootCtx(name, useFn), options)`, and those layers, the `Context` pub/sub class and its subscribe hooks are exported. They are deprecated and become internal in 2.0; see [Primitives](/api/primitives). Scopes (`StateScopeProvider`) are deprecated too: what tells two instances apart belongs in the params.

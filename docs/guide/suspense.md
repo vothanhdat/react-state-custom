@@ -1,5 +1,17 @@
 # Suspense
 
+::: warning Deprecated
+`useStoreSuspense` is removed in 2.0, with `initialState`. Stores keep their loading state in their values (`isLoading`, data `undefined` until it arrives), so a component renders its fallback itself:
+
+```tsx
+const { user, isLoading } = useUserStore({ userId })
+if (isLoading !== false || !user) return <Spinner />   // undefined until the store has run once
+return <h1>{user.name}</h1>
+```
+
+A store hook may still use a Suspense-based library inside it; see [Store hooks that suspend](#store-hooks-that-suspend). This page documents the 1.x API. See [Migrating to 2.0](/guide/migrating-to-2#suspense).
+:::
+
 `useStoreSuspense` suspends until the store hook has run once, or until an `isReady` predicate holds, and returns the full state type with nothing `undefined`.
 
 ```tsx
@@ -29,7 +41,7 @@ function Profile({ userId }: { userId: string }) {
 - **The store keeps running while the component is suspended.** React discards a suspended component's state, so the store is retained imperatively. The retain lasts until a component reading the store commits, which can be well after the promise resolves: React throttles revealing a boundary that showed its fallback (300 ms in React 19). A resolved render that never commits releases it after a second.
 - **A component that goes away while suspended releases its store within about six seconds.** It never committed, so React reports nothing when it goes: every 5 seconds the wait wakes its components, and those still there render, are still not ready and wait again, on the same running instance. Until then the store keeps running, fetches and subscriptions included.
 - After it resolves, the component is subscribed through the same tracking proxy as `useStore`: it re-renders only when a key it reads changes.
-- **If the store hook throws**, before its first result or later, the component throws that error into its nearest error boundary. See [Error handling](/guide/error-handling#errors-in-consumers).
+- **If the store hook throws**, before its first result or later, the component throws that error into its nearest error boundary. See [Error handling](/guide/error-handling#a-store-that-throws).
 - **On the server** it throws unless `initialState` already satisfies `isReady`. Keep it inside a client-only boundary, or give it a seed that passes.
 
 ## Waiting for keys

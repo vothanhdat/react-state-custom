@@ -8,25 +8,25 @@
 
 jsdom does no layout or paint; the Chrome runs include style and layout, and the gap is smaller there. In a page, an update also costs the DOM work of every component it re-renders: reconciling, style, layout and paint. To keep that small, update less HTML: selectors, keyed collections, `ref` writes for values that tick, `transform` and `opacity` for motion. Then watch allocations per frame (a new array on every update means GC pauses) and batch several updates in one frame into one.
 
-**One extra render per consumer on mount** when `initialState` is absent or does not match the hook's first publish.
+**Nothing is ready at the start.** Stores are lazy: a store starts when its first reader commits, so that reader renders once with every key `undefined`, actions included, then again with the data. Write readers that render a loading state from `undefined`; see [Before the data arrives](/guide/getting-started#before-the-data-arrives).
 
 **Actions belong to an instance.** An action keeps its identity while its instance runs. When the instance is torn down and a new one starts (after `timeToClean`, an error, a hot update), the new one has new actions, and those of the old one do nothing. An effect that lists an action runs again then; see [Before the data arrives](/guide/getting-started#before-the-data-arrives) for which effects should list one.
 
-**Scheduled readers lag.** A component reading with a `schedule` shows a change up to its period late: a frame, a throttle or debounce period, an idle wait. Two components showing one value at different cadences can disagree for that long. Schedule leaf views, and read `getStore().get()` in handlers that decide. See [Update cadence](/guide/update-cadence#consistency).
+**Scheduled readers lag.** A component reading with a `schedule` shows a change up to its period late: a frame, a throttle or debounce period, an idle wait. Two components showing one value at different cadences can disagree for that long. Schedule leaf views, and read `storeRef(params).get()` in handlers that decide. See [Update cadence](/guide/update-cadence#consistency).
 
 **Layers are one commit apart.** A store publishes one commit after the stores it reads. A component that reads both a store and a store derived from it can, for one render, see the new value next to the old derived one. Nothing is painted in between, but render logic and effects see it. Write readers that tolerate it: check values before reading them, join by id rather than by position, and make decisions from one store. Or render from the derived store only and re-export the raw values it needs, since values published by the same store always arrive together. See [Data across stores](/guide/how-it-works#data-across-stores).
 
 **Store hooks see the providers above `AutoRootCtx`.** A store hook runs inside `AutoRootCtx`, not inside the component that calls `useStore`, so `useContext` in a store reads the providers wrapping `AutoRootCtx`. Put the query client, router, theme or i18n providers a store needs outside it.
 
-**Transitions stop at the store.** An action called inside `startTransition` makes the store's render a transition, but its consumers update in a regular commit afterwards. Transitions around component state, such as a param change with `useStoreSuspense`, work as usual. Defer expensive consumers with `useDeferredValue` instead. See [Concurrent rendering](/guide/concurrent).
+**Transitions stop at the store.** An action called inside `startTransition` makes the store's render a transition, but its consumers update in a regular commit afterwards. Transitions around component state work as usual. Defer expensive consumers with `useDeferredValue` instead. See [Concurrent rendering](/guide/concurrent).
 
-**Stores start when their consumer commits.** `useStore` starts its store from an effect, so a component in a Suspense boundary that is showing its fallback starts its store only once that boundary commits. `useStoreSuspense` starts its store while suspended. See [Load in parallel](/guide/concurrent#load-in-parallel).
+**Stores start when their consumer commits.** `useStore` starts its store from an effect, so a component in a Suspense boundary that is showing its fallback starts its store only once that boundary commits. See [Load in parallel](/guide/concurrent#load-in-parallel).
 
-**A hidden `<Activity>` releases its stores.** Effects inside `<Activity mode="hidden">` are cleaned up, so its `useStore` calls release their instances as an unmount would. Keep `AutoRootCtx` outside it, and use `timeToClean` or a `preState` warm start to keep state. See [Hidden content with `<Activity>`](/guide/concurrent#hidden-content-with-activity).
+**A hidden `<Activity>` releases its stores.** Effects inside `<Activity mode="hidden">` are cleaned up, so its `useStore` calls release their instances as an unmount would. Keep `AutoRootCtx` outside it, and use `timeToClean` to keep state. See [Hidden content with `<Activity>`](/guide/concurrent#hidden-content-with-activity).
 
-**Client only.** Store hooks never run on the server. Server HTML shows `initialState`. See [Server-side rendering](/guide/ssr).
+**Client only.** Store hooks never run on the server, where `useStore` returns `{}`. See [Server-side rendering](/guide/ssr).
 
-**`getStore` is global-scope only.** Instances inside a `StateScopeProvider` are reachable from components through `useCtxState`, not from module-level code.
+**`storeRef` is global-scope only.** In 1.x, instances inside a deprecated `StateScopeProvider` are reachable from their components, not from module-level code.
 
 **No in-place recovery after a store throws.** The error boundary disables the instance until it is torn down and mounted again. Catch inside the hook when you need recovery.
 
@@ -36,11 +36,11 @@ jsdom does no layout or paint; the Chrome runs include style and layout, and the
 
 ### Do I need a provider?
 
-One `AutoRootCtx` near the root, mounted once. No provider per store. `StateScopeProvider` is only for isolated subtrees.
+One `AutoRootCtx` near the root, mounted once. No provider per store.
 
 ### Why do I see `undefined` on the first render?
 
-The store hook has not run yet; stores are lazy. Read with `??` or `?.`, call actions with `?.()`, or pass `initialState` to seed the values and type those keys as present. See [Before the data arrives](/guide/getting-started#before-the-data-arrives) and [Store options](/guide/store-options#initialstate).
+The store hook has not run yet; stores are lazy, and nothing is ready at the start by design. Read with `??` or `?.` and call actions with `?.()`. See [Before the data arrives](/guide/getting-started#before-the-data-arrives).
 
 ### A consumer re-renders more than I expect
 
@@ -64,11 +64,11 @@ Give the store a `timeToClean` so the instance survives the gap between the last
 
 ### How do I reset a store?
 
-Unmount every consumer and let it tear down, or expose a `reset` action from the hook. For per-instance resets, change a param: a new identity is a fresh instance.
+Unmount every consumer and let it tear down, or expose a `reset` action from the hook. For per-instance resets, change a param: a new identity is a fresh instance. To reset every store, remount `AutoRootCtx` with a new `key`.
 
 ### What happens to a store when I edit it with hot reload on?
 
-The running instance picks up the new hook and keeps its state, like a component under Fast Refresh. If the edit added, removed or reordered hooks, the old state no longer fits: the instance restarts with the new hook, and `preState` holds what it last published. A hook that still throws after the restart is disabled like any failing store. Editing a hook that the store calls from another module can also change its hooks; it is handled the same way.
+The running instance picks up the new hook and keeps its state, like a component under Fast Refresh. If the edit added, removed or reordered hooks, the old state no longer fits: the instance restarts with the new hook (in 1.x, the deprecated `preState` argument holds what it last published). A hook that still throws after the restart is disabled like any failing store. Editing a hook that the store calls from another module can also change its hooks; it is handled the same way.
 
 ### Does it work with React 18?
 
@@ -84,4 +84,8 @@ In a separate entry: `react-state-custom/dev-tool` plus `react-state-custom/styl
 
 ### Can I use it without `createStore`?
 
-Yes. `createRootCtx` and `createAutoCtx` are the layers underneath, and the `Context` class with its hooks is the pub/sub primitive. See [Primitives](/api/primitives).
+In 1.x, `createRootCtx`, `createAutoCtx` and the `Context` class with its hooks are exported; see [Primitives](/api/primitives). They are deprecated and become internal in 2.0, where the API is `createStore`, `useMultipleStore` and `AutoRootCtx`.
+
+### How do I read a list of instances?
+
+`useStore` follows the rules of hooks, so it cannot be called once per item in a loop. [`useMultipleStore(refs)`](/api/use-multiple-store) reads any number of instances in one call: `useMultipleStore(ids.map(id => taskRef({ id })))`.

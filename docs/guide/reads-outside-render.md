@@ -12,10 +12,10 @@ const store = useStore()
 const onClick = () => console.log(store.count)
 
 // ✅ latest value in a handler without subscribing
-const onClick = () => console.log(getStore().get().count)
+const onClick = () => console.log(counterRef().get().count)
 ```
 
-Destructure what you need at the top of the component. The value in `count` is the one from the last render, which is what a handler usually wants. For a value that may have changed since, use `getStore().get()`.
+Destructure what you need at the top of the component. The value in `count` is the one from the last render, which is what a handler usually wants. For a value that may have changed since, read the store's ref: `counterRef().get()` (see [Outside React](/guide/outside-react)).
 
 ## Spreading the proxy
 
@@ -47,7 +47,7 @@ const { draft } = useStore()
 const onSubmit = () => submit(draft)
 
 // ✅ or ask the store for the latest value when the handler runs
-const onSubmit = () => submit(getStore().get().draft)
+const onSubmit = () => submit(draftRef().get().draft)
 ```
 
 The proxy is a new object on every render. Do not use it as a dependency of `useEffect`, `useMemo` or `useCallback`, and do not store it in a ref for later: use the values read from it. This is also what makes it safe under the [React Compiler](/guide/react-compiler).

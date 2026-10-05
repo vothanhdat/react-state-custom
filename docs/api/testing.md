@@ -7,7 +7,7 @@ import { flushScheduled, mockStore, resetStores, storeHandle, waitForStore } fro
 import type { StoreMock, StoreFunction, WaitForStoreOptions } from 'react-state-custom/testing'
 ```
 
-Each helper takes a store by any function `createStore` returned for it (`useStore`, `getStore`, `useStoreSuspense`, `useStoreStatus`, `useCtxState`), so a module that exports only `useStore` is enough. The params and state types are read from `useStore`, `getStore` and `useStoreSuspense`. A function `createStore` did not return throws a `TypeError`. See the [Testing guide](/guide/testing) for how they fit together.
+Each helper takes a store by any function `createStore` returned for it (`useStore`, `storeRef`, or a deprecated one), so a module that exports only `useStore` is enough. The params and state types are read from `useStore` and `storeRef`. A function `createStore` did not return throws a `TypeError`. See the [Testing guide](/guide/testing) for how they fit together.
 
 ## `mockStore`
 
@@ -25,7 +25,7 @@ type StoreMock<State> = {
 
 Replaces the store's hook in the instances that start from now on, in every scope. `mock` is what they publish: some of the store's keys or all of them, or a hook of `(params, preState)` returning them, which may use other hooks and may throw to fail the store. Functions are published as actions, with stable identities that call the function passed.
 
-The store's own hook and its `AttachedComponent` do not run. `initialState` and `timeToClean` apply as usual. An instance already running keeps the store's hook; `mockStore` logs a warning naming it.
+The store's own hook does not run (nor its deprecated `AttachedComponent`); `timeToClean` applies as usual. An instance already running keeps the store's hook; `mockStore` logs a warning naming it.
 
 - `set(values)` merges `values` over what the mock returns, in every instance running it: they publish the change and their readers re-render. Wrap it in `act`.
 - `restore()` stops mocking: instances started from now on run the store's hook. Running ones keep the mock until they are torn down.
@@ -49,10 +49,10 @@ Makes every pending scheduled render happen now: those of components reading wit
 ## `storeHandle`
 
 ```ts
-function storeHandle(store: StoreFunction, params?: Params): StoreHandle<State, Initial>
+function storeHandle(store: StoreFunction, params?: Params): StoreRef<State>
 ```
 
-The store's [`getStore(params)`](/api/create-store#getstore-params) handle, reached from any of its functions. Global scope only, like `getStore`. See [`StoreHandle`](/api/types#storehandle).
+The store's [`storeRef(params)`](/api/create-store#storeref-params), reached from any of its functions: for a module that exports only `useStore`. Global scope only, like `storeRef`. See [`StoreRef`](/api/types#storeref).
 
 ## `waitForStore`
 
@@ -76,11 +76,11 @@ type WaitForStoreOptions = {
 }
 ```
 
-Resolves with the state once the instance for `params` has published (its hook ran), or once `isReady(state)` returns true, or once each of `keys` holds a value (not `undefined`; `null` counts). With keys written in the call, the result types them as present, as [`useStoreSuspense(params, keys)`](/api/types#storestatewith) does. `params` may be `undefined` when the store has no required params.
+Resolves with the state once the instance for `params` has published (its hook ran), or once `isReady(state)` returns true, or once each of `keys` holds a value (not `undefined`; `null` counts). With keys written in the call, the result types them as present. `params` may be `undefined` when the store has no required params.
 
 - Resolves at once when the condition already holds. The readers of the store have re-rendered by then.
 - Rejects with what the store hook threw when the store fails, before or while waiting.
 - Rejects after `timeout` with an `Error` that says why: no instance is running, the store has not published yet, which keys are still `undefined`, or that `isReady` still returns false.
 - Holds the store's context while waiting but does not start the store: render a component that reads it, or `retain()` it.
 - Turns React's act environment off while waiting (`globalThis.IS_REACT_ACT_ENVIRONMENT`), as Testing Library's `waitFor` does, and restores it once the last wait ends.
-- Global scope only, like `getStore`.
+- Global scope only, like `storeRef`.

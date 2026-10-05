@@ -1,38 +1,23 @@
 # createStore
 
-The main entry point. Converts a standard React hook into a shared, automatically managed store.
+Turns a hook into a store: one running instance per params, started by its first reader, shared by every reader, and stopped `timeToClean` milliseconds after the last one leaves.
 
 ```ts
-function createStore<Params, State, Seeded extends keyof State = never>(
+function createStore<Params, State>(
   name: string,
-  useFn: (params: Params, preState: Partial<State>) => State,
-  options?: number | StoreOptions<Params, State, Initial>
+  useFn: (params: Params) => State,
+  options?: { timeToClean?: number, schedule?: Scheduler }
 ): {
-  useStore(params?: Params, options?: StoreReadOptions): StoreState<State, Initial>
+  useStore(params?: Params, options?: { schedule?: Scheduler }): StoreState<State>
   useStore<R>(
     params: Params | undefined,
-    selector: (state: StoreState<State, Initial>) => R,
-    isEqualOrOptions?: ((a: R, b: R) => boolean) | StoreSelectOptions<R>
+    options: { select: (state: StoreState<State>) => R, isEqual?: (a: R, b: R) => boolean, schedule?: Scheduler }
   ): R
-  // only when Params has no required keys
-  useStore<R>(
-    selector: (state: StoreState<State, Initial>) => R,
-    isEqualOrOptions?: ((a: R, b: R) => boolean) | StoreSelectOptions<R>
-  ): R
-  useStoreSuspense(params?: Params, isReady?: (state: StoreState<State, Initial>) => boolean): State
-  useStoreSuspense<const K extends readonly (keyof State)[]>(
-    params: Params | undefined,
-    keys: K
-  ): StoreStateWith<State, Initial, K[number]> // StoreState<State, Initial> for a widened array
-  useStoreStatus(params?: Params): StoreStatus
-  getStore(params?: Params): StoreHandle<State, Initial>
-  useCtxState(params?: Params): Context<State>
+  storeRef(params?: Params): StoreRef<State>
 }
 ```
 
-`Initial` stands for `Pick<State, Seeded>`: TypeScript infers `Seeded` from the keys of `initialState` and checks each value against `State`, so only the keys it holds are typed as present.
-
-`params` is optional on every returned function when `Params` has no required keys.
+`params` is optional on every returned function when `Params` has no required keys. Read several instances in one component with [`useMultipleStore`](/api/use-multiple-store).
 
 ## Arguments
 
@@ -42,18 +27,14 @@ A unique namespace for this store, for example `'user'` or `'cart'`. Two `create
 
 ### `useFn`
 
-Your hook. Receives `params` and `preState`, the values previously published by an instance with the same identity while something still holds its context (useful to warm-start after a restart or an `<Activity>` shown again; an empty object otherwise). Its return value is the store state: every key is published separately, and functions get a stable identity across store renders.
+Your hook. It receives `params` and its return value is the store state: every key is published separately, and functions get a stable identity across store renders.
 
 ### `options`
 
-An object, or a bare number treated as `timeToClean`.
-
 | option | type | default | description |
 |---|---|---|---|
-| `timeToClean` | `number` | `0` | Milliseconds to keep the instance alive after its last consumer or retainer leaves. `Infinity` keeps it until `AutoRootCtx` unmounts. |
-| `initialState` | `Initial \| (params) => Initial` | | Values consumers read before the hook has published. Keys listed here are typed as always present; values are checked against the hook's types. |
-| `AttachedComponent` | `ComponentType<Params>` | | Rendered next to each instance, inside its error boundary, with the store params as props. |
-| `schedule` | [`Scheduler`](/api/schedulers) | `sync()` | When readers re-render for a change, unless they pass their own `schedule`. Applies to `useStore` and `useStoreSuspense`. See [Update cadence](/guide/update-cadence). |
+| `timeToClean` | `number` | `0` | Milliseconds to keep the instance alive after its last reader or retainer leaves. `Infinity` keeps it until `AutoRootCtx` unmounts. |
+| `schedule` | [`Scheduler`](/api/schedulers) | `sync()` | When readers re-render for a change, unless they pass their own `schedule`. See [Update cadence](/guide/update-cadence). |
 
 See [Store options](/guide/store-options) for guidance.
 
@@ -61,33 +42,45 @@ See [Store options](/guide/store-options) for guidance.
 
 ### `useStore(params?, options?)`
 
-The consumer hook. Returns a proxy that records which keys the component reads during render and subscribes to exactly those. The proxy is a new object on every render. Reads outside render return the current value, are not tracked, and log a development warning. The proxy is read-only: writing to it throws in development. See [Reads outside render](/guide/reads-outside-render).
+The reader hook. Returns a proxy that records which keys the component reads during render and subscribes to exactly those.
 
-`options.schedule` says when the component re-renders for a change: a [scheduler](/api/schedulers) such as `frame()`, `throttle(ms)`, `debounce(ms)` or `idle(ms)`; by default the store's `schedule` option, or at once. See [Update cadence](/guide/update-cadence). A store without params takes `undefined` as `params` here: `useStore(undefined, { schedule: frame() })`. Passed alone, the options object would be read as params (a development error says so).
+Every key is `undefined` until the store has run once, and the type says so: a store starts when its first reader asks for it, so the first render of that reader never has its values. Default at the read (`count ?? 0`) or render a loading state. See [Before the data arrives](/guide/getting-started#before-the-data-arrives).
 
-### `useStore(params, selector, isEqual | options?)`
+- The proxy is a new object on every render.
+- Reads outside render return the current value, are not tracked, and log a development warning. See [Reads outside render](/guide/reads-outside-render).
+- The proxy is read-only: writing to it throws in development.
+- `options.schedule` says when the component re-renders for a change: a [scheduler](/api/schedulers) such as `frame()`, `throttle(ms)`, `debounce(ms)` or `idle(ms)`. By default it follows the store's `schedule` option, or re-renders at once. See [Update cadence](/guide/update-cadence).
 
-Returns `selector(state)` and re-renders only when that value changes (`Object.is` unless `isEqual` is given). The third argument is `isEqual`, or `{ isEqual?, schedule? }`. The selector receives the plain state object. A new selector function each render is fine, but a call site must pass one on every render or on none: the two forms run different hooks (a development error says so). See [Selectors](/guide/selectors).
+A store without params takes `undefined` as `params` when options follow: `useStore(undefined, { schedule: frame() })`. Passed alone, the options object would be read as params; a development error says so.
 
-### `useStore(selector, isEqual | options?)`
+### `useStore(params, { select, isEqual?, schedule? })`
 
-The selector form for a store without required params: the selector comes first. Same as `useStore(undefined, selector, ...)`.
+Returns `select(state)` and re-renders only when that value changes. `select` receives the plain state object, so it may read as deep as it likes. A new `select` function on every render is fine.
 
-### `useStoreSuspense(params?, isReady?)`
+`isEqual` decides whether the selection changed. It defaults to `shallowEqual`: `Object.is` one level deep, so a fresh array or object with the same items is no change. Pass `Object.is` to compare by identity, or your own function.
 
-Suspends for the nearest `<Suspense>` until the hook has published once, or until `isReady(state)` returns true when given. Returns the full `State` type. With a list of keys in place of `isReady`, it waits until each listed key holds a value and returns [`StoreStateWith`](/api/types#storestatewith): those keys present, the others optional. See [Waiting for keys](/guide/suspense#waiting-for-keys). The store is retained while the component is suspended. On the server it throws unless `initialState` already satisfies `isReady`. See [Suspense](/guide/suspense).
+A call site must pass `select` on every render or on none: the two forms run different hooks, and a development error says so. See [Selectors](/guide/selectors).
 
-### `useStoreStatus(params?)`
+### `storeRef(params?)`
 
-Returns [`StoreStatus`](/api/types#storestatus), the state of the instance rather than its values: `ready` once the hook has published, `failed` and `error` while the hook has thrown and the instance is disabled. Re-renders only when one of them changes. It counts as a consumer like `useStore`, so it starts the instance. On the server it returns `{ ready: false, failed: false }`. See [Error handling](/guide/error-handling#errors-in-consumers).
+One instance of the store, for code outside React (socket handlers, routers, tests), for an event handler that wants the latest value without subscribing, and for [`useMultipleStore`](/api/use-multiple-store).
 
-### `getStore(params?)`
+```ts
+type StoreRef<State> = {
+  readonly name: string     // "name?params"
+  readonly ready: boolean   // the instance has published at least once
+  readonly error: unknown   // what the hook threw while the instance is disabled
+  get(): StoreState<State>
+  subscribe(listener: (state: StoreState<State>, changedKey: keyof State) => void): () => void
+  retain(): () => void
+}
+```
 
-Imperative handle for code outside React: `get()`, `subscribe()`, `retain()`, `ready`, `name`. Global scope only. See [`StoreHandle`](/api/types#storehandle) and [Outside React](/guide/outside-react).
+- `get()` returns a plain snapshot of the current state. It never subscribes and never starts the store: before anything runs the instance, it is `{}`.
+- `subscribe(listener)` runs `listener` after every change, with the new snapshot and the key that changed. It keeps the instance's context while subscribed.
+- `retain()` runs the instance even while no component reads it, until the returned function is called. The instance stops `timeToClean` after every reader and retainer is gone.
 
-### `useCtxState(params?)`
-
-Returns the raw `Context` object for the instance in the current scope, and asks the scope's root to mount the store. Use it to subscribe imperatively inside a `StateScopeProvider`, or for custom integrations. See [`Context`](/api/primitives#context).
+A ref is a description of an instance, not a resource: making one is cheap, and two refs with the same params point at the same instance. `storeRef` reaches the global instances; inside a deprecated `StateScopeProvider`, components read theirs with `useStore`. See [`StoreRef`](/api/types#storeref) and [Outside React](/guide/outside-react).
 
 ## Example
 
@@ -97,12 +90,33 @@ const useCounter = ({ initial = 0 }: { initial?: number }) => {
   return { count, setCount }
 }
 
-export const { useStore, getStore } = createStore('counter', useCounter, {
-  initialState: { count: 0 },
+export const { useStore: useCounterStore, storeRef: counterRef } = createStore('counter', useCounter, {
   timeToClean: 5000,
 })
+
+// in a component
+const { count } = useCounterStore({ initial: 1 })
+const doubled = useCounterStore({ initial: 1 }, { select: s => (s.count ?? 0) * 2 })
+
+// outside React
+counterRef({ initial: 1 }).get().setCount?.(10)
 ```
 
-## Relation to the primitives
+## Deprecated
 
-`createStore(name, useFn, options)` is `createAutoCtx(createRootCtx(name, useFn), options)`. See [Primitives](/api/primitives).
+These keep working in 1.x and are removed in 2.0. See [Migrating to 2.0](/guide/migrating-to-2).
+
+| deprecated | instead |
+|---|---|
+| `options.initialState` | Default at the read: `count ?? 0`. |
+| `options.AttachedComponent` | An effect in the store hook. |
+| A number as options: `createStore(name, useFn, 5000)` | `{ timeToClean: 5000 }` |
+| A fourth argument (`AttachedComponent`) | An effect in the store hook. |
+| The second argument of `useFn`, `preState` | `timeToClean`, or keeping the values in a store of their own. |
+| `useStore(params, selector, isEqual?)` and `useStore(selector)` | `useStore(params, { select, isEqual })`. Its default `isEqual` is `shallowEqual`, not `Object.is`. |
+| `getStore(params)` | `storeRef(params)`, the same handle. |
+| `useStoreSuspense(params, isReady \| keys)` | Render a fallback while the values are `undefined`. See [Suspense](/guide/suspense). |
+| `useStoreStatus(params)` | Loading state in the store (`isLoading`). From 2.0, a store that throws throws in the components reading it. |
+| `useCtxState(params)` | `useStore`, or `storeRef` outside React. |
+
+`createStore(name, useFn, options)` is still `createAutoCtx(createRootCtx(name, useFn), options)` in 1.x; both of those are deprecated too. See [Primitives](/api/primitives).

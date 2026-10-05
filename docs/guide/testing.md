@@ -10,7 +10,7 @@ Each helper takes a store by any function `createStore` returned for it, usually
 
 ## Mount a root
 
-Components that call `useStore` need an `AutoRootCtx` in the tree, otherwise the store hook never runs and the consumer sees only `initialState`. Render the subject under one:
+Components that call `useStore` need an `AutoRootCtx` in the tree, otherwise the store hook never runs and the reader sees only `undefined`. Render the subject under one:
 
 ```tsx
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -48,8 +48,6 @@ afterEach(() => {
 
 It drops every cached context with its state and removes every [mock](#mock-a-store). This is what the library's own test suite does.
 
-Rendering each test inside a `StateScopeProvider` also isolates it: every scope has its own instances, and the scope unmounts with the test. Mocks still apply inside a scope, but [`storeHandle`](#drive-a-store-from-outside) and [`waitForStore`](#wait-for-a-store) reach the global scope only.
-
 ## Mock a store
 
 `mockStore(useStore, values)` makes the instances that start afterwards publish `values` instead of running the store's hook. A component test then needs neither the network nor the stores behind the one it reads.
@@ -78,14 +76,14 @@ it('lists the tasks and adds one', () => {
 
 - **Some keys are enough.** The values are typed against the store's state: a misspelled key or a wrong value type is a compile error, and keys left out read as `undefined`, as before data arrives.
 - **Actions are the functions you pass.** They are published like the store's own actions, so keep a reference to the `vi.fn()` and assert on it.
-- **A hook works too.** Pass `(params, preState) => values`. It receives each instance's params and may use hooks, so a mock can keep state of its own or answer per id:
+- **A hook works too.** Pass `(params) => values`. It receives each instance's params and may use hooks, so a mock can keep state of its own or answer per id:
 
   ```ts
   mockStore(useTask, ({ taskId }) => ({ task: fixtures[taskId] }))
   ```
 
-- **A failure is a mock that throws.** `mockStore(useTasks, () => { throw new Error('offline') })` fails the store as its own hook would: readers keep `initialState`, `useStoreStatus` reports `failed`, and `useStoreSuspense` throws the error to its error boundary.
-- **What still applies:** `initialState` (readers see it on their first render) and `timeToClean`. The store's `AttachedComponent` does not run.
+- **A failure is a mock that throws.** `mockStore(useTasks, () => { throw new Error('offline') })` fails the store as its own hook would: its readers keep what it last published, and `storeRef(params).error` holds the error.
+- **What still applies:** `timeToClean`.
 
 A mock applies to instances that start after it. Call `mockStore` before rendering; an instance that is already running keeps the store's hook, and `mockStore` logs a warning about it. `restore()` on the returned handle stops mocking for instances started later, and `resetStores()` removes every mock.
 
@@ -113,7 +111,7 @@ expect(result.current.owner).toBe('Dat')
 
 ## Drive a store from outside
 
-`storeHandle(useStore, params)` returns the store's [`getStore(params)` handle](/api/create-store#getstore-params) from whichever function its module exports: read the state with `get()`, call actions, `subscribe`, check `ready` and `error`.
+When the module exports the store's `storeRef`, use it: read the state with `get()`, call actions, `subscribe`, check `ready` and `error`. `storeHandle(useStore, params)` returns the same [`storeRef(params)`](/api/create-store#storeref-params) from whichever function the module exports, `useStore` alone included.
 
 ```ts
 render(<><AutoRootCtx /><Cart /></>)
@@ -130,11 +128,11 @@ const release = storeHandle(useCart).retain()
 release()
 ```
 
-Like `getStore`, it reaches the global scope, so render the subject under `AutoRootCtx`, not inside a `StateScopeProvider`.
+Like `storeRef`, it reaches the global scope: render the subject under `AutoRootCtx`.
 
 ## Wait for a store
 
-`waitForStore(useStore, params, keys)` waits until each listed key holds a value and resolves with the state, those keys typed as present, as with [`useStoreSuspense`](/guide/suspense):
+`waitForStore(useStore, params, keys)` waits until each listed key holds a value and resolves with the state, those keys typed as present:
 
 ```ts
 render(<><AutoRootCtx /><TaskList projectId="p1" /></>)

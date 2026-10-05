@@ -1,5 +1,9 @@
 # Primitives
 
+::: warning Deprecated
+Every export on this page leaves the public API in 2.0: `createRootCtx` and `createAutoCtx` are removed, the others become internal. Read stores with `useStore` or [`useMultipleStore`](/api/use-multiple-store), select with `useStore(params, { select })`, and reach an instance outside React with [`storeRef(params)`](/api/create-store#storeref-params). `shallowEqual` is the default `isEqual` of `select`. See [Migrating to 2.0](/guide/migrating-to-2).
+:::
+
 These exports are the layers underneath `createStore`. You do not need them for ordinary use; they are for custom abstractions, integrations and tests.
 
 ## `createRootCtx`
