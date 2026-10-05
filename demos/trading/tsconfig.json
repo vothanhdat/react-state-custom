@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["vite/client", "vitest/globals", "node"],
+    "paths": {
+      "react-state-custom": ["../../src/index.ts"],
+      "react-state-custom/testing": ["../../src/testing/index.ts"],
+      "react-state-custom/dev-tool": ["../../src/dev-tool/index.ts"]
+    }
+  },
+  "include": ["src", "tests"]
+}
