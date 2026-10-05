@@ -11,7 +11,7 @@ const makeCounter = (name: string) => createStore(name, () => {
   return { n, increment: () => setN(c => c + 1) }
 })
 
-describe('several AutoRootCtx in one scope', () => {
+describe('several AutoRootCtx', () => {
   it('stores keep running in the remaining root after the newest one unmounts', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => { })
     const { useStore } = makeCounter('multi-root-handover')
@@ -44,7 +44,23 @@ describe('several AutoRootCtx in one scope', () => {
     expect(r.getByTestId('b').textContent).toBe('2')
   })
 
-  it('logs a development error when a second root mounts in the same scope', async () => {
+  it('a store moves to an AutoRootCtx in another React root and keeps running there', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => { })
+    const { useStore, storeRef } = makeCounter('multi-root-react-roots')
+    const { useStore: useOther } = makeCounter('multi-root-react-roots-other')
+    const View = () => { const { n } = useStore(); return <span data-testid="moved">{n ?? '-'}</span> }
+    const Other = () => { const { n } = useOther(); return <i>{n}</i> }
+    const first = render(<><AutoRootCtx /><View /></>)
+    await tick(50)
+    // a second root, as two islands each with their own AutoRootCtx would have
+    render(<><AutoRootCtx /><Other /></>)
+    await tick(50)
+    await act(async () => { storeRef().get().increment!() })
+    expect(first.getByTestId('moved').textContent).toBe('1')
+    expect(error.mock.calls.filter(c => String(c[0]).includes('store hook threw'))).toEqual([])
+  })
+
+  it('logs a development error when a second root mounts', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => { })
     render(<><AutoRootCtx /><AutoRootCtx /></>)
     await tick()

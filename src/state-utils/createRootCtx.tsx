@@ -110,8 +110,6 @@ export const createRootCtx = <U extends StoreParamsShape<U>, V extends object>(n
     .filter(Boolean)
     .join("?");
 
-  const ctxMountedCheck = new Set<string>()
-
   const useRootState = (e: U) => {
     const ctxName = getCtxName(e)
     const ctx = useDataContext<V>(ctxName)
@@ -133,16 +131,9 @@ export const createRootCtx = <U extends StoreParamsShape<U>, V extends object>(n
     // readers can see the hook's values instead of nothing.
     useIsomorphicLayoutEffect(() => { ctx.markReady() }, [ctx])
 
-    // The error boundary that catches this reports the component stack. No JS stack is captured at
-    // mount: that cost ~30% of mounting an instance, and it only ever pointed into React and this file.
-    useEffect(() => {
-      if (ctxMountedCheck.has(ctxName)) {
-        throw new Error(`[react-state-custom] Store "${ctxName}" is mounted more than once`)
-      }
-      ctxMountedCheck.add(ctxName)
-      return () => { ctxMountedCheck.delete(ctxName) };
-    }, [ctxName])
-
+    // One AutoRootCtx runs one instance per name. Two can run at once only while stores move from
+    // one AutoRootCtx to another in a different React root, where the old one unmounts in that root's
+    // next commit: Context.instances counts them, so the context retires once both are gone.
     return rawState;
   }
 

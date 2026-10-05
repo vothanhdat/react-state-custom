@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, renderHook, act } from '@testing-library/react'
-import { Component, useState, type ReactNode } from 'react'
+import { Component, Suspense, startTransition, useState, type ReactNode } from 'react'
 import { createStore, useMultipleStore, AutoRootCtx } from '../src'
 import { getContext, useDataContext, type Context } from '../src/state-utils/ctx'
 import { paramsToId } from '../src/state-utils/paramsToId'
@@ -100,6 +100,39 @@ describe('synchronous propagation', () => {
 })
 
 describe('context cache lifecycle', () => {
+  it('a render held back past the eviction adopts the instance another reader created meanwhile', async () => {
+    const { useStore, storeRef } = createStore('adopt-held', ({ id }: { id: string }) => {
+      const [n, setN] = useState(0)
+      return { n, setN }
+    })
+    let release = () => { }
+    const gate = new Promise<void>(resolve => { release = resolve })
+    let open = false
+    const Gate = ({ on }: { on: boolean }) => { if (on && !open) throw gate; return null }
+    const Reader = ({ id }: { id: string }) => <b data-testid="held">{`${id}:${useStore({ id }).n ?? '-'}`}</b>
+    let setId = (_: string) => { }
+    const App = () => {
+      const [id, set] = useState('a')
+      setId = set
+      return <Suspense fallback="…"><Reader id={id} /><Gate on={id === 'b'} /></Suspense>
+    }
+    const Late = () => <i data-testid="late">{useStore({ id: 'b' }).n ?? '-'}</i>
+    const r = render(<><AutoRootCtx /><App /></>)
+    await tick()
+    // the transition renders Reader for "b", then waits on Gate: its context for "b" is never committed
+    act(() => { startTransition(() => setId('b')) })
+    await tick(1100)
+    expect(getContext.fromCache('adopt-held?id=b')).toBeUndefined()
+    // meanwhile another reader creates and runs a new instance for "b"
+    const late = render(<Late />)
+    await tick()
+    expect(late.getByTestId('late').textContent).toBe('0')
+    await act(async () => { open = true; release(); await gate })
+    await tick()
+    await act(async () => { storeRef({ id: 'b' }).get().setN!(5) })
+    expect(r.getByTestId('held').textContent).toBe('b:5')
+  })
+
   it('evicts after the last user unmounts and never deletes a different live instance', async () => {
     const { unmount } = renderHook(() => useDataContext('evict-me'))
     const first = getContext.fromCache('evict-me')

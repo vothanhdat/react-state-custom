@@ -2,6 +2,7 @@
 // onRecoverableError, and each island hydrates in its own task like on a real page.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { hydrateRoot, type Root } from 'react-dom/client'
+import { useEffect, useState } from 'react'
 import { createStore, AutoRootCtx } from '../src'
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
@@ -52,6 +53,23 @@ describe('hydrating after a store has already published', () => {
     const { errors, unmount } = await hydrateAll([[a, <><AutoRootCtx /><Count /></>], [b, <Count />]])
     expect(errors).toEqual([])
     expect(b.innerHTML).toBe('<span>n=5</span>')
+    unmount()
+  })
+
+  it('a store whose values went back to undefined hydrates in one render: it matches the server', async () => {
+    const { useStore } = createStore('islands-undefined', () => {
+      const [name, setName] = useState<string | undefined>('Ada')
+      useEffect(() => { setName(undefined) }, [])
+      return { name }
+    })
+    let renders = 0
+    const Name = ({ count }: { count?: boolean }) => { if (count) renders++; const { name } = useStore(); return <span>{name ?? '…'}</span> }
+    const a = island('<span>…</span>')
+    const b = island('<span>…</span>')
+    const { errors, unmount } = await hydrateAll([[a, <><AutoRootCtx /><Name /></>], [b, <Name count />]])
+    expect(errors).toEqual([])
+    expect(b.innerHTML).toBe('<span>…</span>')
+    expect(renders).toBe(1)
     unmount()
   })
 
