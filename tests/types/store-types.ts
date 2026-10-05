@@ -161,17 +161,23 @@ export const ScheduledConsumer = () => {
   expectType<number | undefined>(n)
   const ids = scheduledReads.useStore(undefined, s => s.ids ?? [], { isEqual: shallowEqual, schedule: 'frame' })
   assert<Equals<typeof ids, string[]>>()
-  const same = scheduledReads.useStore(undefined, s => s.n, (a, b) => a === b)
+  const first = scheduledReads.useStore(s => s.ids?.[0])
+  assert<Equals<typeof first, string | undefined>>()
+  const count = scheduledReads.useStore(s => s.ids?.length ?? 0, { schedule: { debounce: 50, maxWait: 500 } })
+  assert<Equals<typeof count, number>>()
+  const same = scheduledReads.useStore(s => s.n, (a, b) => a === b)
   expectType<number | undefined>(same)
   // @ts-expect-error not a schedule
   scheduledReads.useStore(undefined, { schedule: 'later' })
   // @ts-expect-error isEqual compares selections
-  scheduledReads.useStore(undefined, s => s.n, { isEqual: (a: string, b: string) => a === b })
+  scheduledReads.useStore(s => s.n, { isEqual: (a: string, b: string) => a === b })
   return null
 }
 export const RequiredScheduledConsumer = () => {
   required.useStore({ id: 'a' }, { schedule: 'frame' })
   required.useStore({ id: 'a' }, s => s.name, { schedule: { idle: 500 } })
+  // @ts-expect-error the selector-first form needs a store without required params
+  required.useStore(s => s.name)
   return null
 }
 

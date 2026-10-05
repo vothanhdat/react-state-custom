@@ -285,6 +285,21 @@ describe('schedule: rules', () => {
   })
 })
 
+describe('useStore(selector) on a store without params', () => {
+  it('reads like useStore(undefined, selector), with isEqual or options', async () => {
+    const { useStore, getStore } = counterStore()
+    const Reader = () => {
+      const odd = useStore(s => (s.n ?? 0) % 2 === 1)
+      const n = useStore(s => s.n, { isEqual: Object.is })
+      const same = useStore(s => s.n, (a, b) => a === b)
+      return <b data-testid="r">{`${odd} ${n} ${same}`}</b>
+    }
+    const { getByTestId } = render(<><AutoRootCtx /><Reader /></>)
+    await act(async () => getStore().get().setN!(3))
+    expect(getByTestId('r').textContent).toBe('true 3 3')
+  })
+})
+
 describe('scheduled', () => {
   it('turns calls before a run into one run with the last arguments', async () => {
     vi.useFakeTimers()

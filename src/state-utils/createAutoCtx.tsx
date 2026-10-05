@@ -796,14 +796,18 @@ const createAutoCtxWith = <U extends StoreParamsShape<U>, V extends object, I>(
   /**
    * `useStore(params?, options?)` returns a tracking proxy: re-render only for the keys read during render.
    * `useStore(params, selector, isEqual | options?)` returns `selector(state)` and re-renders only when
-   * that value changes: use it for deep reads (`s => s.user?.name`) and derived values.
+   * that value changes: use it for deep reads (`s => s.user?.name`) and derived values. A store
+   * without required params takes the selector first: `useStore(selector, options?)`.
    * `options.schedule` says when the component re-renders for a change (see `Schedule`).
    */
+  // first, so that the last two overloads stay the ones react-state-custom/testing reads the types from
+  function useStore<R>(selector: {} extends U ? (state: StoreState<V, I>) => R : never, options?: StoreSelectOptions<R> | ((a: R, b: R) => boolean)): R
   function useStore(...args: [...StoreParams<U>, options?: StoreReadOptions]): StoreState<V, I>
   // params may be undefined only when every param is optional, as in the form above
   function useStore<R>(params: {} extends U ? U | undefined : U, selector: (state: StoreState<V, I>) => R, options?: StoreSelectOptions<R> | ((a: R, b: R) => boolean)): R
   function useStore(...args: any[]) {
-    const [params, second, third] = args as [U | undefined, unknown, unknown]
+    // params are never functions: a function first is the selector of a store without params
+    const [params, second, third] = (typeof args[0] === "function" ? [undefined, ...args] : args) as [U | undefined, unknown, unknown]
     const withSelector = typeof second === "function"
     const options = (withSelector ? (typeof third === "function" ? { isEqual: third } : third) : second) as StoreSelectOptions<unknown> | undefined
     if (!isProduction) checkParams(name, params)
