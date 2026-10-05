@@ -22,6 +22,8 @@ export default defineConfig({
     exclude: [
       // run with the React Compiler by vitest.config.compiler.ts (yarn test:compiler)
       'tests/compiler/**',
+      // measurement scenarios with their own config (demos/*/vitest.config.mjs), not assertions
+      'demos/**',
       '**/node_modules/**',
       '**/dist/**',
       '**/cypress/**',
