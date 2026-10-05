@@ -38,6 +38,6 @@ up to date with every release. This file only adds repository-specific notes.
 
 ## Working in this repo
 - Yarn 4 (`corepack enable`), CI runs `yarn install --immutable`: run `yarn install` after changing dependencies.
-- Tests: `yarn test` (Vitest, jsdom, StrictMode on). Add tests under `tests/` for every behavior change.
+- Tests: `yarn test` (Vitest, jsdom, StrictMode on; `tests/setup.ts` calls `resetStores()` from `src/testing` after each test). Add tests under `tests/` for every behavior change.
 - Releases: bump `package.json` + `CHANGELOG.md`, tag `vX.Y.Z`, push the tag. `publish.yml` publishes to npm
   via trusted publishing; `deploy.yml` deploys the demo and the docs on every push to `master`.

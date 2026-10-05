@@ -75,6 +75,7 @@ export default defineConfig({
           text: 'Other entries',
           items: [
             { text: 'Developer tools', link: '/api/dev-tools' },
+            { text: 'Testing helpers', link: '/api/testing' },
             { text: 'Primitives', link: '/api/primitives' },
           ],
         },

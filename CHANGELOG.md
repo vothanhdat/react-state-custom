@@ -3,6 +3,12 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Added
+- `react-state-custom/testing`, an entry with helpers for tests. Each takes a store by any function `createStore` returned for it, so a module that exports only `useStore` is enough, and is typed from it.
+  - `mockStore(useStore, values)` makes the instances that start afterwards publish `values` (some keys or all, checked against the store's type) instead of running the store's hook; `values` can also be a hook of `(params, preState)`, which may use hooks or throw to fail the store. The store's `AttachedComponent` does not run. `set(values)` on the returned handle merges new values in and re-renders the readers; `restore()` stops mocking. Mocks apply in every scope. A component test no longer needs the network or the stores behind the one it reads.
+  - `resetStores()` removes the mocks and drops every cached context with its state, for an `afterEach`. Tests used to clear `getContext.cache`, an internal detail.
+  - `storeHandle(useStore, params)` returns the `getStore(params)` handle, also for a store whose module does not export `getStore`; reaching one used to take `getContext('name?params')` and the internal instance name.
+  - `waitForStore(useStore, params, keys | isReady?, { timeout }?)` resolves with the state once the store has published, the keys hold values (typed as present) or the predicate holds; it rejects with the store's error if it fails, and after the timeout (1000 ms) with the reason. While it waits React's act environment is off, as in Testing Library's `waitFor`, so the store's own updates log no act warnings.
 
 ## [1.7.0] - 2026-10-05
 ### Added

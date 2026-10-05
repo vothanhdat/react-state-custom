@@ -72,7 +72,7 @@ function acquireContext<T>(name: string): { ctx: Context<T>; release: () => void
 function useDataContext<T>(name: string): Context<T>                              // hook form, scope-aware
 ```
 
-- `getContext` returns the cached instance for a name, creating it if needed. `getContext.cache` is the underlying `Map`; `getContext.fromCache(name)` reads without creating. Clearing the cache between tests is a supported use. The cache is observable: `getContext.cache.subscribe(listener)` runs `listener` after every context creation or eviction (synchronously, possibly during a render) and returns an unsubscribe function. The dev tool uses it to list live stores.
+- `getContext` returns the cached instance for a name, creating it if needed. `getContext.cache` is the underlying `Map`; `getContext.fromCache(name)` reads without creating. Clearing the cache between tests is a supported use; [`resetStores()`](/api/testing#resetstores) does it, and removes the mocks too. The cache is observable: `getContext.cache.subscribe(listener)` runs `listener` after every context creation or eviction (synchronously, possibly during a render) and returns an unsubscribe function. The dev tool uses it to list live stores.
 - `acquireContext` is the non-hook counterpart of `useDataContext`: it keeps the context alive until `release()` is called. Used by `getStore` and `useStoreSuspense`.
 - `useDataContext` resolves the name inside the current `StateScopeProvider`, keeps the instance alive while mounted, and lets it be evicted shortly after the last user unmounts. On the server it returns a throwaway instance.
 
