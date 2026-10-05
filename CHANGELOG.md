@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [1.8.0] - 2026-10-05
 ### Added
 - `react-state-custom/testing`, an entry with helpers for tests. Each takes a store by any function `createStore` returned for it, so a module that exports only `useStore` is enough, and is typed from it.
   - `mockStore(useStore, values)` makes the instances that start afterwards publish `values` (some keys or all, checked against the store's type) instead of running the store's hook; `values` can also be a hook of `(params, preState)`, which may use hooks or throw to fail the store. The store's `AttachedComponent` does not run. `set(values)` on the returned handle merges new values in and re-renders the readers; `restore()` stops mocking. Mocks apply in every scope. A component test no longer needs the network or the stores behind the one it reads.
@@ -245,7 +247,8 @@ All notable changes to this project are documented here.
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/vothanhdat/react-state-custom/compare/v1.5.0...v1.5.1
