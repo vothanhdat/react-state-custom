@@ -4,6 +4,26 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-06
+The API is `createStore`, which returns `useStore` and `storeRef`, plus `useMultipleStore` and `<AutoRootCtx />`: stores that are lazy, shared, automatic and composable. 1.10 has this API next to the old one, with everything below marked `@deprecated`: move to it on 1.10, with the app working at every step, then upgrade. See Migrating to 2.0 in the docs.
+
+### Removed
+- `initialState`. Every key is `undefined` until the store has run once, and typed as optional: default at the read (`const { count = 0 } = useStore()`). On the server `useStore` returns `{}`.
+- `AttachedComponent`, a number as `createStore`'s options and its fourth argument. Write the side effect in the store hook; pass `{ timeToClean }`.
+- The `preState` argument of the store hook. A hot update that changes the hooks a store calls restarts it from its own initial state, as Fast Refresh does with a component.
+- `useStore(params, selector, isEqual)` and `useStore(selector)`: use `useStore(params, { select, isEqual })`.
+- `getStore` (use `storeRef`), `useStoreSuspense`, `useStoreStatus` and `useCtxState`.
+- `StateScopeProvider` and scopes: put what tells instances apart in the params; remount `AutoRootCtx` with a new `key` to start every store afresh.
+- The `Wrapper` and `debugging` props of `AutoRootCtx`, and `StoreErrorBoundary`. Each store keeps its own error boundary; report errors with React's `onCaughtError`, inspect stores with the dev tool.
+- From the main entry: `createRootCtx`, `createAutoCtx`, the `Context` class and its hooks, `useArrayChangeId`, `paramsToId`, `shallowEqual`, `formatState`, the schedulers, `scheduled` and `useFrameState` (import those from `react-state-custom/schedulers`), and the types `StoreHandle`, `StoreStatus`, `StoreStateWith`, `StateDebugRenderer`, `StoreSelectOptions`, `ParamValue`, `StoreParamsShape`, `ParamsToIdRecord`, `ParamsToIdInput`. The `useDataSource*` and `useDataSubscribe*` hooks and `useArrayChangeId` are deleted; the rest is internal.
+
+### Changed
+- **A store that throws throws in its readers.** Its hook is still disabled on its own and every other store keeps running; in 1.x its readers kept its last values, now the components reading it, through `useStore` (proxy or `select`) or `useMultipleStore`, throw its error during render, for their own error boundary. A reader mounted after the failure throws at once, and a store whose hook reads the failed one fails with its error. Once the readers are gone the instance is torn down, and a reader that comes back (an error boundary's retry) starts a fresh one. Put error boundaries around the parts of the screen that can fail on their own: without one, the error reaches the root. The trading demo shows it with a boundary per panel.
+- `StoreState<State>` and `StoreRef<State>` take the state type only. `mockStore`'s hook receives `(params)` only, and the testing helpers take `useStore` or `storeRef`.
+- In development, the 1.x forms that JavaScript would accept silently throw an error that says what to write instead: a selector function passed to `useStore`, `initialState` or `AttachedComponent` in the options, a number as options, a fourth argument.
+- A Vite production app that uses `createStore` and `AutoRootCtx` only shrinks from 19.4 to 14.6 kB minified (7.7 to 5.9 kB gzip). The trading demo's script time per second stays within the noise of 1.10 at 20× and 50× feed speed, at 60 fps (headless Chrome, production builds, three alternating runs).
+- The docs drop the pages and sections of removed APIs; Error handling describes the readers that throw.
+
 ## [1.10.0] - 2026-10-06
 ### Added
 - The 2.0 API, next to the 1.x one. 2.0 keeps the idea (stores that are lazy, shared, automatic and composable) and trims the API to `createStore`, which returns `useStore` and `storeRef`, plus `useMultipleStore` and `<AutoRootCtx />`. Move to it on 1.10, then upgrade; the docs have a Migrating to 2.0 page.
@@ -289,7 +309,8 @@ Marked `@deprecated`, so editors strike them through; they work as before in 1.x
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.10.0...v2.0.0
 [1.10.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.7.0...v1.8.0
