@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Suspense, useEffect, useCallback, useRef, memo, useSyncExternalStore } from "react"
-import { useDataContext, useDataSelector, acquireContext, getContext, isServer, useIsomorphicLayoutEffect, type Context } from "./ctx"
+import { useDataContext, useDataSelector, acquireContext, getContext, isServer, useIsomorphicLayoutEffect, useThrowOnFailure, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 import { paramsToId, type ParamsToIdRecord, type StoreParamsShape } from "./paramsToId"
 import { useQuickSubscribe } from "./useQuickSubscribe"
@@ -222,7 +222,9 @@ type StoreBoundaryState = {
  * the store starts over from its own initial state, as a component does after Fast Refresh.
  *
  * Any other error, or a second one, disables the instance until it is torn down: it is recorded on
- * the context, where `storeRef(params).error` reads it.
+ * the context, where `storeRef(params).error` reads it, and the components reading the instance throw
+ * it for their own error boundary (see useThrowOnFailure). Once they are gone the instance is torn
+ * down, and a reader that comes back starts a fresh one.
  */
 class StoreBoundary extends React.Component<StoreBoundaryProps, StoreBoundaryState> {
   static displayName = "StoreBoundary"
@@ -252,7 +254,7 @@ class StoreBoundary extends React.Component<StoreBoundaryProps, StoreBoundarySta
     this.props.ctx.fail(error)
     console.error(
       `[react-state-custom] A store hook threw: "${this.props.ctx.name}" is disabled until its instance is ` +
-      `torn down. Other stores keep running.`,
+      `torn down, and the components reading it throw this error. Other stores keep running.`,
       error,
       info.componentStack
     )
@@ -664,6 +666,7 @@ export function createStore<U extends StoreParamsShape<U>, V extends object>(
     const [params, options] = args as [U | undefined, Partial<StoreSelect<unknown, unknown>> | undefined]
     if (!isProduction) checkParams(name, params, options)
     const ctx = useInstance((params ?? {}) as U)
+    useThrowOnFailure(ctx)
     const selector = options?.select
     const withSelector = typeof selector === "function"
     const schedule = options?.schedule ?? defaultSchedule

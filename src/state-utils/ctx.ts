@@ -414,6 +414,30 @@ export const deliverOn = (ctx: Context<any>, plan: Scheduler, deliver: () => voi
   }
 }
 
+const notFailed = () => false
+
+/**
+ * A store hook that threw disables its instance until the instance is torn down (see StoreBoundary):
+ * its readers throw its error during render, for their own error boundary, so the failure shows where
+ * the store is used while every other store keeps running. Stores never run on the server, so the
+ * server (and hydration) snapshot is "not failed".
+ */
+export const useThrowOnFailure = (ctx: Context<any>) => {
+  if (useSyncExternalStore(ctx.onStatus, () => ctx.failed, notFailed)) throw ctx.error
+}
+
+const noFailure = () => undefined
+
+/** `useThrowOnFailure` for a list of contexts, stable until one of them changes: the first that failed throws. */
+export const useThrowOnFailures = (contexts: readonly Context<any>[]) => {
+  const subscribe = useMemo(() => (listener: () => void) => {
+    const offs = contexts.map(ctx => ctx.onStatus(listener))
+    return () => offs.forEach(off => off())
+  }, [contexts])
+  const failed = useSyncExternalStore(subscribe, () => contexts.find(ctx => ctx.failed), noFailure)
+  if (failed) throw failed.error
+}
+
 /** Run a selector; a store function it calls is a render-time dependency (see functionSources). */
 export const runSelector = <D, R>(selector: (data: D) => R, data: D) => {
   selectorScope.depth++

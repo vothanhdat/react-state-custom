@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
-import { Context, deliverOn, getContextInRender, isServer, liveContext, runSelector, useIsomorphicLayoutEffect } from "./ctx"
+import { Context, deliverOn, getContextInRender, isServer, liveContext, runSelector, useIsomorphicLayoutEffect, useThrowOnFailures } from "./ctx"
 import { useSelectorModeCheck, type StoreReadOptions, type StoreRef, type StoreSelect } from "./createAutoCtx"
 import { createTracker, FROM_SERVER, type Tracker } from "./useQuickSubscribe"
 import { schedulerOf, SYNC, type Scheduler } from "./schedule"
@@ -220,6 +220,8 @@ export function useMultipleStore<const T extends readonly StoreRef<any>[], R>(re
 export function useMultipleStore<const T extends readonly StoreRef<any>[]>(refs: T, options?: StoreReadOptions): StatesOf<T>
 export function useMultipleStore(refs: readonly StoreRef<any>[], options?: Partial<StoreSelect<object[], unknown>>): unknown {
   const slots = useInstances(refs)
+  const lastContexts = useRef<Context<any>[]>([])
+  useThrowOnFailures(lastContexts.current = sameOr(lastContexts.current, slots.map(slot => slot.ctx)))
   const selector = options?.select
   const withSelector = typeof selector === "function"
   // isProduction never changes at runtime, so this conditional hook keeps a stable order

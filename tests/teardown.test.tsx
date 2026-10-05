@@ -61,20 +61,23 @@ describe('a torn-down store instance', () => {
   it('does nothing when an action of a failed instance is called', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => { })
     const effects: string[] = []
-    const { useStore, storeRef } = createStore('teardown-failed', () => {
+    const { storeRef } = createStore('teardown-failed', () => {
       const [boom, setBoom] = useState(false)
       useEffect(() => { if (boom) throw new Error('bug in effect') }, [boom])
       return { boom, crash: () => setBoom(true), ping: () => { effects.push('ping') } }
     })
-    const View = () => <span>{String(useStore().boom)}</span>
-    render(<><AutoRootCtx /><View /></>)
+    render(<AutoRootCtx />)
+    let release = () => { }
+    act(() => { release = storeRef().retain() })
     await tick()
     const { ping, crash } = storeRef().get()
     act(() => crash!())
     await tick()
+    expect(storeRef().error).toEqual(new Error('bug in effect'))
     ping!()
     expect(effects).toEqual([])
-    expect(storeRef().get().boom).toBe(true)       // its last values stay for its readers
+    expect(storeRef().get().boom).toBe(true)       // its last values stay for whoever holds it
+    act(() => release())
   })
 })
 

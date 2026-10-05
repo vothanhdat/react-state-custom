@@ -1,11 +1,19 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
-import { useEffect, useState } from 'react'
+import { Component, useEffect, useState, type ReactNode } from 'react'
 import { createStore, AutoRootCtx } from '../src'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
 
 afterEach(() => vi.restoreAllMocks())
+
+/** An error boundary that records what it caught and renders nothing after. */
+class Catch extends Component<{ children?: ReactNode, onError: (error: unknown) => void }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch(error: unknown) { this.props.onError(error) }
+  render() { return this.state.failed ? null : this.props.children }
+}
 
 describe('AutoRootCtx robustness', () => {
   it('does not re-run other store hooks when an unrelated consumer mounts', async () => {
@@ -32,16 +40,18 @@ describe('AutoRootCtx robustness', () => {
     expect(runsA).toBe(before)
   })
 
-  it('isolates a throwing store with the default error boundary', async () => {
+  it('isolates a throwing store: its reader throws for its own boundary, other stores keep running', async () => {
     const err = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const { useStore: useBad } = createStore('bad-store', (_: {}) => { throw new Error('boom') })
+    const { useStore: useBad } = createStore('bad-store', (_: {}): { anything?: string } => { throw new Error('boom') })
     const { useStore: useGood } = createStore('good-store', (_: {}) => ({ ok: 'yes' }))
     const Bad = () => <span>{String(useBad({}).anything)}</span>
     const Good = () => <span data-testid="good">{useGood({}).ok}</span>
+    const caught: unknown[] = []
 
-    const { getByTestId } = render(<><AutoRootCtx /><Bad /><Good /></>)
+    const { getByTestId } = render(<><AutoRootCtx /><Catch onError={e => caught.push(e)}><Bad /></Catch><Good /></>)
     await tick()
     expect(getByTestId('good').textContent).toBe('yes')
+    expect(caught.map(e => (e as Error).message)).toEqual(['boom'])
     expect(err).toHaveBeenCalledWith(expect.stringContaining('store hook threw'), expect.any(Error), expect.anything())
   })
 
@@ -56,19 +66,21 @@ describe('AutoRootCtx robustness', () => {
     const Loop = () => <span data-testid="loop">{String(storeA.useStore().a)}</span>
     const Healthy = () => <span data-testid="ok">{useHealthy().ok}</span>
 
+    const caught: unknown[] = []
+
     const t0 = Date.now()
-    const { getByTestId } = render(<><AutoRootCtx /><Loop /><Healthy /></>)
+    const { getByTestId } = render(<><AutoRootCtx /><Catch onError={e => caught.push(e)}><Loop /></Catch><Healthy /></>)
     await tick(100)
     expect(Date.now() - t0).toBeLessThan(2000)
 
     // The cascade ran synchronously until React's nested-update limit threw inside a store's
-    // publish; the error reached that store's StoreErrorBoundary, which disabled it and ended the cycle.
+    // publish; the error reached that store's boundary, which disabled it and ended the cycle, and
+    // the component reading the loop got the error.
     const settled = rendersA
-    const shown = getByTestId('loop').textContent
     expect(settled).toBeGreaterThan(10)
     await tick(200)
     expect(rendersA).toBe(settled)
-    expect(getByTestId('loop').textContent).toBe(shown)
+    expect(caught.some(e => String((e as Error).message).includes('Maximum update depth exceeded'))).toBe(true)
     expect(getByTestId('ok').textContent).toBe('yes')
     expect(err).toHaveBeenCalledWith(
       expect.stringContaining('store hook threw'),

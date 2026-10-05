@@ -6,6 +6,7 @@ import type { AccountMessage, AccountSnapshot, Fill, Order } from '../src/sim/ty
 import { useAccount } from '../src/stores/core/account'
 import { useOrderCommands } from '../src/stores/ui/accountViews'
 import { useFillToasts, useToasts } from '../src/stores/ui/toasts'
+import { PanelBoundary } from '../src/components/PanelBoundary'
 
 // a scripted exchange: the test decides when each response and each event arrives
 const fake = vi.hoisted(() => {
@@ -133,16 +134,20 @@ describe('fill toasts', () => {
     expect(storeHandle(useToasts).get().toasts?.map(t => t.title)).toEqual(['Bought 0.25 BTC', 'Sold 0.1 BTC'])
   })
 
-  it('keeps the account running when the toasts store fails', async () => {
+  it('keeps the account running when the toasts store fails, and shows the error where it is read', async () => {
     mockStore(useToasts, () => { throw new Error('toasts crashed') })
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const snapshot = startWithNotifiers()
+    const snapshot = fake.deferred<AccountSnapshot>()
+    fake.api.getAccount.mockReturnValueOnce(snapshot.promise)
+    render(<><AutoRootCtx /><PanelBoundary name="Notifications" className="toasts"><Notifier /><Notifier /></PanelBoundary></>)
     await act(async () => snapshot.resolve({ seq: 1, balances: [{ asset: 'USD', free: 10, locked: 0 }], orders: [] }))
     emit({ type: 'fill', seq: 2, fill: fill({}) })
 
     const state = await waitForStore(useAccount, undefined, s => s.status === 'ready')
     expect(state.fills).toHaveLength(1)
     expect(state.balances?.USD?.free).toBe(10)
+    // fill-toasts reads toasts, so it failed with its error, and so did the component reading it
+    expect(screen.getByRole('alert').textContent).toContain('toasts crashed')
     quiet.mockRestore()
   })
 })

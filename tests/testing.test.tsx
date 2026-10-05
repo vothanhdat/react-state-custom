@@ -71,10 +71,13 @@ describe('mockStore', () => {
   it('fails the store when the mock throws, as its own hook would', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => { })
     mockStore(useTasks, () => { throw new Error('offline') })
-    render(<App />)
-    expect(screen.getByText('loading p1')).toBeTruthy()
+    render(<AutoRootCtx />)
+    const tasks = storeHandle(useTasks, { projectId: 'p1' })
+    let release = () => { }
+    act(() => { release = tasks.retain() })
     await expect(waitForStore(useTasks, { projectId: 'p1' })).rejects.toThrow('offline')
-    expect(storeHandle(useTasks, { projectId: 'p1' }).error).toEqual(new Error('offline'))
+    expect(tasks.error).toEqual(new Error('offline'))
+    act(() => release())
   })
 
   it('applies to instances that start after it: restore() brings back the store hook for the next ones', async () => {

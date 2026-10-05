@@ -1,11 +1,18 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
-import { useState } from 'react'
+import { Component, useState, type ReactNode } from 'react'
 import { createStore, AutoRootCtx } from '../src'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
 
 afterEach(() => vi.restoreAllMocks())
+
+class Catch extends Component<{ children?: ReactNode, onError: (error: unknown) => void }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch(error: unknown) { this.props.onError(error) }
+  render() { return this.state.failed ? null : this.props.children }
+}
 
 /**
  * A hot update re-runs the store's module, so createStore runs again with the same name and a new
@@ -70,8 +77,8 @@ describe('a store hook replaced by a hot update', () => {
     expect(errors.mock.calls.flat().join('\n')).not.toMatch(/has been disabled/)
   })
 
-  it('is still disabled when the new hook throws on its own', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
+  it('is still disabled when the new hook throws on its own, and its reader gets the error', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
     const v1 = createStore('hot-throws', () => ({ ok: true }))
     const broken = new Error('broken edit')
     const v2 = createStore('hot-throws', (): { ok: boolean } => {
@@ -85,8 +92,11 @@ describe('a store hook replaced by a hot update', () => {
     await tick()
     expect(getByTestId('v').textContent).toBe('true')
 
-    rerender(<><AutoRootCtx /><View2 /></>)
+    const caught: unknown[] = []
+    rerender(<><AutoRootCtx /><Catch onError={e => caught.push(e)}><View2 /></Catch></>)
     await tick()
-    expect(v2.storeRef().error).toBe(broken)
+    expect(caught).toEqual([broken])
+    // restarted once, then disabled
+    expect(errors.mock.calls.filter(call => String(call[0]).includes('store hook threw'))).toHaveLength(1)
   })
 })

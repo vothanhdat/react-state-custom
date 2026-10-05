@@ -75,6 +75,8 @@ input:focus, select:focus { border-color: var(--accent); }
 .panel { background: var(--panel); display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; }
 .panel-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--border); min-height: 34px; }
 .panel-title { font-weight: 600; }
+.panel-failed p { margin: 10px; color: var(--down); }
+.panel-failed button { margin: 0 10px; align-self: flex-start; }
 .hint { color: var(--muted); margin-left: auto; font-size: 11px; }
 .scroll { overflow-y: auto; flex: 1; min-height: 0; }
 .tabs { display: flex; align-items: center; gap: 4px; }

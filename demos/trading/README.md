@@ -49,4 +49,5 @@ npx tsc -p demos/trading                                 # types
 - **UI** (`src/components`): watchlist, canvas candlestick chart with zoom, pan, crosshair and order
   lines, order book ladder (click a level to fill the ticket), depth chart, trades, order ticket,
   open orders, history, fills, balances, toasts. The perf readout in the header shows fps, long
-  frames, messages/s and commits per panel.
+  frames, messages/s and commits per panel. Each panel sits in a `PanelBoundary`: a store that throws
+  shows its error in the panels that read it, with a Retry button, and the rest keeps running.
