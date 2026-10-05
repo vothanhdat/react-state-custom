@@ -6,6 +6,7 @@ import { Profiler, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createStore, AutoRootCtx } from '../src/state-utils/createAutoCtx'
 import { getContext, useDataSubscribe } from '../src/state-utils/ctx'
 import { scheduled, type Schedule } from '../src/state-utils/schedule'
+import { useFrameState } from '../src/state-utils/useFrameState'
 import { flushScheduled } from '../src/testing'
 
 afterEach(() => {
@@ -76,6 +77,23 @@ describe('schedule: frame', () => {
     expect(getByTestId('frame').textContent).toBe('0')
     await act(async () => { vi.advanceTimersToNextFrame() })
     expect(getByTestId('frame').textContent).toBe('1')
+  })
+
+  it('a store reading a frame-buffered source and its frame-scheduled readers update in the same frame', async () => {
+    vi.useFakeTimers()
+    let push!: (n: number) => void
+    const { useStore: useSource } = createStore(`schedule-source-${++names}`, () => {
+      const [n, setN] = useFrameState(0)
+      push = setN
+      return { n }
+    })
+    const { useStore: useDouble } = createStore(`schedule-double-${++names}`, () => ({ double: (useSource().n ?? 0) * 2 }))
+    const Reader = () => <b data-testid="double">{useDouble(undefined, { schedule: 'frame' }).double}</b>
+    const { getByTestId } = render(<><AutoRootCtx /><Reader /></>)
+    expect(getByTestId('double').textContent).toBe('0')
+    await act(async () => { push(1); push(2); push(3) })
+    await act(async () => { vi.advanceTimersToNextFrame() })
+    expect(getByTestId('double').textContent).toBe('6')
   })
 })
 
@@ -336,5 +354,42 @@ describe('scheduled', () => {
     expect(flushScheduled()).toBe(true)
     expect(runs.sort()).toEqual(['debounce', 'frame', 'idle'])
     expect(flushScheduled()).toBe(false)
+  })
+})
+
+describe('useFrameState', () => {
+  it('applies the updates of a frame in order and renders once', async () => {
+    vi.useFakeTimers()
+    let set!: (update: number | ((n: number) => number)) => void
+    const { seen, Track } = committed()
+    const Counter = () => {
+      const [n, setN] = useFrameState(0)
+      set = setN
+      return <Track value={n} />
+    }
+    render(<Counter />)
+    act(() => { set(5); set(n => n + 1); set(n => n * 2) })
+    expect(seen).toEqual([0])
+    await act(async () => { vi.advanceTimersToNextFrame() })
+    expect(seen).toEqual([0, 12])
+  })
+
+  it('makes a store publish once per frame', async () => {
+    vi.useFakeTimers()
+    let push!: (n: number) => void
+    let storeRenders = 0
+    const { useStore } = createStore(`schedule-frame-state-${++names}`, () => {
+      const [n, setN] = useFrameState(0)
+      push = setN
+      useEffect(() => { storeRenders++ })
+      return { n }
+    })
+    const Reader = () => <b data-testid="n">{useStore().n}</b>
+    const { getByTestId } = render(<><AutoRootCtx /><Reader /></>)
+    storeRenders = 0
+    act(() => { for (let i = 1; i <= 50; i++) push(i) })
+    await act(async () => { vi.advanceTimersToNextFrame() })
+    expect(getByTestId('n').textContent).toBe('50')
+    expect(storeRenders).toBe(1)
   })
 })

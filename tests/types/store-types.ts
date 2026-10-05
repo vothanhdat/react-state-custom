@@ -1,6 +1,6 @@
 // Type-level tests, checked by `yarn typecheck` (tsc), never run.
 import { useState } from 'react'
-import { createStore, createRootCtx, createAutoCtx, scheduled, shallowEqual, type StoreStatus } from '../../src'
+import { createStore, createRootCtx, createAutoCtx, scheduled, shallowEqual, useFrameState, type Schedule, type StoreStatus } from '../../src'
 
 type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
 const expectType = <T>(_value: T) => { }
@@ -188,3 +188,15 @@ scheduledFn('a', 1)
 scheduledFn(1)
 scheduledFn.cancel()
 scheduledFn.flush()
+
+// useFrameState is typed like useState
+export const FrameStateConsumer = () => {
+  const [n, setN] = useFrameState(0)
+  assert<Equals<typeof n, number>>()
+  setN(m => m + 1)
+  const [maybe] = useFrameState<string>()
+  assert<Equals<typeof maybe, string | undefined>>()
+  const schedule: Schedule = { debounce: 10 }
+  void schedule
+  return null
+}

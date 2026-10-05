@@ -15,6 +15,7 @@ export {
 export { createRootCtx } from "./state-utils/createRootCtx"
 export { AutoRootCtx, createAutoCtx, createStore, StateScopeProvider, StoreErrorBoundary, type StoreOptions, type StoreParams, type StoreState, type StoreStateWith, type StoreHandle, type StoreStatus, type StoreReadOptions, type StoreSelectOptions, type StateDebugRenderer } from "./state-utils/createAutoCtx"
 export { scheduled, type Schedule } from "./state-utils/schedule"
+export { useFrameState } from "./state-utils/useFrameState"
 export { formatState, shallowEqual } from "./state-utils/utils"
 export { useArrayChangeId } from "./state-utils/useArrayChangeId"
 export { paramsToId, type ParamsToIdRecord, type ParamsToIdInput, type ParamValue, type StoreParamsShape } from "./state-utils/paramsToId"
