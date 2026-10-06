@@ -1,12 +1,12 @@
 import * as React from "react"
 import { Suspense, useEffect, useCallback, useRef, useState, memo, useSyncExternalStore } from "react"
-import { useDataContext, useDataSelector, acquireContext, getContext, isServer, useIsomorphicLayoutEffect, useThrowOnFailure, contextForRender, holdContext, type Context } from "./ctx"
+import { useDataContext, acquireContext, getContext, isServer, useIsomorphicLayoutEffect, contextForRender, holdContext, createSelection, useSelected, type Context, type Selection } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 import type { ParamsToIdRecord, StoreParamsShape } from "./paramsToId"
 import { createReading, useReading, type Reading } from "./useQuickSubscribe"
 import { DependencyTracker, isProduction, shallowEqual } from "./utils"
 import { storeEntries, storeRefs } from "./storeRegistry"
-import type { Scheduler } from "./schedule"
+import { schedulerOf, type Scheduler } from "./schedule"
 
 /**
  * Name a component for React DevTools. The published package is minified, so function and class
@@ -70,13 +70,14 @@ const sameParams = (a: object, b: object) => {
   return keys === 0
 }
 
-/** What one `useStore` call holds: the instance it reads, AutoRootCtx's context, and the reading of the proxy form. */
+/** What one `useStore` call holds: the instance it reads, AutoRootCtx's context, and what its form reads with. */
 type Reader<V> = {
   name: string,
   params: object,
   ctx: Context<V>,
   autoCtx: Context<any>,
   reading?: Reading<V>,
+  selection?: Selection<V>,
 }
 
 /** AutoRootCtx's bookkeeping for one instance: consumers and retainers, and the pending timeToClean removal. */
@@ -738,11 +739,12 @@ export function createStore<U extends StoreParamsShape<U>, V extends object>(
     // isProduction never changes at runtime, so this conditional hook keeps a stable order
     if (!isProduction) useSelectorModeCheck(`useStore("${ctx.name}")`, withSelector)
     // The two forms run different hooks: a call site must always pass a selector or never.
+    // each form follows failures in its own subscription (see createReading, createSelection)
     if (withSelector) {
-      useThrowOnFailure(ctx)
-      return useDataSelector(ctx, selector, options?.isEqual ?? shallowEqual, schedule)
+      const plan = schedulerOf(schedule)
+      if (reader.selection?.plan !== plan) reader.selection = createSelection(ctx, plan)
+      return useSelected(reader.selection, selector, options?.isEqual ?? shallowEqual)
     }
-    // the proxy form follows failures in its own subscription (see createReading)
     return useReading(reader.reading ??= createReading(ctx), schedule)
   }
 

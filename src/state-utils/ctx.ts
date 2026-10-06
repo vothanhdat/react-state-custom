@@ -443,21 +443,16 @@ export const deliverOn = (ctx: Context<any>, plan: Scheduler, deliver: () => voi
   }
 }
 
-const notFailed = () => false
+const noFailure = () => undefined
 
 /**
  * A store hook that threw disables its instance until the instance is torn down (see StoreBoundary):
  * its readers throw its error during render, for their own error boundary, so the failure shows where
  * the store is used while every other store keeps running. Stores never run on the server, so the
- * server (and hydration) snapshot is "not failed".
+ * server (and hydration) snapshot is "not failed". `useStore` follows the status in the subscription
+ * of each of its forms (createReading, createSelection); this one is for a list of contexts, stable
+ * until one of them changes: the first that failed throws.
  */
-export const useThrowOnFailure = (ctx: Context<any>) => {
-  if (useSyncExternalStore(ctx.onStatus, () => ctx.failed, notFailed)) throw ctx.error
-}
-
-const noFailure = () => undefined
-
-/** `useThrowOnFailure` for a list of contexts, stable until one of them changes: the first that failed throws. */
 export const useThrowOnFailures = (contexts: readonly Context<any>[]) => {
   const subscribe = useMemo(() => (listener: () => void) => {
     const offs = contexts.map(ctx => ctx.onStatus(listener))
@@ -475,6 +470,96 @@ export const runSelector = <D, R>(selector: (data: D) => R, data: D) => {
   } finally {
     selectorScope.depth--
   }
+}
+
+/** What a selection reads while its store is failed: its readers throw the store's error instead. */
+const FAILED_SELECTION = Symbol("failed")
+
+/**
+ * What the selector form reads one context with, stable while the context and the schedule stay the
+ * same: the subscription of its `useSyncExternalStore`, which also follows the context's status, and
+ * the selection on screen.
+ */
+export const createSelection = <D,>(ctx: Context<D> | undefined, plan: Scheduler) => {
+  const selection = {
+    ctx,
+    plan,
+    /** The selection on screen. Set after commit, so a render React discards never changes it. */
+    shown: undefined as { value: unknown } | undefined,
+    subscribe(onStoreChange: () => void) {
+      if (!ctx) return () => { }
+      const offStatus = ctx.onStatus(onStoreChange)
+      if (plan === SYNC) {
+        const offData = ctx.subscribeAll(onStoreChange)
+        return () => {
+          offData()
+          offStatus()
+        }
+      }
+      const { listener, cancel } = deliverOn(ctx, plan, onStoreChange)
+      const offData = ctx.subscribeAll(listener)
+      return () => {
+        offData()
+        cancel()
+        offStatus()
+      }
+    },
+  }
+  return selection
+}
+
+export type Selection<D> = ReturnType<typeof createSelection<D>>
+
+/** The render of a selection: `selector` over the plain data, re-rendering only when `isEqual` says it changed. */
+export const useSelected = <D, R>(
+  selection: Selection<D>,
+  selector: (data: Partial<D>) => R,
+  isEqual: (a: R, b: R) => boolean,
+): R => {
+  const { ctx } = selection
+
+  // New snapshot functions whenever the selector or isEqual changes. useSyncExternalStore checks for
+  // changes with those of the committed render, so a selector from a render React discarded (a
+  // transition waiting on a suspended sibling) is never used for that.
+  const snapshots = useMemo(() => {
+    let computedRevision = -1
+    let result: R
+    let server: { value: R } | undefined
+
+    // The selection is recomputed only after `data` changed. The context's revision says so even for a
+    // change made before this component subscribed: React checks the snapshot once more after
+    // subscribing, and a counter bumped by our own listener would have missed it.
+    const select = () => {
+      const revision = ctx?.revision ?? 0
+      if (computedRevision === revision) return result
+      const next = runSelector(selector, (ctx?.data ?? {}) as Partial<D>)
+      const shown = selection.shown as { value: R } | undefined
+      // keep an equal reference, the one on screen first, so React sees no change
+      result = shown && isEqual(shown.value, next) ? shown.value
+        : computedRevision !== -1 && isEqual(result, next) ? result
+        : next
+      computedRevision = revision
+      return result
+    }
+
+    // On the server and while hydrating: what the server rendered, the selection of an empty state
+    // (stores never run there), unless it equals the live selection. React re-renders with the live
+    // selection once hydrated.
+    const getServerSnapshot = () => {
+      if (server) return server.value
+      const live = select()
+      const fromServer = runSelector(selector, {} as Partial<D>)
+      server = { value: isEqual(fromServer, live) ? live : fromServer }
+      return server.value
+    }
+
+    return { getSnapshot: () => ctx?.failed ? FAILED_SELECTION as R : select(), getServerSnapshot }
+  }, [selection, selector, isEqual])
+
+  const value = useSyncExternalStore(selection.subscribe, snapshots.getSnapshot, snapshots.getServerSnapshot)
+  if (value === FAILED_SELECTION) throw ctx!.error
+  useIsomorphicLayoutEffect(() => { selection.shown = { value } }, [selection, value])
+  return value
 }
 
 /**
@@ -496,58 +581,6 @@ export const useDataSelector = <D, R>(
   schedule?: Scheduler
 ): R => {
   const plan = schedulerOf(schedule)
-  const subscribe = useMemo(() => (onStoreChange: () => void) => {
-    if (!ctx) return () => { }
-    if (plan === SYNC) return ctx.subscribeAll(onStoreChange)
-    const { listener, cancel } = deliverOn(ctx, plan, onStoreChange)
-    const unsub = ctx.subscribeAll(listener)
-    return () => {
-      unsub()
-      cancel()
-    }
-  }, [ctx, plan])
-
-  /** The selection on screen. Set after commit, so a render React discards never changes it. */
-  const shown = useRef<{ value: R }>(undefined)
-
-  // New snapshot functions whenever the selector or isEqual changes. useSyncExternalStore checks for
-  // changes with those of the committed render, so a selector from a render React discarded (a
-  // transition waiting on a suspended sibling) is never used for that.
-  const snapshots = useMemo(() => {
-    let computedRevision = -1
-    let result: R
-    let server: { value: R } | undefined
-
-    // The selection is recomputed only after `data` changed. The context's revision says so even for a
-    // change made before this component subscribed: React checks the snapshot once more after
-    // subscribing, and a counter bumped by our own listener would have missed it.
-    const getSnapshot = () => {
-      const revision = ctx?.revision ?? 0
-      if (computedRevision === revision) return result
-      const next = runSelector(selector, (ctx?.data ?? {}) as Partial<D>)
-      // keep an equal reference, the one on screen first, so React sees no change
-      result = shown.current && isEqual(shown.current.value, next) ? shown.current.value
-        : computedRevision !== -1 && isEqual(result, next) ? result
-        : next
-      computedRevision = revision
-      return result
-    }
-
-    // On the server and while hydrating: what the server rendered, the selection of an empty state
-    // (stores never run there), unless it equals the live selection. React re-renders with the live
-    // selection once hydrated.
-    const getServerSnapshot = () => {
-      if (server) return server.value
-      const live = getSnapshot()
-      const fromServer = runSelector(selector, {} as Partial<D>)
-      server = { value: isEqual(fromServer, live) ? live : fromServer }
-      return server.value
-    }
-
-    return { getSnapshot, getServerSnapshot }
-  }, [ctx, selector, isEqual])
-
-  const value = useSyncExternalStore(subscribe, snapshots.getSnapshot, snapshots.getServerSnapshot)
-  useIsomorphicLayoutEffect(() => { shown.current = { value } }, [value])
-  return value
+  const selection = useMemo(() => createSelection(ctx, plan), [ctx, plan])
+  return useSelected(selection, selector, isEqual)
 }

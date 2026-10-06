@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, act } from '@testing-library/react'
 import { useEffect, useRef, useState } from 'react'
 import { createStore, useMultipleStore, AutoRootCtx } from '../src'
-import { frame } from '../src/schedulers'
+import { frame, sync } from '../src/schedulers'
 import { flushScheduled } from '../src/testing'
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
@@ -89,6 +89,45 @@ describe('useStore(params, { select })', () => {
     await act(async () => { storeRef().get().setTags!(['a', 'c']) })
     expect(getByTestId('tags').textContent).toBe('A,C')
     expect(commits.count).toBe(settled + 1)
+  })
+
+  it('a selection follows a schedule that changes between renders', async () => {
+    const { useStore, storeRef } = itemStore()
+    let setScheduled: (scheduled: boolean) => void = () => { }
+    const Label = () => {
+      const [scheduled, set] = useState(true)
+      setScheduled = set
+      return <span data-testid="label">{useStore({ id: 'a' }, { select: s => s.label ?? '', schedule: scheduled ? frame() : sync() })}</span>
+    }
+    const { getByTestId } = render(<><AutoRootCtx /><Label /></>)
+    await tick()
+    await act(async () => { storeRef({ id: 'a' }).get().setLabel!('B') })
+    expect(getByTestId('label').textContent).toBe('A')
+    act(() => { flushScheduled() })
+    expect(getByTestId('label').textContent).toBe('B')
+
+    await act(async () => { setScheduled(false) })
+    await act(async () => { storeRef({ id: 'a' }).get().setLabel!('C') })
+    expect(getByTestId('label').textContent).toBe('C')
+  })
+
+  it('an equal selection keeps its reference when something else re-renders the component', async () => {
+    const { useStore } = itemStore()
+    const seen: unknown[] = []
+    let renderAgain = () => { }
+    const Labels = () => {
+      const [, set] = useState(0)
+      renderAgain = () => set(n => n + 1)
+      // a new selector and a new array on every render, equal by shallowEqual
+      seen.push(useStore({ id: 'a' }, { select: s => [s.label] }))
+      return null
+    }
+    render(<><AutoRootCtx /><Labels /></>)
+    await tick()
+    const settled = seen.length
+    await act(async () => { renderAgain() })
+    expect(seen.length).toBeGreaterThan(settled)
+    expect(seen[seen.length - 1]).toBe(seen[settled - 1])
   })
 
   it('takes isEqual and schedule next to select', async () => {
