@@ -6,6 +6,9 @@ All notable changes to this project are documented here.
 ### Fixed
 - Docs: two examples did not type-check. Error handling reported through a function named like the browser's `reportError`, which takes one argument; the example of a proxy passed to a child passed props to a `Row` that took none. CI now type-checks the TypeScript blocks of the docs and the README against the library (`yarn test:docs-code`), so an example using a removed export, an unknown option or a wrong argument fails the build.
 
+### Changed
+- Docs: the home page names what 2.0 adds (`useMultipleStore`, schedules, a store that throws failing alone) and links Migrating to 2.0.
+
 ## [2.0.3] - 2026-10-06
 ### Changed
 - Faster readers. A `useStore` call holds its instance with one state, one ref and one effect, and the proxy form reads failures through its own subscription: 5 hooks and 2 effects per reader instead of 12 and 5. Updates that re-render readers take 20–38% less time in the jsdom benchmarks (React's development build) and up to 18% less in headless Chrome (production build), 41% where 4920 readers re-render. The selector form (`{ select }`) reads failures through its own subscription too and keeps its subscription on the reader: 6 hooks instead of 9, 10–16% faster with 1000 readers (production build, jsdom).

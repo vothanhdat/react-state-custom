@@ -25,16 +25,16 @@ features:
     details: Call a store like a hook, in any component or in other stores. The hook runs once per params, however many places call it.
   - icon: 🧩
     title: Composed with hooks
-    details: A store reads another store by calling it. Dependencies update by themselves, with no atoms, selectors or wiring.
+    details: A store reads another store by calling it, and a list of instances with useMultipleStore. Dependencies update by themselves, with no atoms, selectors or wiring.
   - icon: 🌊
     title: Progressive by default
     details: Each source fetches on its own. A store that combines them shows every piece as soon as it arrives.
   - icon: 🎯
     title: Selective re-renders
-    details: Consumers re-render only when a key they read during render changes. Selectors cover deep and derived values.
+    details: Consumers re-render only when a key they read during render changes. A selector covers derived values, a schedule how often to render (once a frame, throttled, when idle).
   - icon: 🔄
     title: Automatic lifecycle
-    details: A store mounts when the first caller appears and is torn down after the last one leaves. Effects clean up as usual.
+    details: A store mounts when the first caller appears and is torn down after the last one leaves. One that throws fails alone, and its readers throw to their error boundary.
   - icon: 🛡️
     title: TypeScript and modern React
     details: Params and state are inferred from your hook. Tested under StrictMode and the React Compiler.
@@ -82,3 +82,5 @@ const Pnl = ({ symbol }: { symbol: string }) => {
 ```bash
 npm install react-state-custom
 ```
+
+Coming from 1.x? See [Migrating to 2.0](/guide/migrating-to-2).
