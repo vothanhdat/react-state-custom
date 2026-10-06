@@ -83,4 +83,27 @@ const Pnl = ({ symbol }: { symbol: string }) => {
 npm install react-state-custom
 ```
 
-Coming from 1.x? See [Migrating to 2.0](/guide/migrating-to-2).
+## When it fits
+
+A store pays off when several components need the same running piece of state, effects included, per id.
+
+- **A good fit**
+  - A socket, a presence channel or a poll per room, symbol or document, read by several widgets: one subscription and one state for all of them.
+  - A task in progress, such as an upload or an export, followed on more than one screen. See [Keep a task running after its screen closes](/guide/outside-react#keep-a-task-running-after-its-screen-closes).
+  - A screen's state combined from several sources: fetched data, a socket, the session. See [Progressive data](/guide/progressive-data).
+  - Domain hooks you already have and now need to share: wrap them with `createStore` and they run as written.
+- **A small gain**
+  - Global UI flags such as the theme or an open modal: a context or a plain store does this already.
+  - Server data you only fetch and cache: a query library already shares responses per key. Combine its results in a store when you need more.
+  - State that belongs to one component: keep it in `useState`.
+- **Not a fit**
+  - Logic that must run without React. A store is a hook: `storeRef()` reads and drives it from outside, but it runs only under a mounted `AutoRootCtx`.
+
+Sharing changes behaviour: callers with the same params share everything the hook holds. Decide what belongs to the shared instance and what stays with each view; see [What an instance shares](/guide/parameterized-stores#what-an-instance-shares).
+
+## Where to go next
+
+- New to the library: [Getting started](/guide/getting-started), then the [Rules](/guide/rules).
+- Know React well: [For React developers](/guide/for-react-developers), with the comparison with Jotai, RTK Query and Zustand, and what it costs.
+- Coming from 1.x: [Migrating to 2.0](/guide/migrating-to-2).
+- The [live demo](https://vothanhdat.github.io/react-state-custom/) has editable examples. Live Rooms shows the model best: one connection per room shared by several widgets, closed with the room, and messages kept in a store of their own.

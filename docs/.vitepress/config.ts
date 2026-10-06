@@ -12,7 +12,7 @@ export default defineConfig({
   themeConfig: {
     logo: '/logo.svg',
     nav: [
-      { text: 'Guide', link: '/guide/introduction', activeMatch: '/guide/' },
+      { text: 'Guide', link: '/guide/getting-started', activeMatch: '/guide/' },
       { text: 'API', link: '/api/create-store', activeMatch: '/api/' },
       { text: 'Benchmarks', link: '/benchmarks' },
       { text: 'Changelog', link: '/changelog' },
@@ -23,7 +23,6 @@ export default defineConfig({
         {
           text: 'Start',
           items: [
-            { text: 'Introduction', link: '/guide/introduction' },
             { text: 'Getting started', link: '/guide/getting-started' },
             { text: 'Rules', link: '/guide/rules' },
             { text: 'For React developers', link: '/guide/for-react-developers' },

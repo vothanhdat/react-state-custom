@@ -80,116 +80,27 @@ const Pnl = ({ symbol }: { symbol: string }) => {
 
 ---
 
-## 🔍 How It Works
-
-A store is a hook running inside a **headless component**.
-
-- `createStore(name, useFn)` registers your hook under a name and returns `useStore`, plus `storeRef` for code outside React.
-- The first time a component calls `useStore(params)`, `AutoRootCtx` mounts a hidden component that runs `useFn(params)`. Its return value is published, key by key, to a shared context.
-- `useStore` returns a proxy. Every key you read during render becomes a subscription, so the component re-renders only when one of those keys changes (`Object.is`).
-- Components that call `useStore` with the same `params` share one instance. Different `params` get their own instance.
-- When the last consumer unmounts, the instance is torn down after `timeToClean` milliseconds (default `0`). Effects inside your hook clean up exactly as they would anywhere else.
-
-Because the store *is* a hook, everything you already know works inside it: `useState`, `useEffect`, `useMemo`, `useReducer`, other custom hooks, and other stores.
-
----
-
-## 🛠️ Quick Start
-
-```ts
-// 1. Define your state as a hook
-export const useUserState = ({ userId }: { userId: string }) => {
-  const [user, setUser] = useState<User | null>(null)
-  useEffect(() => { fetchUser(userId).then(setUser) }, [userId])
-  return { user, isLoading: !user }
-}
-
-// 2. Create the store
-export const { useStore: useUserStore, storeRef: userRef } = createStore('user', useUserState)
-```
+## 🛠️ The API
 
 ```tsx
-// 3. Mount the root once
-<AutoRootCtx />
+import { createStore, useMultipleStore, AutoRootCtx } from 'react-state-custom'
 
-// 4. Read it anywhere; two components with the same params share one instance and one fetch.
-//    Every key is undefined until the store has run once: stores are lazy.
-function UserName({ userId }: { userId: string }) {
-  const { user } = useUserStore({ userId })
-  if (!user) return <Spinner />
-  return <span>{user.name}</span>
-}
+const { useStore, storeRef } = createStore(name, useHook, { timeToClean, schedule })
 
-// Derived values re-render only when they change; a list of instances is one call
-const initial = useUserStore({ userId }, { select: s => s.user?.name[0] })
-const users = useMultipleStore(ids.map(userId => userRef({ userId })))
+useStore(params?)                               // a proxy: the component re-renders for the keys it read
+useStore(params, { select, isEqual, schedule }) // a selection
+storeRef(params)                                // one instance, for code outside React: get, subscribe, retain
+useMultipleStore(refs, { select, schedule })    // several instances in one call
+<AutoRootCtx />                                 // mount once, near the root: it runs the store hooks
 ```
 
-The whole API is `createStore` (which returns `useStore` and `storeRef`), `useMultipleStore` and `<AutoRootCtx />`. Schedulers live in `react-state-custom/schedulers`. Coming from 1.x: see [Migrating to 2.0](https://vothanhdat.github.io/react-state-custom/docs/guide/migrating-to-2).
+Stores are lazy: every key is `undefined` until the store has run once, so default at the read (`price ?? '…'`) and call actions with `?.()`. The **[Rules](https://vothanhdat.github.io/react-state-custom/docs/guide/rules)** list what the library adds to the rules of hooks, one line each; **[How it works](https://vothanhdat.github.io/react-state-custom/docs/guide/how-it-works)** has the model. Schedulers come from `react-state-custom/schedulers`, test helpers from `react-state-custom/testing`. Coming from 1.x: [Migrating to 2.0](https://vothanhdat.github.io/react-state-custom/docs/guide/migrating-to-2).
 
-## 📚 Guide
+## 🆚 Compared with Jotai, RTK Query, Zustand
 
-The full guide lives on the **[documentation site](https://vothanhdat.github.io/react-state-custom/docs/)**:
-
-- **Start**: [getting started](https://vothanhdat.github.io/react-state-custom/docs/guide/getting-started), [how it works](https://vothanhdat.github.io/react-state-custom/docs/guide/how-it-works), [migrating to 2.0](https://vothanhdat.github.io/react-state-custom/docs/guide/migrating-to-2)
-- **Stores**: [store options](https://vothanhdat.github.io/react-state-custom/docs/guide/store-options) (`timeToClean`, `schedule`), [organizing stores in layers](https://vothanhdat.github.io/react-state-custom/docs/guide/layers), [events from a store](https://vothanhdat.github.io/react-state-custom/docs/guide/events), [realtime data](https://vothanhdat.github.io/react-state-custom/docs/guide/realtime), [parameterized stores](https://vothanhdat.github.io/react-state-custom/docs/guide/parameterized-stores), [composing stores](https://vothanhdat.github.io/react-state-custom/docs/guide/composing-stores), [progressive data](https://vothanhdat.github.io/react-state-custom/docs/guide/progressive-data), [error handling](https://vothanhdat.github.io/react-state-custom/docs/guide/error-handling)
-- **Reading state**: [selectors](https://vothanhdat.github.io/react-state-custom/docs/guide/selectors), [update cadence](https://vothanhdat.github.io/react-state-custom/docs/guide/update-cadence) (render a reader per frame, throttled, debounced or when idle), [nested objects](https://vothanhdat.github.io/react-state-custom/docs/guide/composing-stores#flatten-a-nested-source), [many instances](https://vothanhdat.github.io/react-state-custom/docs/api/use-multiple-store) with `useMultipleStore`, [concurrent rendering](https://vothanhdat.github.io/react-state-custom/docs/guide/concurrent), [outside React](https://vothanhdat.github.io/react-state-custom/docs/guide/outside-react) with `storeRef()`, [reads outside render](https://vothanhdat.github.io/react-state-custom/docs/guide/reads-outside-render)
-- **Integration**: [developer tools](https://vothanhdat.github.io/react-state-custom/docs/guide/devtools), [server-side rendering](https://vothanhdat.github.io/react-state-custom/docs/guide/ssr), [React Compiler](https://vothanhdat.github.io/react-state-custom/docs/guide/react-compiler), [testing](https://vothanhdat.github.io/react-state-custom/docs/guide/testing), [limitations and FAQ](https://vothanhdat.github.io/react-state-custom/docs/guide/limitations)
-- **[API reference](https://vothanhdat.github.io/react-state-custom/docs/api/create-store)**: every export
+The closest relative is **Jotai**: both build a graph of small pieces of state, mount what is read and drop what is not. Here the unit is a hook instead of an atom, so a piece of state can do anything a hook can: `useEffect`, `useQuery`, other stores. Jotai's update path costs less (below). **RTK Query** is the closest for server data, with one cache entry per argument kept for a while after its last reader leaves; here server data, values derived from it and UI state are all written as hooks. **Zustand** is less code for a flat global bag of values with no per-id instances. The same example in Jotai and here, with a table: [For React developers](https://vothanhdat.github.io/react-state-custom/docs/guide/for-react-developers#compared-with-state-libraries).
 
 ---
-
-## 🆚 Comparison
-
-The closest relative is **Jotai**: both build a graph of small pieces of state that depend on each other, mount what is read and drop what is not. The difference is the unit. In Jotai it is an atom, a value or a derived read. Here it is a hook, so a piece of state can do anything a hook can do.
-
-The same slice of an exchange UI, an order book per symbol fed by a socket, and a spread derived from it:
-
-```ts
-// Jotai 3 (atomFamily comes from the jotai-family package; it left jotai/utils in Jotai 3)
-const bookAtom = atomFamily((symbol: string) => {
-  const a = atom<Book | null>(null)
-  a.onMount = set => socket.subscribe(symbol, set)        // returns the unsubscribe
-  return a
-})
-const spreadAtom = atomFamily((symbol: string) => atom(get => spreadOf(get(bookAtom(symbol)))))
-
-const spread = useAtomValue(spreadAtom(symbol))
-```
-
-```ts
-// react-state-custom
-export const { useStore: useBook } = createStore('book', ({ symbol }: { symbol: string }) => {
-  const [book, setBook] = useState<Book | null>(null)
-  useEffect(() => socket.subscribe(symbol, setBook), [symbol])
-  return { book }
-})
-export const { useStore: useSpread } = createStore('spread', ({ symbol }: { symbol: string }) => {
-  const { book } = useBook({ symbol })
-  return { spread: book ? spreadOf(book) : undefined }
-})
-
-const { spread } = useSpread({ symbol })
-```
-
-Both subscribe to the socket when the first component reads that symbol and unsubscribe after the last one leaves. What differs is what you had to learn and what it costs:
-
-| | react-state-custom | Jotai |
-|:---|:---|:---|
-| **Unit** | a hook: `useState`, `useEffect`, `useQuery`, other stores | an atom: a value or a derived `get` |
-| **Depend on another piece** | call its hook | `get(otherAtom)` |
-| **One instance per symbol, id, …** | params on the hook; same params, same instance | `atomFamily` (`jotai-family`) |
-| **Side effects with a lifecycle** | `useEffect` inside the store | `onMount` on the atom |
-| **Fine-grained reads** | top-level keys through the proxy, selectors for deep values | one atom per value; split atoms for granularity |
-| **Cost per update** | when consumers re-render, 1.3–2.1x Jotai's in jsdom and 1.1–1.3x in Chrome; one more commit per derived layer | lower whenever consumers re-render, in our jsdom and Chrome [benchmarks](https://vothanhdat.github.io/react-state-custom/docs/benchmarks) |
-| **Ecosystem** | every React hook works inside a store | a large set of atom utilities |
-| **To learn** | React hooks, plus its own rules: lazy start, one instance per params, tracked reads, one commit per layer ([how it works](https://vothanhdat.github.io/react-state-custom/docs/guide/how-it-works)) | the atom model |
-
-Jotai's update path costs less: it updates atoms outside React and renders the consumers in one commit. If your state is a graph of things that fetch, subscribe and derive, such as `config → market data → order book → positions → summary`, write each node as a hook, keep the graph acyclic, and import the hook where it is needed.
-
-**RTK Query** is the closest for server data: one cache entry per endpoint argument, reference-counted while components use it, kept for `keepUnusedDataFor` after the last one leaves (`timeToClean` here), and fed by a socket through `onCacheEntryAdded`. It adds Redux, cache invalidation and its devtools; the entry holds what the endpoint returns, and derived values go through selectors. Here a store is any hook, so server data, values derived from it and UI state such as a draft order are written the same way.
-
-**Zustand** is the least code for a flat global bag of values, with no per-key instances or lifecycle: you write the ref-counting around sockets yourself. **Redux** is a different model (actions and reducers) aimed at a different scale of ceremony. A plain **React context** re-renders every consumer on every change.
 
 ## 📊 Performance
 
@@ -205,8 +116,6 @@ No selectors or memoization to write for it: a consumer subscribes to the keys i
 
 What it costs: each update commits twice, first the store, then the consumers that read a changed key, and each derived layer adds a commit. In the same jsdom suite that is 1.3–2.1x Jotai's time when consumers re-render: 0.56 ms against 0.38 ms when 100 of 1000 consumers re-render. jsdom does no layout or paint, so these are the libraries' own costs. In headless Chrome, where each update also includes style and layout, the same scenarios cost 1.1–1.3x Jotai's: 0.65 ms against 0.57 ms.
 
----
-
 ## 📋 Requirements
 
 - React 18 or newer (`react` and `react-dom` are peer dependencies).
@@ -217,10 +126,10 @@ What it costs: each update commits twice, first the store, then the consumers th
 
 ## 📖 Documentation
 
-- **[Documentation site](https://vothanhdat.github.io/react-state-custom/docs/)** - Guide, API reference, benchmarks and changelog, with search.
-- **[AI Context](./AI_CONTEXT.md)** - A short guide for AI assistants generating code with this library.
-- **[Live Demo](https://vothanhdat.github.io/react-state-custom/)** - Interactive examples you can edit.
-- **[Trading terminal](./demos/trading)** - A realtime exchange UI (order book, charts, order ticket, account) over a simulated feed of up to ~1,100 messages a second, with stores in layers and tests per layer: `yarn demo:trading`.
+- **[Documentation site](https://vothanhdat.github.io/react-state-custom/docs/)**, with search: [getting started](https://vothanhdat.github.io/react-state-custom/docs/guide/getting-started), [rules](https://vothanhdat.github.io/react-state-custom/docs/guide/rules), [for React developers](https://vothanhdat.github.io/react-state-custom/docs/guide/for-react-developers), guides, [API reference](https://vothanhdat.github.io/react-state-custom/docs/api/create-store), [benchmarks](https://vothanhdat.github.io/react-state-custom/docs/benchmarks).
+- **[Live demo](https://vothanhdat.github.io/react-state-custom/)**: editable examples.
+- **[Trading terminal](./demos/trading)**: a realtime exchange UI (order book, charts, order ticket, account) over a simulated feed of up to ~1,100 messages a second, with stores in layers and tests per layer: `yarn demo:trading`.
+- **[AI context](./AI_CONTEXT.md)**: a short guide for AI assistants generating code with this library.
 - **[Changelog](./CHANGELOG.md)**
 
 ## 📄 License
