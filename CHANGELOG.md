@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-10-06
+### Fixed
+- A failed store with a `timeToClean` kept its failed instance until the timeout, and forever with `Infinity`, so a reader coming back after an error boundary's retry threw again. A failed instance is now torn down as soon as nothing reads or retains it, and at once if it fails while waiting out its `timeToClean`. A `retain()` still keeps it, failed, until released.
+- A new instance kept the keys an earlier one left in the context: a store started afresh while a reader held its context (remounting `AutoRootCtx` with a new `key`, or after a failure) still showed the old instance's values, and a hook restarted by a hot update kept the keys only the old hook returned. The first publish of an instance now drops them.
+- A store moving between `AutoRootCtx` in two React roots: the instance it left cleared the failure of the one it moved to when it unmounted, and an instance that had failed in the old root stayed failed once running in the new one. Fast Refresh remounting a failed store had the same issue.
+- A hook that threw `undefined` or `null` left `storeRef(params).error` at `undefined`, as if the store were running, and its readers threw `undefined`. It now fails with an `Error` that says so, with the thrown value as its `cause`.
+
+### Changed
+- The `UseStore` type, the type of a store's `useStore` that `Store` already uses, is exported.
+- The dev tool marks a store whose hook has not returned yet "not published" instead of "not running": a store that suspends is running.
+
 ## [2.0.0] - 2026-10-06
 The API is `createStore`, which returns `useStore` and `storeRef`, plus `useMultipleStore` and `<AutoRootCtx />`: stores that are lazy, shared, automatic and composable. 1.10 has this API next to the old one, with everything below marked `@deprecated`: move to it on 1.10, with the app working at every step, then upgrade. See Migrating to 2.0 in the docs.
 
@@ -310,7 +321,8 @@ Marked `@deprecated`, so editors strike them through; they work as before in 1.x
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.10.0...v2.0.0
 [1.10.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.8.0...v1.9.0

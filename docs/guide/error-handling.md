@@ -59,4 +59,6 @@ Listeners registered with `storeRef(params).subscribe()` must not throw. When a 
 
 ## Recovery
 
-A disabled store stays disabled until its instance is torn down: when its boundaries have unmounted the components that read it, and `timeToClean` has passed. A reader that mounts after that, such as the one a boundary's retry renders, starts a fresh instance. There is no in-place restart. If a store must recover without a remount, catch the error inside the hook and expose it as state, as above.
+A disabled store stays disabled until its instance is torn down. That happens as soon as nothing reads or retains it, whatever its `timeToClean`: once the readers' boundaries have unmounted them, the failed instance goes, and a reader that mounts after that, such as the one a boundary's retry renders, starts a fresh instance. A `storeRef(params).retain()` keeps the failed instance, and its readers keep throwing, until it is released. There is no in-place restart. If a store must recover without a remount, catch the error inside the hook and expose it as state, as above.
+
+A hook that throws something falsy (`throw undefined`) fails with an `Error` that says so, with the thrown value as its `cause`, so `storeRef(params).error` and the readers' boundaries never see a missing error.

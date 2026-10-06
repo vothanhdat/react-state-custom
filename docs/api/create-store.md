@@ -104,4 +104,4 @@ counterRef({ initial: 1 }).get().setCount?.(10)
 
 ## Errors
 
-A store hook that throws, during render or in an effect, disables its instance until the instance is torn down; every other store keeps running. The components reading the instance, through `useStore` or `useMultipleStore`, throw its error for their own error boundary, and `storeRef(params).error` holds it. See [Error handling](/guide/error-handling).
+A store hook that throws, during render or in an effect, disables its instance until the instance is torn down; every other store keeps running. The components reading the instance, through `useStore` or `useMultipleStore`, throw its error for their own error boundary, and `storeRef(params).error` holds it. Once nothing reads or retains it, the failed instance is torn down at once, whatever its `timeToClean`, and the next reader starts a fresh one. See [Error handling](/guide/error-handling).

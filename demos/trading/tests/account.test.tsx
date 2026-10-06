@@ -135,7 +135,7 @@ describe('fill toasts', () => {
   })
 
   it('keeps the account running when the toasts store fails, and shows the error where it is read', async () => {
-    mockStore(useToasts, () => { throw new Error('toasts crashed') })
+    const crashed = mockStore(useToasts, () => { throw new Error('toasts crashed') })
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => {})
     const snapshot = fake.deferred<AccountSnapshot>()
     fake.api.getAccount.mockReturnValueOnce(snapshot.promise)
@@ -148,6 +148,13 @@ describe('fill toasts', () => {
     expect(state.balances?.USD?.free).toBe(10)
     // fill-toasts reads toasts, so it failed with its error, and so did the component reading it
     expect(screen.getByRole('alert').textContent).toContain('toasts crashed')
+
+    // the failed instances went with their readers, whatever their timeToClean: Retry starts fresh ones
+    crashed.restore()
+    await act(async () => { screen.getByRole('button', { name: 'Retry' }).click() })
+    expect(screen.queryByRole('alert')).toBeNull()
+    emit({ type: 'fill', seq: 3, fill: fill({ id: 2, size: 0.25 }) })
+    expect(storeHandle(useToasts).get().toasts?.map(t => t.title)).toEqual(['Bought 0.25 BTC'])
     quiet.mockRestore()
   })
 })

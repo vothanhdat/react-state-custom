@@ -79,3 +79,17 @@ Every value of the params must be a primitive (`string`, `number`, `bigint`, `bo
 ## `Store`
 
 What `createStore` returns: `Store<Params, State>`, the pair `{ useStore, storeRef }`.
+
+## `UseStore`
+
+The type of a store's `useStore`, `Store<Params, State>['useStore']`, for a component or helper that takes a store's hook:
+
+```ts
+interface UseStore<Params, State> {
+  <R>(params: Params, options: StoreSelect<StoreState<State>, R>): R  // params may be undefined when none is required
+  (params?: Params, options?: StoreReadOptions): StoreState<State>
+}
+
+const Label = ({ useLabel }: { useLabel: UseStore<{ id: string }, { label: string }> }) =>
+  <b>{useLabel({ id: 'a' }, { select: s => s.label ?? '' })}</b>
+```
