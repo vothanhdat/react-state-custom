@@ -21,3 +21,5 @@ A store is a React hook, so what you know about hooks holds inside it. These are
 9. **A store that throws throws in its readers.** Put error boundaries around the parts of the screen that can fail on their own, and keep expected failures, such as a request that fails, as state in the store. → [Error handling](/guide/error-handling)
 
 10. **An instance stops when its last reader leaves.** `timeToClean` keeps it running for a while after that; `storeRef(params).retain()` keeps it running for code outside React. → [`timeToClean`](/guide/store-options#timetoclean)
+
+Beyond these rules, how to split the stores of an app as it grows: [Organizing stores in layers](/guide/layers).

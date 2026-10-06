@@ -105,5 +105,6 @@ Sharing changes behaviour: callers with the same params share everything the hoo
 
 - New to the library: [Getting started](/guide/getting-started), then the [Rules](/guide/rules).
 - Know React well: [For React developers](/guide/for-react-developers), with the comparison with Jotai, RTK Query and Zustand, and what it costs.
+- Building a real app: [Organizing stores in layers](/guide/layers), core stores for IO and data, UI stores and hooks for the screens, views on top.
 - Coming from 1.x: [Migrating to 2.0](/guide/migrating-to-2).
 - The [live demo](https://vothanhdat.github.io/react-state-custom/) has editable examples. Live Rooms shows the model best: one connection per room shared by several widgets, closed with the room, and messages kept in a store of their own.

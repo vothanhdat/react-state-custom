@@ -70,6 +70,19 @@ Jotai's update path costs less: it updates atoms outside React and renders the c
 
 **Zustand** is the least code for a flat global bag of values, with no per-key instances or lifecycle: you write the ref-counting around sockets yourself. **Redux** is a different model (actions and reducers) aimed at a different scale of ceremony. A plain **React context** re-renders every consumer on every change.
 
+## Structuring an app
+
+As the app grows, keep stores in layers, with imports going down only:
+
+```
+domain        plain functions and types: rules, arithmetic, formatting
+stores/core   stores that own IO and data: fetches, sockets, the session
+stores/ui     view-models: what the screens render, built from core stores
+components    views: read stores/ui, plus their own state
+```
+
+It is the split between container and presentational components, applied to state. Core stores own the data and know nothing about the UI; the UI layer decides what a screen shows and how often; views only render. A UI piece is a store when it holds state of its own, several components read it, or it must run once (a listener that turns events into toasts); otherwise it is a plain hook, which costs no commit. [Organizing stores in layers](/guide/layers) has the rules for each layer and a test that enforces the import direction.
+
 ## What it costs
 
 - **Two commits per update.** The store renders and publishes, then the readers of a changed key render; each store in a chain adds one. The table above has what that costs against Jotai.

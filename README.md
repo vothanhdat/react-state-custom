@@ -126,7 +126,7 @@ What it costs: each update commits twice, first the store, then the consumers th
 
 ## 📖 Documentation
 
-- **[Documentation site](https://vothanhdat.github.io/react-state-custom/docs/)**, with search: [getting started](https://vothanhdat.github.io/react-state-custom/docs/guide/getting-started), [rules](https://vothanhdat.github.io/react-state-custom/docs/guide/rules), [for React developers](https://vothanhdat.github.io/react-state-custom/docs/guide/for-react-developers), guides, [API reference](https://vothanhdat.github.io/react-state-custom/docs/api/create-store), [benchmarks](https://vothanhdat.github.io/react-state-custom/docs/benchmarks).
+- **[Documentation site](https://vothanhdat.github.io/react-state-custom/docs/)**, with search: [getting started](https://vothanhdat.github.io/react-state-custom/docs/guide/getting-started), [rules](https://vothanhdat.github.io/react-state-custom/docs/guide/rules), [for React developers](https://vothanhdat.github.io/react-state-custom/docs/guide/for-react-developers), [organizing stores in layers](https://vothanhdat.github.io/react-state-custom/docs/guide/layers), guides, [API reference](https://vothanhdat.github.io/react-state-custom/docs/api/create-store), [benchmarks](https://vothanhdat.github.io/react-state-custom/docs/benchmarks).
 - **[Live demo](https://vothanhdat.github.io/react-state-custom/)**: editable examples.
 - **[Trading terminal](./demos/trading)**: a realtime exchange UI (order book, charts, order ticket, account) over a simulated feed of up to ~1,100 messages a second, with stores in layers and tests per layer: `yarn demo:trading`.
 - **[AI context](./AI_CONTEXT.md)**: a short guide for AI assistants generating code with this library.

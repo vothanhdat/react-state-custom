@@ -124,6 +124,7 @@ A store hook that throws is a bug, and it shows where the store is used: the com
 ## What's next
 
 - [Rules](/guide/rules): what the library adds to the rules of hooks, one line each.
+- [Organizing stores in layers](/guide/layers): how to split stores as the app grows.
 - [How it works](/guide/how-it-works): the model behind these four steps.
 - [Store options](/guide/store-options): `timeToClean` and `schedule`.
 - [Selectors](/guide/selectors) and [Update cadence](/guide/update-cadence) for finer control over rendering.

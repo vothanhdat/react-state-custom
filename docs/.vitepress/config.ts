@@ -26,6 +26,7 @@ export default defineConfig({
             { text: 'Getting started', link: '/guide/getting-started' },
             { text: 'Rules', link: '/guide/rules' },
             { text: 'For React developers', link: '/guide/for-react-developers' },
+            { text: 'Organizing stores in layers', link: '/guide/layers' },
             { text: 'How it works', link: '/guide/how-it-works' },
             { text: 'Limitations and FAQ', link: '/guide/limitations' },
             { text: 'Migrating to 2.0', link: '/guide/migrating-to-2' },
@@ -53,7 +54,6 @@ export default defineConfig({
           text: 'Patterns',
           collapsed: true,
           items: [
-            { text: 'Organizing stores in layers', link: '/guide/layers' },
             { text: 'Progressive data', link: '/guide/progressive-data' },
             { text: 'Realtime data', link: '/guide/realtime' },
             { text: 'Events from a store', link: '/guide/events' },
