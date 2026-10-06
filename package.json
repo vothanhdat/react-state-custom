@@ -1,6 +1,6 @@
 {
   "name": "react-state-custom",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Write a React hook once, use it anywhere: one running instance per params, shared by every caller, composed with hooks.",
   "type": "module",
   "main": "dist/index.cjs",

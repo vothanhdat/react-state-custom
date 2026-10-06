@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [2.0.2] - 2026-10-06
 ### Fixed
 - `useSyncExternalStore(ref.subscribe, ref.get)` rendered until React gave up ("Maximum update depth exceeded"): `get()` built a new object on every call. `storeRef(params).get()` now returns the same snapshot until the state changes, frozen since every caller shares it.
 - A store hook returning a tuple (`createStore('count', () => useState(0))`) type-checked, then crashed its readers with "useStore is not a function or its return value is not iterable"; one returning nothing published nothing, silently. A hook returning an array, a function or no object is now a type error, and in development its instance fails with a `TypeError` that says to return an object.
@@ -328,7 +330,8 @@ Marked `@deprecated`, so editors strike them through; they work as before in 1.x
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.2...HEAD
+[2.0.2]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.10.0...v2.0.0
 [1.10.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.9.0...v1.10.0
