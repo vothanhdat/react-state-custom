@@ -183,7 +183,7 @@ Both subscribe to the socket when the first component reads that symbol and unsu
 | **Fine-grained reads** | top-level keys through the proxy, selectors for deep values | one atom per value; split atoms for granularity |
 | **Cost per update** | when consumers re-render, 1.6–2.6x Jotai's in jsdom and 1.1–1.6x in Chrome; one more commit per derived layer | lower whenever consumers re-render, in our jsdom and Chrome [benchmarks](https://vothanhdat.github.io/react-state-custom/docs/benchmarks) |
 | **Ecosystem** | every React hook works inside a store | a large set of atom utilities |
-| **To learn** | nothing beyond React hooks | the atom model |
+| **To learn** | React hooks, plus its own rules: lazy start, one instance per params, tracked reads, one commit per layer ([how it works](https://vothanhdat.github.io/react-state-custom/docs/guide/how-it-works)) | the atom model |
 
 Jotai's update path costs less: it updates atoms outside React and renders the consumers in one commit. If your state is a graph of things that fetch, subscribe and derive, such as `config → market data → order book → positions → summary`, write each node as a hook, keep the graph acyclic, and import the hook where it is needed.
 
