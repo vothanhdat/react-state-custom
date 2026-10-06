@@ -82,7 +82,7 @@ it('lists the tasks and adds one', () => {
   mockStore(useTask, ({ taskId }) => ({ task: fixtures[taskId] }))
   ```
 
-- **A failure is a mock that throws.** `mockStore(useTasks, () => { throw new Error('offline') })` fails the store as its own hook would: its readers keep what it last published, and `storeRef(params).error` holds the error.
+- **A failure is a mock that throws.** `mockStore(useTasks, () => { throw new Error('offline') })` fails the store as its own hook would: its readers throw the error for their error boundary, and `storeRef(params).error` holds it.
 - **What still applies:** `timeToClean`.
 
 A mock applies to instances that start after it. Call `mockStore` before rendering; an instance that is already running keeps the store's hook, and `mockStore` logs a warning about it. `restore()` on the returned handle stops mocking for instances started later, and `resetStores()` removes every mock.

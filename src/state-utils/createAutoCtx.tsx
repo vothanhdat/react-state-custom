@@ -250,7 +250,7 @@ type StoreBoundaryState = {
  *
  * Any other error, or a second one, disables the instance until it is torn down: it is recorded on
  * the context, where `storeRef(params).error` reads it, and the components reading the instance throw
- * it for their own error boundary (see useThrowOnFailure). Once they are gone AutoRootCtx tears the
+ * it for their own error boundary (see useReading and useSelected). Once they are gone AutoRootCtx tears the
  * instance down without waiting for its timeToClean, and a reader that comes back starts a fresh one.
  */
 class StoreBoundary extends React.Component<StoreBoundaryProps, StoreBoundaryState> {

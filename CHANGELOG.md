@@ -5,6 +5,7 @@ All notable changes to this project are documented here.
 ## [Unreleased]
 ### Fixed
 - Docs: two examples did not type-check. Error handling reported through a function named like the browser's `reportError`, which takes one argument; the example of a proxy passed to a child passed props to a `Row` that took none. CI now type-checks the TypeScript blocks of the docs and the README against the library (`yarn test:docs-code`), so an example using a removed export, an unknown option or a wrong argument fails the build.
+- Docs: Introduction and Limitations quoted older benchmark ratios (1.6–2.6x Jotai's time in jsdom, 1.1–1.6x in Chrome) instead of the current 1.3–2.1x and 1.1–1.3x, and Testing said the readers of a mock that throws keep its last values, as in 1.x; they throw its error.
 
 ### Changed
 - Docs: the home page names what 2.0 adds (`useMultipleStore`, schedules, a store that throws failing alone) and links Migrating to 2.0.
