@@ -1,6 +1,6 @@
 // Type-level tests, checked by `yarn typecheck` (tsc), never run.
 import { useState } from 'react'
-import { createStore, useMultipleStore, type Store, type StoreRef, type StoreState } from '../../src'
+import { createStore, useMultipleStore, type Store, type StoreRef, type StoreState, type UseStore } from '../../src'
 import { scheduled, useFrameState, sync, frame, throttle, debounce, idle, type Scheduler } from '../../src/schedulers'
 
 type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
@@ -195,3 +195,10 @@ export const Refs = () => {
 export const typed: Store<{ id: string }, { label: string, hits: number, hit: () => void }> = items
 // @ts-expect-error a different state
 export const mistyped: Store<{ id: string }, { label: number }> = items
+// The type of a store's useStore, for a wrapper that takes one
+export const useItemsHook: UseStore<{ id: string }, { label: string, hits: number, hit: () => void }> = items.useStore
+export const LabelOf = ({ useLabel }: { useLabel: UseStore<{ id: string }, { label: string }> }) => {
+  const label = useLabel({ id: 'a' }, { select: s => s.label ?? '' })
+  assert<Equals<typeof label, string>>()
+  return null
+}

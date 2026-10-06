@@ -140,9 +140,7 @@ const useProxies = (slots: Slot[], schedule: Scheduler | undefined) => {
 }
 
 /** The selector form: `select` over the plain states of every instance, as `useStore(params, { select })` over one. */
-const useSelection = <R,>(slots: Slot[], selector: (states: object[]) => R, isEqual: (a: R, b: R) => boolean, schedule: Scheduler | undefined) => {
-  const lastContexts = useRef<Context<any>[]>([])
-  const contexts = lastContexts.current = sameOr(lastContexts.current, slots.map(slot => slot.ctx))
+const useSelection = <R,>(slots: Slot[], contexts: Context<any>[], selector: (states: object[]) => R, isEqual: (a: R, b: R) => boolean, schedule: Scheduler | undefined) => {
   const lastPlans = useRef<Scheduler[]>([])
   const plans = lastPlans.current = sameOr(lastPlans.current, slots.map(slot => schedulerOf(schedule ?? slot.target.schedule)))
 
@@ -220,14 +218,16 @@ export function useMultipleStore<const T extends readonly StoreRef<any>[], R>(re
 export function useMultipleStore<const T extends readonly StoreRef<any>[]>(refs: T, options?: StoreReadOptions): StatesOf<T>
 export function useMultipleStore(refs: readonly StoreRef<any>[], options?: Partial<StoreSelect<object[], unknown>>): unknown {
   const slots = useInstances(refs)
+  // the contexts read, the same array until one of them changes
   const lastContexts = useRef<Context<any>[]>([])
-  useThrowOnFailures(lastContexts.current = sameOr(lastContexts.current, slots.map(slot => slot.ctx)))
+  const contexts = lastContexts.current = sameOr(lastContexts.current, slots.map(slot => slot.ctx))
+  useThrowOnFailures(contexts)
   const selector = options?.select
   const withSelector = typeof selector === "function"
   // isProduction never changes at runtime, so this conditional hook keeps a stable order
   if (!isProduction) useSelectorModeCheck("useMultipleStore", withSelector)
   // The two forms run different hooks: a call site must always pass a selector or never.
   return withSelector
-    ? useSelection(slots, selector, options?.isEqual ?? shallowEqual, options?.schedule)
+    ? useSelection(slots, contexts, selector, options?.isEqual ?? shallowEqual, options?.schedule)
     : useProxies(slots, options?.schedule)
 }

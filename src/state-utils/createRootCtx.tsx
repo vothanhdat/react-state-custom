@@ -140,5 +140,5 @@ export const createRootCtx = <U extends StoreParamsShape<U>, V extends object>(n
 
   useRootState.displayName = `useState[${name}]`
 
-  return { name, getCtxName, useRootState }
+  return { getCtxName, useRootState }
 }

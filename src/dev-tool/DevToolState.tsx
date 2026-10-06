@@ -134,7 +134,7 @@ export const StateView: React.FC<{ dataKey: string, Component?: DataViewComponen
             <span className="state-view-name">{groupOf(dataKey)}</span>
             <span className="state-view-params">{paramsLabel(dataKey)}</span>
             {!ctx && <span className="state-badge state-badge-gone">unmounted</span>}
-            {ctx && !ctx.ready && <span className="state-badge">not running</span>}
+            {ctx && !ctx.ready && <span className="state-badge" title="The store hook has not returned yet: starting, suspended, or torn down">not published</span>}
             {onClose && <button type="button" className="state-view-close" onClick={onClose} aria-label={`Close ${dataKey}`}>×</button>}
         </div>
         <div className="state-view-body">

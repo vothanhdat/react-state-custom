@@ -10,6 +10,7 @@ export {
   type StoreRef,
   type StoreReadOptions,
   type StoreSelect,
+  type UseStore,
 } from "./state-utils/createAutoCtx"
 export { useMultipleStore, type StatesOf } from "./state-utils/useMultipleStore"
 
