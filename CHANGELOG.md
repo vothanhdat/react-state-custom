@@ -3,6 +3,9 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Changed
+- Faster readers. A `useStore` call holds its instance with one state, one ref and one effect, and the proxy form reads failures through its own subscription: 5 hooks and 2 effects per reader instead of 12 and 5. Updates that re-render readers take 20–38% less time in the jsdom benchmarks (React's development build) and up to 18% less in headless Chrome (production build), 41% where 4920 readers re-render.
+
 ### Fixed
 - In development with React 19, a component that passed its `useStore` proxy (or the proxies of `useMultipleStore`) to a child as a prop re-rendered on every change of the store, and could warn that it spread the state. React's development build reads every key of such a prop to diff it, in the commit, and those reads counted as the component's. They no longer do, and they do not warn. Production builds were not affected.
 
