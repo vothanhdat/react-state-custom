@@ -111,6 +111,7 @@
     "test:compiler": "vitest run --config vitest.config.compiler.ts",
     "test:dist": "TEST_TARGET=dist vitest run --config vitest.config.compiler.ts",
     "test:package-types": "node tests/package-types/check.mjs",
+    "test:docs-code": "node tests/docs-code/check.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc -p tsconfig.types.json && tsc -p tsconfig.bench.json && tsc -p demos/task-manager && tsc -p demos/trading",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",

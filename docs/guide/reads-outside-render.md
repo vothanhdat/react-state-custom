@@ -64,12 +64,21 @@ const List = () => {
   const todos = useTodos()
   return <Row todos={todos} />
 }
+const Row = ({ todos }: { todos: ReturnType<typeof useTodos> }) => <b>{todos.title}</b>
+```
 
-// ✅ pass the values, or let the child call the store itself
+```tsx
+// ✅ pass the values…
 const List = () => {
   const { title } = useTodos()
   return <Row title={title} />
 }
+const Row = ({ title }: { title?: string }) => <b>{title}</b>
+```
+
+```tsx
+// ✅ …or let the row call the store itself
+const List = () => <Row />
 const Row = () => {
   const { title } = useTodos()
   return <b>{title}</b>

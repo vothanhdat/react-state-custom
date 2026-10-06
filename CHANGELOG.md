@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Fixed
+- Docs: two examples did not type-check. Error handling reported through a function named like the browser's `reportError`, which takes one argument; the example of a proxy passed to a child passed props to a `Row` that took none. CI now type-checks the TypeScript blocks of the docs and the README against the library (`yarn test:docs-code`), so an example using a removed export, an unknown option or a wrong argument fails the build.
 
 ## [2.0.3] - 2026-10-06
 ### Changed

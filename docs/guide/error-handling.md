@@ -47,7 +47,7 @@ React 19 hands every error an error boundary caught to the root's `onCaughtError
 
 ```tsx
 createRoot(document.getElementById('root')!, {
-  onCaughtError: (error, info) => reportError(error, info.componentStack),
+  onCaughtError: (error, info) => report(error, info.componentStack),   // report: your error service
 }).render(<App />)
 ```
 
@@ -60,7 +60,7 @@ const reportOnce = (error: unknown, componentStack?: string) => {
     if (reported.has(error)) return
     reported.add(error)
   }
-  reportError(error, componentStack)
+  report(error, componentStack)
 }
 ```
 

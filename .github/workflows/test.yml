@@ -34,6 +34,9 @@ jobs:
       - name: Type check (library, type tests, benchmarks)
         run: yarn typecheck
 
+      - name: Type-check the code blocks of the docs and the README
+        run: yarn test:docs-code
+
       - name: Run tests
         run: yarn test:run
 

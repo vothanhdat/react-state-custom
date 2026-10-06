@@ -5,6 +5,7 @@ yarn test              # the suite, jsdom, every render under StrictMode
 yarn test:compiler     # tests/compiler: stores and components compiled by the React Compiler
 yarn build && yarn test:dist   # the same, against the built package
 yarn test:package-types        # tests/package-types: an app's tsc against dist/, six module resolutions
+yarn test:docs-code            # tests/docs-code: the ts/tsx blocks of the docs and the README against src/
 yarn typecheck         # the library, tests/types, the benchmarks and both demos
 ```
 
