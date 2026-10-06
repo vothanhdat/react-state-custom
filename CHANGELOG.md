@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [2.0.3] - 2026-10-06
 ### Changed
 - Faster readers. A `useStore` call holds its instance with one state, one ref and one effect, and the proxy form reads failures through its own subscription: 5 hooks and 2 effects per reader instead of 12 and 5. Updates that re-render readers take 20–38% less time in the jsdom benchmarks (React's development build) and up to 18% less in headless Chrome (production build), 41% where 4920 readers re-render. The selector form (`{ select }`) reads failures through its own subscription too and keeps its subscription on the reader: 6 hooks instead of 9, 10–16% faster with 1000 readers (production build, jsdom).
 
@@ -335,7 +337,8 @@ Marked `@deprecated`, so editors strike them through; they work as before in 1.x
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.2...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.3...HEAD
+[2.0.3]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.2...v2.0.3
 [2.0.2]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/vothanhdat/react-state-custom/compare/v1.10.0...v2.0.0
