@@ -15,11 +15,13 @@ yarn bench:browser   # headless Chrome, about 10 minutes
 - 1000 consumer components. Updates are made from outside React (`storeRef().get().set()`,
   `store.setState()`, `store.set(atom)`, or the provider's `setState` for the context baseline) and
   wrapped in `act()`, so one iteration is one update plus every re-render and recomputation it causes.
-- No StrictMode, React 19.2, jsdom 27, Node 24, Apple M4 Pro in high-power mode. Numbers are means
-  over 200 iterations (20 for mount); two runs agreed within a few percent.
+- No StrictMode, React 19.2, jsdom 27, Node 24, Apple M4 Pro in high-power mode. A number is the median
+  of three runs, each the mean over 200 iterations (20 for mount); most cases varied by less than 10%
+  between runs.
 - Each library gets its idiomatic selective subscription: the `useStore()` proxy, `useStore(store, selector)`,
   `useAtomValue(atom)`, `useContext` + `useMemo`. Adapters: [`adapters.tsx`](https://github.com/vothanhdat/react-state-custom/blob/master/bench/adapters.tsx) (flat),
-  [`derived.tsx`](https://github.com/vothanhdat/react-state-custom/blob/master/bench/derived.tsx), [`topology.tsx`](https://github.com/vothanhdat/react-state-custom/blob/master/bench/topology.tsx).
+  [`derived.tsx`](https://github.com/vothanhdat/react-state-custom/blob/master/bench/derived.tsx), [`topology.tsx`](https://github.com/vothanhdat/react-state-custom/blob/master/bench/topology.tsx),
+  [`shop.tsx`](https://github.com/vothanhdat/react-state-custom/blob/master/bench/shop.tsx), [`collection.tsx`](https://github.com/vothanhdat/react-state-custom/blob/master/bench/collection.tsx).
 - "Tokens" is the code size of each adapter as the report measures it: TypeScript tokens of the adapter's
   source (whitespace and comments excluded, so independent of how lines are wrapped), including the
   bench-only plumbing (render counters, the out-of-React `update`, a unique store name per run).
@@ -36,8 +38,11 @@ Five scenarios:
   (100 items) feed 100 lines (`price × qty × (1 − discount)`), 10 checkouts (10 lines each, `× (1 + vat)`)
   and one summary. 500 consumers read a line, 300 a checkout, 200 the summary. Change one item's qty,
   `vat`, `theme` (nothing derived reads it) or `discount`.
-  `react-state-custom` has one store per layer returning a flat object (`lines` keyed by item id,
-  `checkouts` by group); each store calls the hook of the layer below once and reads the keys it needs.
+  `react-state-custom` appears twice. The first adapter has one store per layer, each returning a flat
+  object (`lines` keyed by item id, `checkouts` by group); each store calls the hook of the layer below
+  once and reads the keys it needs, so a layer computes all its values in one run. The second, *store per
+  line*, has the shape of the Jotai graph: one store instance per line (`lineRef({ id })`) and per
+  checkout; a checkout reads its 10 lines, and the summary its 10 checkouts, with `useMultipleStore`.
   Zustand keeps the derived values in the store and recomputes them on every write (the usual pattern;
   computing them in selectors instead would run the whole chain in every consumer). Jotai gets one atom
   per config key and per item plus derived atoms per line, checkout and the summary.
@@ -73,6 +78,7 @@ computed: the summary or mid store hook, the derived atom, the selector, or the 
 | shop (renders / derive calls) | qty of one item | vat | theme | discount | tokens |
 |---|---|---|---|---|---|
 | react-state-custom | 235 / 111 | 500 / 11 | 0 / 0 | 1000 / 111 | 556 |
+| react-state-custom, store per line | 235 / 3 | 500 / 11 | 0 / 0 | 1000 / 111 | 576 |
 | zustand | 235 / 111 | 500 / 111 | 0 / 111 | 1000 / 111 | 307 |
 | jotai | 235 / 3 | 500 / 11 | 0 / 0 | 1000 / 111 | 470 |
 | React context | 1000 / 111 | 1000 / 111 | 1000 / 111 | 1000 / 111 | 361 |
@@ -102,59 +108,69 @@ The "unrelated root key" column shows what the proxy buys inside stores: a deriv
 the 10 derived atoms (they depend on the whole root atom; splitting the root into one atom per key would
 avoid it) and Zustand runs 1000 selectors; both then stop because the values are unchanged.
 
-The shop graph shows the same thing at depth, with one difference. A store re-runs only when a key it
+The shop graph shows the same thing at depth. With a store per layer, a store re-runs only when a key it
 read changes: `vat` skips the 100 lines (11 derive calls), `theme` does nothing. But the `lines` store
-reads every item and recomputes all 100 lines when one qty changes, publishing only the one that changed
-(111 derive calls, 235 renders). Granularity stops at the store: a layer is one hook call, and reading 10
-instances of a parameterised store from another store would mean calling its hook in a loop, which the
-rules of hooks forbid. Jotai gets to 3 derive calls because each line is its own atom and `get` is not a
-hook; Zustand's precomputed derivations recompute all 111 values on every write, `theme` included.
+reads every item, so one qty change recomputes all 100 lines and publishes only the one that changed
+(111 derive calls, 235 renders): granularity is per key at the output and per store at the computation.
+Jotai gets to 3 derive calls because each line is its own atom. The store-per-line adapter has the same
+granularity, one instance per line and per checkout read with `useMultipleStore`, and the same 3 derive
+calls. Zustand's precomputed derivations recompute all 111 values on every write, `theme` included.
 
 The collection table is the limitation and its remedy side by side: the proxy tracks top-level keys, so
 an array under one key re-renders every reader on any change, while the same items spread as keys
 re-render only the five readers of the changed item, like a Zustand selector or a Jotai atom per item.
 
-## Time per operation (mean, ms)
+## Time per operation (ms)
 
 | scenario | react-state-custom | zustand | jotai | React context |
 |---|---|---|---|---|
-| flat: update 1 key, 100 of 1000 consumers affected | 0.72 | 0.50 | 0.38 | 1.49 |
-| flat: update 1 key, all 1000 consumers affected | 4.87 | 2.36 | 2.00 | 1.87 |
-| flat: mount + unmount 1000 consumers | 18.5 | 8.7 | 9.2 | 8.7 |
-| derived: change one key (sum changes) | 4.49 | 4.28 | 2.04 | 3.14 |
-| derived: move 1 between two keys (sum unchanged) | 0.044 | 0.56 | 0.002 | 2.73 |
-| topology: one threshold (100 affected) | 0.81 | 0.47 | 0.40 | 1.60 |
-| topology: all thresholds (1000 affected) | 4.80 | 1.95 | 2.14 | 2.00 |
-| topology: unrelated root key (none affected) | 0.018 | 0.019 | 0.014 | 1.55 |
-| shop: qty of one item (235 affected) | 1.61 | 0.60 | 0.62 | 1.69 |
-| shop: vat (500 affected) | 2.25 | 1.10 | 1.34 | 1.61 |
-| shop: theme (none affected) | 0.016 | 0.052 | 0.0006 | 1.50 |
-| shop: discount (1000 affected) | 5.10 | 2.18 | 2.54 | 2.01 |
-| collection: one of 200 items, 5 of 1000 consumers affected | 0.30 | 0.25 | 0.19 | 1.67 |
-| collection: same, array under one key (1000 affected) | 4.16 | | | |
+| flat: update 1 key, 100 of 1000 consumers affected | 0.83 | 0.40 | 0.40 | 1.54 |
+| flat: update 1 key, all 1000 consumers affected | 4.85 | 2.35 | 2.08 | 1.99 |
+| flat: mount + unmount 1000 consumers | 20.6 | 10.4 | 9.6 | 8.5 |
+| derived: change one key (sum changes) | 5.20 | 4.50 | 2.26 | 3.09 |
+| derived: move 1 between two keys (sum unchanged) | 0.036 | 0.59 | 0.002 | 2.98 |
+| topology: one threshold (100 affected) | 0.88 | 0.36 | 0.40 | 1.63 |
+| topology: all thresholds (1000 affected) | 5.31 | 2.24 | 2.16 | 2.09 |
+| topology: unrelated root key (none affected) | 0.025 | 0.023 | 0.010 | 1.78 |
+| shop: qty of one item (235 affected) | 1.71 | 0.67 | 0.66 | 1.77 |
+| shop: qty of one item, store per line | 1.94 | | | |
+| shop: vat (500 affected) | 2.58 | 1.30 | 1.20 | 1.64 |
+| shop: vat, store per line | 2.90 | | | |
+| shop: theme (none affected) | 0.019 | 0.040 | 0.0006 | 1.49 |
+| shop: theme, store per line | 0.025 | | | |
+| shop: discount (1000 affected) | 5.69 | 2.46 | 2.64 | 1.84 |
+| shop: discount, store per line | 7.29 | | | |
+| collection: one of 200 items, 5 of 1000 consumers affected | 0.27 | 0.26 | 0.19 | 1.70 |
+| collection: same, array under one key (1000 affected) | 4.70 | | | |
 
 ## Reading the numbers
 
-- **Updates that re-render consumers cost 1.6–2.6x Jotai and up to 2.7x Zustand** (1.1–1.6x Jotai in Chrome, see
+- **Updates that re-render consumers cost 1.4–2.6x Jotai and up to 2.6x Zustand** (1.0–1.5x Jotai in Chrome, see
   [In a browser](#in-a-browser)). A store in `react-state-custom`
   is a hook running in a headless component, so every update is two React commits: the store component
   re-renders and publishes from a layout effect, then the subscribed consumers re-render. Zustand and Jotai
   update a plain object and go straight to the consumers' `useSyncExternalStore`. That is the price of
   writing stores as ordinary hooks (effects, other hooks, other stores) with automatic mounting and
   teardown. Mount costs about 2x for the same reason: the second render per consumer above.
-- **When a derivation is involved the gap to Zustand closes** (4.49 vs 4.28 ms) because its selectors
-  recompute in every consumer, and when the derived value does not change we are 12x faster than Zustand
-  (0.04 vs 0.56 ms): one store re-render instead of 1000 selector runs. Jotai, whose atom graph is built
+- **When a derivation is involved the gap to Zustand narrows** (5.20 vs 4.50 ms) because its selectors
+  recompute in every consumer, and when the derived value does not change we are 16x faster than Zustand
+  (0.036 vs 0.59 ms): one store re-render instead of 1000 selector runs. Jotai, whose atom graph is built
   for exactly this, is fastest in both.
 - **Every derived layer is one more React commit.** In the shop graph a qty change travels items → lines →
   checkouts → summary → consumers, and each store on the way renders and publishes in its own commit, so
-  the gap to Zustand and Jotai grows to about 2.6x (1.61 vs 0.60 and 0.62 ms). Zustand and Jotai propagate
+  the gap to Zustand and Jotai grows to about 2.6x (1.71 vs 0.67 and 0.66 ms). Zustand and Jotai propagate
   through plain objects and commit once.
-- **Updates nothing reads are free** in all three subscription libraries (under 0.02 ms); only the
+- **A store per line saves derive calls, not time.** For a qty change it makes 3 derive calls instead of
+  111 and still takes longer: 1.94 against 1.71 ms (1.03 against 1.08 ms in Chrome). A line is one
+  multiplication, while every instance that re-runs is a component render and a publish, and a change
+  that reaches every line re-runs 100 of them: 7.29 against 5.69 ms for `discount` (3.35 against 2.72
+  in Chrome). One instance per item is for items that carry work of their own, a fetch, a subscription
+  or a heavy computation, which this scenario does not have.
+- **Updates nothing reads are free** in all three subscription libraries (under 0.05 ms); only the
   context baseline re-renders its thousand consumers.
 - **The context baseline wins when every consumer is affected anyway**: one provider `setState` re-renders
   the subtree in a single pass, while subscription-based libraries schedule a thousand individual updates.
-  It loses by 10x whenever only some consumers care.
+  It loses by 2–9x when 5 or 100 of the 1000 consumers care.
 - **Code size favours Zustand and Jotai in every scenario**, by roughly 1.5x. `createStore(() => init)`
   plus a one-line selector, or an `atom` per value, is hard to beat; our layer is
   `createStore(name, hook)` with `useState` inside, and a write from outside React is `storeRef().get().action()`
@@ -209,30 +225,34 @@ nested-state scenario ([`bench/browser`](https://github.com/vothanhdat/react-sta
 - After each run the page reads every consumer's value from the DOM. In the scenarios above every
   library must show what the others show; in the nested scenario every view must show its reference
   value. All runs passed.
-- Headless Chrome 154, Apple M4 Pro, macOS; React 19.2.0, Zustand 5.0.15, Jotai 3.0.1.
+- Headless Chrome 154, Apple M4 Pro in high-power mode, macOS; React 19.2.0, Zustand 5.0.15, Jotai 3.0.1.
 
 ### Scenarios (median ms per update)
 
 | scenario | react-state-custom | zustand | jotai | React context |
 |---|---|---|---|---|
-| flat: update 1 key, 100 of 1000 consumers affected | 0.86 | 0.72 | 0.68 | 0.81 |
-| flat: update 1 key, all 1000 consumers affected | 3.15 | 2.32 | 2.22 | 2.04 |
-| derived: change one key (sum changes) | 3.29 | 3.90 | 2.19 | 3.21 |
-| derived: move 1 between two keys (sum unchanged) | 0.055 | 0.59 | 0.010 | 1.41 |
-| topology: one threshold (100 affected) | 0.92 | 0.68 | 0.68 | 0.82 |
-| topology: all thresholds (1000 affected) | 3.34 | 2.22 | 2.34 | 2.10 |
-| topology: unrelated root key (none affected) | 0.025 | 0.040 | 0.015 | 0.31 |
-| shop: qty of one item (235 affected) | 1.51 | 0.94 | 0.94 | 1.16 |
-| shop: vat (500 affected) | 2.08 | 1.59 | 1.70 | 1.49 |
-| shop: theme (none affected) | 0.020 | 0.10 | 0.005 | 0.35 |
-| shop: discount (1000 affected) | 4.20 | 2.92 | 2.79 | 2.41 |
-| collection: one of 200 items, 5 of 1000 consumers affected | 0.52 | 0.54 | 0.47 | 0.71 |
-| collection: same, array under one key | 1.58 | | | |
+| flat: update 1 key, 100 of 1000 consumers affected | 0.69 | 0.59 | 0.56 | 0.66 |
+| flat: update 1 key, all 1000 consumers affected | 2.13 | 1.64 | 1.52 | 1.44 |
+| derived: change one key (sum changes) | 2.15 | 2.75 | 1.53 | 2.28 |
+| derived: move 1 between two keys (sum unchanged) | 0.075 | 0.59 | 0.015 | 1.04 |
+| topology: one threshold (100 affected) | 0.69 | 0.56 | 0.54 | 0.63 |
+| topology: all thresholds (1000 affected) | 2.39 | 1.56 | 1.58 | 1.41 |
+| topology: unrelated root key (none affected) | 0.040 | 0.065 | 0.035 | 0.36 |
+| shop: qty of one item (235 affected) | 1.08 | 0.82 | 0.76 | 0.77 |
+| shop: qty of one item, store per line | 1.03 | | | |
+| shop: vat (500 affected) | 1.50 | 1.25 | 1.20 | 0.98 |
+| shop: vat, store per line | 1.66 | | | |
+| shop: theme (none affected) | 0.035 | 0.20 | 0.005 | 0.38 |
+| shop: theme, store per line | 0.050 | | | |
+| shop: discount (1000 affected) | 2.72 | 2.13 | 2.20 | 1.97 |
+| shop: discount, store per line | 3.35 | | | |
+| collection: one of 200 items, 5 of 1000 consumers affected | 0.47 | 0.52 | 0.45 | 0.59 |
+| collection: same, array under one key | 1.19 | | | |
 
-- **Updates that re-render consumers cost 1.1–1.6x Jotai, against 1.6–2.6x in jsdom.** Each sample now
+- **Updates that re-render consumers cost 1.0–1.5x Jotai, against 1.4–2.6x in jsdom.** Each sample now
   includes the style and layout of the changed elements, which is the same work in every library when
   the same consumers re-render, so the two commits of a store are a smaller share of it.
-- **A derived value that changes costs less than in Zustand** (3.29 vs 3.90 ms), as in jsdom: one store
+- **A derived value that changes costs less than in Zustand** (2.15 vs 2.75 ms), as in jsdom: one store
   run instead of a selector in each of the 1000 consumers.
 - The other rows read as in jsdom: updates nothing reads cost almost nothing in the three subscription
   libraries, and the context baseline is fastest when all 1000 consumers re-render, except where each of
@@ -260,13 +280,13 @@ Median ms per update:
 
 | | one-field | ten-fields | output-unchanged | unread-field |
 |---|---:|---:|---:|---:|
-| react-state-custom: flat root | 2.79 | 8.73 | 0.71 | 0.065 |
-| react-state-custom: nested root | 44.9 | 51.9 | 41.6 | 41.7 |
-| react-state-custom: nested root, flattened by a store | 2.81 | 8.87 | 0.72 | 0.075 |
-| react-state-custom: nested root, selectors | 5.96 | 16.9 | 3.01 | 2.53 |
-| zustand: nested root, selectors | 5.43 | 14.5 | 2.29 | 2.31 |
-| jotai: nested root, derived field atoms | 6.71 | 13.7 | 3.19 | 3.13 |
-| jotai: one atom per field | 2.58 | 6.16 | 0.15 | 0.000 |
+| react-state-custom: flat root | 2.03 | 5.73 | 0.57 | 0.055 |
+| react-state-custom: nested root | 40.2 | 45.7 | 37.4 | 37.2 |
+| react-state-custom: nested root, flattened by a store | 2.05 | 5.92 | 0.63 | 0.075 |
+| react-state-custom: nested root, selectors | 3.93 | 11.4 | 1.74 | 1.82 |
+| zustand: nested root, selectors | 3.88 | 9.90 | 1.65 | 1.57 |
+| jotai: nested root, derived field atoms | 4.38 | 8.43 | 2.22 | 2.14 |
+| jotai: one atom per field | 1.93 | 4.01 | 0.15 | 0.000 |
 
 View renders per update:
 
@@ -280,14 +300,14 @@ View renders per update:
 | jotai: nested root, derived field atoms | 48 | 531 | 0 | 0 |
 | jotai: one atom per field | 48 | 531 | 0 | 0 |
 
-- **Fields under one key re-render every view of the store**: 4920 renders and 42–52 ms per update,
+- **Fields under one key re-render every view of the store**: 4920 renders and 37–46 ms per update,
   whatever changed.
-- **Flattening the nested store matches the flat root**: the same renders and the same time (2.81 vs
-  2.79 ms for one field), for one extra store run per update.
-- **Selectors render the same views, but run on every update**: about 5000 selector calls, 5.4–6.0 ms for
+- **Flattening the nested store matches the flat root**: the same renders and the same time (2.05 vs
+  2.03 ms for one field), for one extra store run per update.
+- **Selectors render the same views, but run on every update**: about 5000 selector calls, 3.9 ms for
   one field. When the outputs stay the same they render nothing, where the flat stores re-render the 48
-  readers of the changed field; with views this light, those renders (0.7 ms) still cost less than the
-  selector calls (2.3–3.0 ms).
+  readers of the changed field; with views this light, those renders (0.6 ms) still cost less than the
+  selector calls (1.7 ms).
 - **Jotai with one atom per field is the fastest in every case**: a view depends on its own 10 atoms,
   and a write touches only the atoms it changes.
 - It is a stress workload: many views, picks with no relation to each other, and a view of one element.

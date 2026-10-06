@@ -74,7 +74,7 @@ const useCheckoutState = ({ group }: { group: string }) => {
 }
 ```
 
-Each line is its own instance, shared with any component that reads it, and the checkout re-renders only when its subtotal changes. See [`useMultipleStore`](/api/use-multiple-store).
+Each line is its own instance, shared with any component that reads it, and the checkout re-renders only when its subtotal changes. See [`useMultipleStore`](/api/use-multiple-store). Every instance that re-runs is a component render and a publish, so for a derivation as cheap as a multiplication the next shape costs less; the shop scenario in [Benchmarks](/benchmarks) measures both.
 
 **One store keyed by id.** When the items are cheap to compute together, let one store return an object keyed by id, and let the store above call that hook once and read the keys it needs.
 
