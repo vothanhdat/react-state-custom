@@ -8,6 +8,7 @@ All notable changes to this project are documented here.
 - Docs: Introduction and Limitations quoted older benchmark ratios (1.6–2.6x Jotai's time in jsdom, 1.1–1.6x in Chrome) instead of the current 1.3–2.1x and 1.1–1.3x, and Testing said the readers of a mock that throws keep its last values, as in 1.x; they throw its error.
 
 ### Changed
+- Docs: two entry pages. Rules lists in one page what the library adds to the rules of hooks, each with a link to its page; For React developers maps what a React developer knows onto stores, compares the library with Jotai, RTK Query, Zustand and Redux (moved from the README), and says what it costs. The sidebar starts with them, and keeps the patterns (layers, progressive data, realtime, events) and the integrations (testing, dev tools, SSR, concurrent rendering, React Compiler) in collapsed groups.
 - Docs: the home page names what 2.0 adds (`useMultipleStore`, schedules, a store that throws failing alone) and links Migrating to 2.0.
 
 ## [2.0.3] - 2026-10-06
