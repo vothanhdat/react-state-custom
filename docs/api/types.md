@@ -25,8 +25,8 @@ type StoreRef<State> = {
 }
 ```
 
-- `get()` never subscribes and never starts a store. Before anything runs the instance it returns `{}`.
-- `subscribe()` keeps the context alive while subscribed and fires once per changed key. All calls of one store update get the same snapshot object, the complete new state: all keys of the update are applied before the first call. Treat it as read-only; the next update gets a new one. The listener must not throw: an error thrown by any subscriber is rethrown to the store that published the change, and its error boundary disables that store.
+- `get()` returns a frozen snapshot, the same object until the state changes, so it can be the `getSnapshot` of `useSyncExternalStore`. It never subscribes and never starts a store. Before anything runs the instance it returns `{}`.
+- `subscribe()` keeps the context alive while subscribed and fires once per changed key. All calls of one store update get the same snapshot, the one `get()` returns: the complete new state, all keys of the update applied before the first call. The listener must not throw: an error thrown by any subscriber is rethrown to the store that published the change, and its error boundary disables that store.
 - `retain()` runs the instance through the global `AutoRootCtx` and counts as a reader. Call the returned function to release. Logs a development error if no `AutoRootCtx` is mounted within a second.
 
 ## `StatesOf`

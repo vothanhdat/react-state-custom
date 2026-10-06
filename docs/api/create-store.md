@@ -76,7 +76,7 @@ type StoreRef<State> = {
 }
 ```
 
-- `get()` returns a plain snapshot of the current state. It never subscribes and never starts the store: before anything runs the instance, it is `{}`.
+- `get()` returns a plain snapshot of the current state, frozen, and the same object until the state changes. It never subscribes and never starts the store: before anything runs the instance, it is `{}`.
 - `subscribe(listener)` runs `listener` after every change, with the new snapshot and the key that changed. It keeps the instance's context while subscribed.
 - `retain()` runs the instance even while no component reads it, until the returned function is called. The instance stops `timeToClean` after every reader and retainer is gone.
 

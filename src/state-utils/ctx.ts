@@ -174,6 +174,19 @@ export class Context<D> {
    */
   public revision = 0
 
+  private snapshotOf?: { revision: number, data: Partial<D> }
+
+  /**
+   * A copy of `data`, the same object until the data changes: what `storeRef(params).get()` returns.
+   * Stable, so it can be a `useSyncExternalStore` snapshot; shared by every caller, so it is frozen.
+   */
+  public snapshot(): Partial<D> {
+    if (this.snapshotOf?.revision !== this.revision) {
+      this.snapshotOf = { revision: this.revision, data: Object.freeze({ ...this.data }) }
+    }
+    return this.snapshotOf.data
+  }
+
   /**
    * Publish a value to the context and notify subscribers if it changed.
    * Change detection uses `Object.is`, so `0` vs `""` and `null` vs `undefined` are distinct.

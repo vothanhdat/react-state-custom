@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { createStore, AutoRootCtx } from '../src'
 import { getContext } from '../src/state-utils/ctx'
 
@@ -39,6 +39,35 @@ describe('storeRef(params)', () => {
     await act(async () => { handle.get().increment!() })
     expect(getByTestId('v').textContent).toBe('6')
     expect(handle.get().count).toBe(6)
+  })
+
+  it('get() is one frozen object until the state changes, so it works as a useSyncExternalStore snapshot', async () => {
+    const { storeRef } = makeCounter('handle-snapshot')
+    const handle = storeRef()
+    expect(handle.get()).toBe(storeRef().get()) // nothing runs the instance: the same empty state
+
+    let renders = 0
+    const Reader = () => {
+      renders++
+      const state = useSyncExternalStore(handle.subscribe, handle.get)
+      return <span data-testid="v">{state.count ?? '-'}</span>
+    }
+    const release = handle.retain()
+    const { getByTestId } = render(<><AutoRootCtx /><Reader /></>)
+    await tick()
+    expect(getByTestId('v').textContent).toBe('0')
+
+    const before = handle.get()
+    expect(handle.get()).toBe(before)
+    expect(Object.isFrozen(before)).toBe(true)
+    expect(() => { (before as { count?: number }).count = 5 }).toThrow(TypeError)
+
+    await act(async () => { before.increment!() })
+    expect(getByTestId('v').textContent).toBe('1')
+    expect(handle.get()).not.toBe(before)
+    expect(before.count).toBe(0) // a snapshot never changes
+    expect(renders).toBeLessThan(10) // a new object per call made React render until it gave up
+    release()
   })
 
   it('subscribe() delivers every change with the changed key and stops after unsubscribe', async () => {

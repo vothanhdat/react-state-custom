@@ -3,6 +3,8 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+### Fixed
+- `useSyncExternalStore(ref.subscribe, ref.get)` rendered until React gave up ("Maximum update depth exceeded"): `get()` built a new object on every call. `storeRef(params).get()` now returns the same snapshot until the state changes, frozen since every caller shares it.
 
 ## [2.0.1] - 2026-10-06
 ### Fixed

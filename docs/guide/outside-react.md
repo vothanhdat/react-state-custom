@@ -22,9 +22,11 @@ release()
 
 Returns a plain object: everything the hook has published. It never subscribes and never starts a store. Before anything has run the store it returns `{}`, so actions are `undefined` until the hook has run; check `ready` or `retain()` first when you need them.
 
+The snapshot is frozen and stays the same object until the state changes, so `get` and `subscribe` can be handed to anything that takes a subscribe function and a snapshot, `useSyncExternalStore` included. In a component, prefer `useStore`: it starts the store and re-renders only for the keys the component reads.
+
 ## `subscribe(listener)`
 
-Delivers every change with the changed key, in the same synchronous pass as the store's publish. An update that changes several keys calls the listener once per key, and every call of that update gets the same snapshot object: treat it as read-only. The listener must not throw; see [Error handling](/guide/error-handling). Subscribing keeps the context alive but does not run the store hook; pair it with a mounted consumer or `retain()`.
+Delivers every change with the changed key, in the same synchronous pass as the store's publish. An update that changes several keys calls the listener once per key, and every call of that update gets the same snapshot, the one `get()` returns. The listener must not throw; see [Error handling](/guide/error-handling). Subscribing keeps the context alive but does not run the store hook; pair it with a mounted consumer or `retain()`.
 
 ## `retain()`
 

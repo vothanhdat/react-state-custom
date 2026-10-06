@@ -56,6 +56,9 @@ type StoreRecord = {
  */
 const MAX_TIMEOUT = 2 ** 31 - 1
 
+/** What `storeRef(params).get()` returns while nothing holds the instance: always the same empty state. */
+const NO_STATE = Object.freeze({})
+
 /** AutoRootCtx's bookkeeping for one instance: consumers and retainers, and the pending timeToClean removal. */
 type StoreBook = {
   counter: number,
@@ -524,7 +527,11 @@ export type StoreState<V> = { [P in keyof V]?: V[P] | undefined }
 export type StoreRef<V> = {
   /** Context name of this store instance (`name?params`). */
   readonly name: string
-  /** Snapshot of the current state: a plain object, safe to read anywhere (handlers, sockets, tests). */
+  /**
+   * Snapshot of the current state: a plain object, safe to read anywhere (handlers, sockets, tests).
+   * The same object until the state changes, so it also serves as a `useSyncExternalStore` snapshot.
+   * Shared by every caller, so it is frozen.
+   */
   get(): StoreState<V>
   /**
    * Run `listener` after every change, with the new snapshot and the key that changed.
@@ -653,27 +660,17 @@ export function createStore<U extends StoreParamsShape<U>, V extends object>(
   const storeRef = (...args: StoreParams<U>): StoreRef<V> => {
     const params = (args[0] ?? {}) as U
     const ctxName = getCtxName(params)
-    const snapshot = (ctx: Context<V> | undefined) => ({ ...(ctx?.data ?? {}) }) as StoreState<V>
     const live = () => isServer() ? undefined : getContext.fromCache(ctxName) as Context<V> | undefined
 
     const ref: StoreRef<V> = {
       name: ctxName,
-      get: () => snapshot(live()),
+      get: () => (live()?.snapshot() ?? NO_STATE) as StoreState<V>,
       get ready() { return live()?.ready ?? false },
       get error() { return live()?.error },
       subscribe: (listener) => {
         const { ctx, release } = acquireContext<V>(ctxName)
-        // One update calls the listener once per changed key, with the same complete data: build the
-        // snapshot once per revision, not a copy of every key for each of them.
-        let revision = -1
-        let state: StoreState<V>
-        const unsub = ctx.subscribeAll((changedKey) => {
-          if (revision !== ctx.revision) {
-            revision = ctx.revision
-            state = snapshot(ctx)
-          }
-          listener(state, changedKey)
-        })
+        // One update calls the listener once per changed key, with the same snapshot
+        const unsub = ctx.subscribeAll((changedKey) => listener(ctx.snapshot() as StoreState<V>, changedKey))
         return () => { unsub(); release() }
       },
       retain: () => retainStore(params),
