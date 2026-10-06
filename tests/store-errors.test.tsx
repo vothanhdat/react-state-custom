@@ -126,6 +126,77 @@ describe('a store hook that throws', () => {
     expect(queryByTestId('caught')?.textContent).toBe('err-source a broke')
   })
 
+  it.each([60_000, Infinity])('starts fresh on a retry right away with a timeToClean of %s', async (timeToClean) => {
+    quiet()
+    let failNext = true
+    const { useStore } = createStore(`err-retry-ttc-${timeToClean}`, () => {
+      const [shouldFail] = useState(() => failNext)
+      if (shouldFail) throw new Error('once')
+      return { v: 'ok' }
+    }, { timeToClean })
+    const View = () => <span data-testid="v">{useStore().v}</span>
+    const App = ({ attempt }: { attempt: number }) => <><AutoRootCtx /><Catch key={attempt}><View /></Catch></>
+    const r = render(<App attempt={0} />)
+    await tick()
+    expect(r.queryByTestId('caught')?.textContent).toBe('once')
+    failNext = false
+    r.rerender(<App attempt={1} />)
+    await tick()
+    expect(r.queryByTestId('v')?.textContent).toBe('ok')
+  })
+
+  it('is torn down at once when it fails while waiting out its timeToClean', async () => {
+    quiet()
+    let crash = () => { }
+    const { useStore, storeRef } = createStore('err-grace', () => {
+      const [broken, setBroken] = useState(false)
+      crash = () => setBroken(true)
+      if (broken) throw new Error('in the grace period')
+      return { v: 'ok' }
+    }, { timeToClean: Infinity })
+    const View = () => <span data-testid="v">{useStore().v}</span>
+    const r = render(<><AutoRootCtx /><View /></>)
+    await tick()
+    r.rerender(<AutoRootCtx />)                 // no reader: the instance waits out its timeToClean
+    await tick()
+    act(() => crash())
+    await tick()
+    expect(storeRef().error).toBeUndefined()    // torn down, its failure cleared
+    r.rerender(<><AutoRootCtx /><Catch><View /></Catch></>)
+    await tick()
+    expect(r.queryByTestId('v')?.textContent).toBe('ok')
+  })
+
+  it('stays failed while retained, until the retainer releases it', async () => {
+    quiet()
+    const { storeRef } = failing('err-retained', { fromStart: true })
+    render(<AutoRootCtx />)
+    let release = () => { }
+    act(() => { release = storeRef().retain() })
+    await tick()
+    expect(storeRef().error).toBeInstanceOf(Error)
+    act(() => release())
+    await tick()
+    expect(storeRef().error).toBeUndefined()
+  })
+
+  it('fails with an Error that says so when the hook throws a falsy value', async () => {
+    quiet()
+    const { useStore, storeRef } = createStore('err-falsy', (): { v?: number } => { throw undefined })
+    render(<AutoRootCtx />)
+    let release = () => { }
+    act(() => { release = storeRef().retain() })
+    await tick()
+    const error = storeRef().error as Error
+    expect(error).toBeInstanceOf(Error)
+    expect(error.message).toBe('[react-state-custom] The hook of "err-falsy" threw undefined')
+    expect(error.cause).toBeUndefined()
+    const View = () => <span>{useStore().v}</span>
+    const r = render(<Catch><View /></Catch>)
+    expect(r.queryByTestId('caught')?.textContent).toBe(error.message)
+    act(() => release())
+  })
+
   it('starts fresh for a reader that comes back once every reader has gone', async () => {
     quiet()
     let failNext = true

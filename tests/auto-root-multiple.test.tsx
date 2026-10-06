@@ -1,7 +1,13 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, act, fireEvent } from '@testing-library/react'
-import { useState } from 'react'
+import { Component, useState, type ReactNode } from 'react'
 import { createStore, AutoRootCtx } from '../src'
+
+class Catch extends Component<{ children?: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  render() { return this.state.failed ? null : this.props.children }
+}
 
 const tick = (ms = 20) => act(async () => { await new Promise(r => setTimeout(r, ms)) })
 afterEach(() => vi.restoreAllMocks())
@@ -58,6 +64,47 @@ describe('several AutoRootCtx', () => {
     await act(async () => { storeRef().get().increment!() })
     expect(first.getByTestId('moved').textContent).toBe('1')
     expect(error.mock.calls.filter(c => String(c[0]).includes('store hook threw'))).toEqual([])
+  })
+
+  it('a store that failed runs again once it moves to an AutoRootCtx in another React root', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => { })
+    let failNext = true
+    const { storeRef } = createStore('multi-root-failed-moves', () => {
+      const [fails] = useState(() => failNext)
+      if (fails) throw new Error('first root')
+      return { v: 'ok' }
+    })
+    render(<AutoRootCtx />)
+    let release = () => { }
+    act(() => { release = storeRef().retain() })
+    await tick()
+    expect(storeRef().error).toEqual(new Error('first root'))
+    failNext = false
+    render(<AutoRootCtx />)
+    await tick(50)
+    expect(storeRef().error).toBeUndefined()
+    expect(storeRef().get().v).toBe('ok')
+    act(() => release())
+  })
+
+  it('the instance a store moves to keeps its failure when the one it left unmounts', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => { })
+    let failNext = false
+    const { useStore, storeRef } = createStore('multi-root-new-fails', () => {
+      const [fails] = useState(() => failNext)
+      if (fails) throw new Error('second root')
+      return { v: 'ok' }
+    })
+    const View = () => <span>{useStore().v}</span>
+    render(<><AutoRootCtx /><Catch><View /></Catch></>)
+    await tick(50)
+    let release = () => { }
+    act(() => { release = storeRef().retain() })
+    failNext = true
+    render(<><AutoRootCtx /><i /></>)
+    await tick(50)
+    expect(storeRef().error).toEqual(new Error('second root'))
+    act(() => release())
   })
 
   it('logs a development error when a second root mounts', async () => {

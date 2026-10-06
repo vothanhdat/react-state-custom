@@ -77,6 +77,25 @@ describe('a store hook replaced by a hot update', () => {
     expect(errors.mock.calls.flat().join('\n')).not.toMatch(/has been disabled/)
   })
 
+  it('restarts without the keys only the old hook returned', async () => {
+    const v1 = createStore('hot-keys', () => {
+      const [count] = useState(1)
+      return { count, old: 'from v1' }
+    })
+    const v2 = createStore('hot-keys', () => {
+      const [count] = useState(1)
+      const [label] = useState('v2')
+      return { count, label }
+    })
+    const View1 = () => { const { count } = v1.useStore(); return <span data-testid="v">{String(count)}</span> }
+    const View2 = () => { const s = v2.useStore(); return <span data-testid="v">{Object.keys(s).sort().join(',')}</span> }
+    const { getByTestId, rerender } = render(<><AutoRootCtx /><View1 /></>)
+    await tick()
+    rerender(<><AutoRootCtx /><View2 /></>)
+    await tick()
+    expect(getByTestId('v').textContent).toBe('count,label')
+  })
+
   it('is still disabled when the new hook throws on its own, and its reader gets the error', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
     const v1 = createStore('hot-throws', () => ({ ok: true }))

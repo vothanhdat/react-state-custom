@@ -56,13 +56,14 @@ const usePublish = (ctx: Context<any>, state: Record<string, unknown>) => {
       if (!Object.is(data[key], value)) (changed ??= []).push([key, value])
     }
 
+    // Keys the last result had and this one has not. On the first publish of an instance, keys an
+    // earlier instance left in the context (it was torn down while something still held the context,
+    // or a hot update restarted the hook): the instance starts from its own state only.
     let removed: string[] | undefined
-    if (previous) {
-      for (const key in previous) {
-        if (Object.hasOwn(state, key)) continue
-        wrappers.delete(key);
-        (removed ??= []).push(key)
-      }
+    for (const key in previous ?? data) {
+      if (Object.hasOwn(state, key)) continue
+      wrappers.delete(key);
+      (removed ??= []).push(key)
     }
 
     if (changed || removed) ctx.publishMany(changed ?? [], removed)

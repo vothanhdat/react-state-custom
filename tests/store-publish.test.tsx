@@ -66,6 +66,23 @@ describe('what a store publishes', () => {
     stop()
   })
 
+  it('a new instance starts from its own keys, without those an earlier instance left', async () => {
+    const { useStore, storeRef } = createStore('publish-left-keys', () => {
+      const [items, setItems] = useState<Record<string, number>>({})
+      return { ...items, add: (key: string) => setItems(s => ({ ...s, [key]: 1 })) } as Record<string, number> & { add: (key: string) => void }
+    })
+    const Keys = () => <i data-testid="keys">{Object.keys(useStore()).sort().join(',')}</i>
+    // the reader stays mounted, so it holds the context while AutoRootCtx starts every store afresh
+    const r = render(<><AutoRootCtx key={0} /><Keys /></>)
+    await tick()
+    await act(async () => { storeRef().get().add('a') })
+    expect(r.getByTestId('keys').textContent).toBe('a,add')
+    r.rerender(<><AutoRootCtx key={1} /><Keys /></>)
+    await tick()
+    expect(r.getByTestId('keys').textContent).toBe('add')
+    expect(storeRef().get()).toEqual({ add: expect.any(Function) })
+  })
+
   it('a torn-down instance whose context nothing holds leaves nothing behind', async () => {
     const { useStore, storeRef } = createStore('publish-fresh', (_: {}) => {
       const [n, setN] = useState(0)

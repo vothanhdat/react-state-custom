@@ -2,7 +2,7 @@ import * as React from "react"
 import { Suspense, useEffect, useCallback, useRef, memo, useSyncExternalStore } from "react"
 import { useDataContext, useDataSelector, acquireContext, getContext, isServer, useIsomorphicLayoutEffect, useThrowOnFailure, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
-import { paramsToId, type ParamsToIdRecord, type StoreParamsShape } from "./paramsToId"
+import type { ParamsToIdRecord, StoreParamsShape } from "./paramsToId"
 import { useQuickSubscribe } from "./useQuickSubscribe"
 import { isProduction, shallowEqual } from "./utils"
 import { storeEntries, storeRefs } from "./storeRegistry"
@@ -61,6 +61,8 @@ type StoreBook = {
   counter: number,
   useStateFn: Function,
   timer?: ReturnType<typeof setTimeout>
+  /** While the instance waits out its timeToClean: stop waiting for it to fail. */
+  unwatch?: () => void
 }
 
 /** Records keyed by instance name, without a prototype: any store name is a key of its own. */
@@ -204,7 +206,8 @@ type StoreBoundaryProps = {
 }
 
 type StoreBoundaryState = {
-  error: { value: unknown } | undefined
+  /** The hook threw (any value, `undefined` included) and has not been restarted. */
+  failed: boolean
   /** Key of the runner's Suspense boundary: a new one mounts the hook fresh. */
   generation: number
   /** The hook last restarted this way, so a hook that keeps failing is restarted only once. */
@@ -223,18 +226,18 @@ type StoreBoundaryState = {
  *
  * Any other error, or a second one, disables the instance until it is torn down: it is recorded on
  * the context, where `storeRef(params).error` reads it, and the components reading the instance throw
- * it for their own error boundary (see useThrowOnFailure). Once they are gone the instance is torn
- * down, and a reader that comes back starts a fresh one.
+ * it for their own error boundary (see useThrowOnFailure). Once they are gone AutoRootCtx tears the
+ * instance down without waiting for its timeToClean, and a reader that comes back starts a fresh one.
  */
 class StoreBoundary extends React.Component<StoreBoundaryProps, StoreBoundaryState> {
   static displayName = "StoreBoundary"
-  state: StoreBoundaryState = { error: undefined, generation: 0, retried: undefined }
+  state: StoreBoundaryState = { failed: false, generation: 0, retried: undefined }
 
   /** The hook of the last successful commit. */
   private committed = this.props.useStateFn
 
-  static getDerivedStateFromError(error: unknown) {
-    return { error: { value: error } }
+  static getDerivedStateFromError() {
+    return { failed: true }
   }
 
   /** The error came from a hook that has not committed yet, which the old hook state may not fit. */
@@ -248,10 +251,11 @@ class StoreBoundary extends React.Component<StoreBoundaryProps, StoreBoundarySta
     // hook that throws again would pass this boundary by and never be recorded as a failure.
     if (this.restartable()) {
       const retried = this.props.useStateFn
-      this.setState(state => ({ error: undefined, generation: state.generation + 1, retried }))
+      this.setState(state => ({ failed: false, generation: state.generation + 1, retried }))
       return
     }
-    this.props.ctx.fail(error)
+    // A falsy value would read as "no error" in storeRef(params).error and in the readers' boundaries
+    this.props.ctx.fail(error || new Error(`[react-state-custom] The hook of "${this.props.ctx.name}" threw ${String(error)}`, { cause: error }))
     console.error(
       `[react-state-custom] A store hook threw: "${this.props.ctx.name}" is disabled until its instance is ` +
       `torn down, and the components reading it throw this error. Other stores keep running.`,
@@ -262,14 +266,17 @@ class StoreBoundary extends React.Component<StoreBoundaryProps, StoreBoundarySta
 
   componentDidMount() {
     this.committed = this.props.useStateFn
+    // Mounted on a failed context and running: Fast Refresh remounted this boundary after a failure, or
+    // the instance moved here from an AutoRootCtx in another React root where it failed.
+    if (!this.state.failed && this.props.ctx.failed) this.props.ctx.recover()
   }
 
   componentDidUpdate() {
-    if (!this.state.error) this.committed = this.props.useStateFn
+    if (!this.state.failed) this.committed = this.props.useStateFn
   }
 
   render() {
-    if (this.state.error) return null
+    if (this.state.failed) return null
     // Each store suspends on its own: a store hook calling `use(promise)` or a suspense query would
     // otherwise suspend the boundary above AutoRootCtx and hide the whole app. A suspended store has
     // not published yet (or keeps its last values).
@@ -295,9 +302,10 @@ const StoreInstance = memo(named("StoreInstance", function StoreInstance({ name,
       mounted.current = false
       ctx.instances -= 1
       queueMicrotask(() => {
-        if (mounted.current) return
+        // another instance may still run here (a store moving between React roots): its state stays
+        if (mounted.current || ctx.instances > 0) return
         ctx.recover()
-        if (ctx.instances === 0) ctx.retire()
+        ctx.retire()
       })
     }
   }, [ctx])
@@ -323,20 +331,24 @@ export const AutoRootCtx: React.FC = () => {
   // or unmounting on an instance that is already running must not re-render anything.
   const books = useRef(new Map<string, StoreBook>()).current
 
-  useEffect(() => () => books.forEach(book => clearTimeout(book.timer)), [books])
+  useEffect(() => () => books.forEach(book => {
+    clearTimeout(book.timer)
+    book.unwatch?.()
+  }), [books])
 
   const subscribeRoot = useCallback(
-    (contextName: string, useStateFn: Function, params: ParamsToIdRecord, timeToClean = 0) => {
+    (storeName: string, recordKey: string, useStateFn: Function, params: ParamsToIdRecord, timeToClean = 0) => {
 
-      const recordKey = [contextName, paramsToId(params)].filter(Boolean).join("?")
       const records = buckets.current!
       const book = books.get(recordKey)
 
       if (book) {
-        if (!isProduction && book.counter > 0 && book.useStateFn !== useStateFn) warnDuplicateName(contextName)
+        if (!isProduction && book.counter > 0 && book.useStateFn !== useStateFn) warnDuplicateName(storeName)
         // a consumer came back during timeToClean: keep the instance
         clearTimeout(book.timer)
         book.timer = undefined
+        book.unwatch?.()
+        book.unwatch = undefined
         book.counter += 1
         if (book.useStateFn !== useStateFn) {
           // a new hook for the same name (hot reload): run it in place of the old one
@@ -345,7 +357,7 @@ export const AutoRootCtx: React.FC = () => {
         }
       } else {
         books.set(recordKey, { counter: 1, useStateFn })
-        records.update(recordKey, () => ({ storeName: contextName, useStateFn, params }))
+        records.update(recordKey, () => ({ storeName, useStateFn, params }))
       }
 
       const current = books.get(recordKey)!
@@ -357,13 +369,21 @@ export const AutoRootCtx: React.FC = () => {
         if (current.counter > 0) return
         const remove = () => {
           if (books.get(recordKey) !== current || current.counter > 0) return
+          clearTimeout(current.timer)
+          current.unwatch?.()
+          current.unwatch = undefined
           books.delete(recordKey)
           records.update(recordKey, () => undefined)
         }
+        // A failed instance runs nothing: kept for its timeToClean, it would only make the readers that
+        // come back (an error boundary's retry) throw again. Tear it down now, and as soon as it fails
+        // while waiting out its timeToClean.
+        const ctx = getContext.fromCache(recordKey)
+        if (ctx?.failed) return remove()
+        if (timeToClean <= 0) return remove()
+        if (ctx) current.unwatch = ctx.onStatus(() => { if (ctx.failed) remove() })
         // A timer cannot wait longer than MAX_TIMEOUT: a longer delay (Infinity included) fires at once
-        if (timeToClean >= MAX_TIMEOUT) return
-        if (timeToClean > 0) current.timer = setTimeout(remove, timeToClean)
-        else remove()
+        if (timeToClean < MAX_TIMEOUT) current.timer = setTimeout(remove, timeToClean)
       }
 
     },
@@ -579,7 +599,7 @@ export function createStore<U extends StoreParamsShape<U>, V extends object>(
     const unsub = autoCtx.subscribe("subscribe", (subscribe: Function | undefined) => {
       if (!active) return
       release?.()
-      release = subscribe ? subscribe(name, useRootState, params, timeToClean) : undefined
+      release = subscribe ? subscribe(name, ctxName, useRootState, params, timeToClean) : undefined
     })
     // No AutoRootCtx has published its subscribe fn yet. Give it a moment, then tell the developer
     // instead of failing silently.
