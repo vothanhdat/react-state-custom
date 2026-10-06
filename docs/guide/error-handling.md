@@ -51,6 +51,21 @@ createRoot(document.getElementById('root')!, {
 }).render(<App />)
 ```
 
+One failure arrives more than once: from the store's boundary, then from each boundary whose readers throw the same error object, every time with the store's component stack. To report it once, skip an error object already reported:
+
+```tsx
+const reported = new WeakSet<object>()
+const reportOnce = (error: unknown, componentStack?: string) => {
+  if (typeof error === 'object' && error !== null) {
+    if (reported.has(error)) return
+    reported.add(error)
+  }
+  reportError(error, componentStack)
+}
+```
+
+React logs every caught error to the console itself. In development the library adds a message saying which store was disabled.
+
 `storeRef(params).error` is what the hook threw while the instance is disabled, and `undefined` while it runs.
 
 ## Errors thrown by subscribers

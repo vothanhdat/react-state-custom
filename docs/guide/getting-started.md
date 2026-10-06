@@ -102,7 +102,7 @@ function Total() {
 }
 ```
 
-- **Data**: read with `?.`, fall back with `??`, or return a placeholder early.
+- **Data**: read with `?.`, fall back with `??`, or return a placeholder early. A default object or array (`const { items = [] } = useStore()`) is a new one on every render until the data arrives: where identity matters, as a dependency of an effect or a prop of a `memo` component, default to a constant defined once outside the component (`const NO_ITEMS: Item[] = []`). A `select` result needs none: compared shallowly, `s => s.items ?? []` keeps its first array.
 - **Actions**: call them with `?.()` from event handlers. By the time anyone clicks, the store has run and the action exists. A call made while rendering, or from an effect when the component mounts, comes before the store has run and does nothing. Start loading inside the store, which runs its own effects. When an effect exists only to call an action, list the action as a dependency and return early while it is missing: the effect runs again once the action exists. Actions keep their identity while their instance runs, so it runs once more, not on every render. An instance that restarts has new actions, and the effect calls the new one.
 
   ```ts
@@ -116,6 +116,10 @@ function Total() {
   Keep an action out of the dependencies of an effect that does other work, such as opening a socket whose messages call `notify` from another store. The effect would close the socket and open it again when `notify` arrives, and whether that happens depends on whether the other store was already running. Return early only when the effect cannot work without the action; otherwise read the action from [`useEffectEvent`](https://react.dev/reference/react/useEffectEvent) or a ref, or emit an event the other side subscribes to (see [Events from a store](/guide/events)).
 
 - **Lookups by id**: a record can lack an id even after loading, when the item was deleted while a list still holds its id. Turn on TypeScript's [`noUncheckedIndexedAccess`](https://www.typescriptlang.org/tsconfig/#noUncheckedIndexedAccess) so the compiler asks for the check. See [Data across stores](/guide/how-it-works#data-across-stores).
+
+## If a store throws
+
+A store hook that throws is a bug, and it shows where the store is used: the components reading the store throw its error, for the nearest error boundary, while every other store keeps running. Without a boundary React unmounts the app, as for any error thrown while rendering. Put an error boundary around each part of the screen that can fail on its own, or at least one near the root. See [Error handling](/guide/error-handling).
 
 ## What's next
 

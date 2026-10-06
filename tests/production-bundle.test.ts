@@ -29,6 +29,7 @@ const devOnly = [
   'A selector goes in the options',         // useStore(params, selector), the 1.x form
   'Readers get undefined until the store',  // createStore options 1.x took
   'A store publishes the keys of an object', // a store hook returning an array or no object
+  'is disabled until its instance is torn',  // a store hook threw: what happens next
 ]
 
 const bundle = async (mode: 'production' | 'development') => {

@@ -9,6 +9,7 @@ All notable changes to this project are documented here.
 
 ### Changed
 - Reading a store action through the `useStore` proxy in an event handler (`store.increment?.()`) no longer logs the "read outside of render" warning: an action needs no subscription. The warning for values now names the case it missed: a child component reading a proxy passed to it as a prop, in a render of its own.
+- The console message saying which store a throwing hook disabled is logged in development only. React logs the error itself in every build, and hands it to `onCaughtError`.
 
 ## [2.0.1] - 2026-10-06
 ### Fixed

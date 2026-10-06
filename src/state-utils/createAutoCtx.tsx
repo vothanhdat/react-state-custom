@@ -259,7 +259,8 @@ class StoreBoundary extends React.Component<StoreBoundaryProps, StoreBoundarySta
     }
     // A falsy value would read as "no error" in storeRef(params).error and in the readers' boundaries
     this.props.ctx.fail(error || new Error(`[react-state-custom] The hook of "${this.props.ctx.name}" threw ${String(error)}`, { cause: error }))
-    console.error(
+    // React reports the error itself, in production too (onCaughtError); this only explains what follows
+    if (!isProduction) console.error(
       `[react-state-custom] A store hook threw: "${this.props.ctx.name}" is disabled until its instance is ` +
       `torn down, and the components reading it throw this error. Other stores keep running.`,
       error,
