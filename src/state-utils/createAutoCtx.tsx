@@ -516,6 +516,9 @@ export type StoreSelect<S, R> = StoreReadOptions & {
 /** `useStore(params)`: `params` can be omitted when the store has no required params. */
 export type StoreParams<U> = {} extends U ? [params?: U] : [params: U]
 
+/** Turns a store hook returning an array or a function into a type error that says what to return. */
+type ObjectResult<V> = V extends readonly unknown[] | Function ? "a store hook returns an object of keys, not an array or a function" : unknown
+
 /** What `useStore` returns: every key optional, `undefined` until the store has run once. */
 export type StoreState<V> = { [P in keyof V]?: V[P] | undefined }
 
@@ -582,7 +585,7 @@ export type Store<U, V> = {
  */
 export function createStore<U extends StoreParamsShape<U>, V extends object>(
   name: string,
-  useFn: (params: U) => V,
+  useFn: (params: U) => V & ObjectResult<V>,
   options: StoreOptions = {},
 ): Store<U, V> {
   if (!isProduction) checkOptions(name, options, arguments.length - 3)

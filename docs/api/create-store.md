@@ -29,6 +29,8 @@ A unique namespace for this store, for example `'user'` or `'cart'`. Two `create
 
 Your hook. It receives `params` and its return value is the store state: every key is published separately, and functions get a stable identity across store renders. It may call any hook, other stores' `useStore` and `useMultipleStore` included.
 
+It returns an object: `return { count, setCount }`, not `return useState(0)`. A hook returning an array, a function or nothing is a type error, and in development its instance fails with a `TypeError` that says so.
+
 ### `options`
 
 | option | type | default | description |

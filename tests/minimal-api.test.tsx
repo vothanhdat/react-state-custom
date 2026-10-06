@@ -146,6 +146,27 @@ describe('createStore(name, useFn, options)', () => {
     expect(() => create(`minimal-old-${++names}`, useFn, {}, () => null)).toThrow(/AttachedComponent argument was removed/)
     expect(() => create(`minimal-old-${++names}`, useFn, undefined)).not.toThrow()
   })
+
+  it('says what to return when the hook returns an array or no object', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => { })
+    render(<AutoRootCtx />)
+    const create = createStore as (...args: unknown[]) => { storeRef: () => { error: unknown, retain(): () => void } }
+    const results: Record<string, () => unknown> = {
+      'an array': () => [1, 2],
+      'undefined': () => undefined,
+      'null': () => null,
+      'a function': () => () => 1,
+    }
+    for (const [got, result] of Object.entries(results)) {
+      const { storeRef } = create(`minimal-result-${++names}`, () => { useState(0); return result() })
+      const release = storeRef().retain()
+      await tick()
+      expect(storeRef().error).toBeInstanceOf(TypeError)
+      expect(String(storeRef().error)).toContain(`returned ${got}. A store publishes the keys of an object`)
+      await act(async () => { release() })
+    }
+    error.mockRestore()
+  })
 })
 
 describe('useMultipleStore(refs)', () => {

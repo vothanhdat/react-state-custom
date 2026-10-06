@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useDataContext, type Context, useIsomorphicLayoutEffect, functionSources, selectorScope, type FunctionSource } from "./ctx"
 import { paramsToId, type ParamsToIdRecord, type StoreParamsShape } from "./paramsToId"
-import { DependencyTracker } from "./utils"
+import { DependencyTracker, isProduction } from "./utils"
 import { storeMocks } from "./storeRegistry"
 
 type StableFn = FunctionSource & { stable: Function }
@@ -101,6 +101,20 @@ const createStableFn = (key: string, value: Function, wrappers: Map<string, Stab
 
 
 /**
+ * Development check: a store publishes the keys of what its hook returns. An array or a tuple
+ * (`return useState(0)`) would publish "0" and "1" and break every reader that destructures it as one,
+ * and no object (a missing `return`) would publish nothing.
+ */
+const checkResult = (name: string, state: unknown) => {
+  if (typeof state === "object" && state !== null && !Array.isArray(state)) return
+  const got = Array.isArray(state) ? "an array" : state === null ? "null" : typeof state === "function" ? "a function" : String(state)
+  throw new TypeError(
+    `[react-state-custom] The hook of "${name}" returned ${got}. A store publishes the keys of an object: ` +
+    `return { count, setCount }, not [count, setCount].`
+  )
+}
+
+/**
  * The parts of a store that run its hook: `getCtxName(params)` names an instance (`"name?params"`),
  * and `useRootState(params)` runs the hook and publishes what it returns to the instance's context.
  * AutoRootCtx renders `useRootState` once per running instance.
@@ -125,6 +139,7 @@ export const createRootCtx = <U extends StoreParamsShape<U>, V extends object>(n
     } finally {
       DependencyTracker.leave();
     }
+    if (!isProduction) checkResult(name, rawState)
 
     usePublish(ctx, rawState as Record<string, unknown>)
 

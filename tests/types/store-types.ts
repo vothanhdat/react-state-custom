@@ -78,6 +78,14 @@ createStore('types-object-param', ({ user }: { user: User }) => ({ id: user.id }
 // @ts-expect-error an interface with an object value is rejected as well
 createStore('types-object-param-interface', ({ user }: { user: User } & CounterParams) => ({ id: user.id }))
 
+// The hook returns an object of keys
+// @ts-expect-error a tuple: return { count, setCount }
+createStore('types-tuple', () => useState(0))
+// @ts-expect-error an array
+createStore('types-array', () => [1, 2])
+// @ts-expect-error a function
+createStore('types-function', () => () => 1)
+
 // The options take timeToClean and schedule, nothing else
 createStore('types-options', () => ({ n: 1 }), { timeToClean: 5000, schedule: frame() })
 // @ts-expect-error removed in 2.0: default at the read
