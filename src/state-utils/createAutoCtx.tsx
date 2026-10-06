@@ -1,10 +1,10 @@
 import * as React from "react"
-import { Suspense, useEffect, useCallback, useRef, memo, useSyncExternalStore } from "react"
-import { useDataContext, useDataSelector, acquireContext, getContext, isServer, useIsomorphicLayoutEffect, useThrowOnFailure, type Context } from "./ctx"
+import { Suspense, useEffect, useCallback, useRef, useState, memo, useSyncExternalStore } from "react"
+import { useDataContext, useDataSelector, acquireContext, getContext, isServer, useIsomorphicLayoutEffect, useThrowOnFailure, contextForRender, holdContext, type Context } from "./ctx"
 import { createRootCtx } from "./createRootCtx"
 import type { ParamsToIdRecord, StoreParamsShape } from "./paramsToId"
-import { useQuickSubscribe } from "./useQuickSubscribe"
-import { isProduction, shallowEqual } from "./utils"
+import { createReading, useReading, type Reading } from "./useQuickSubscribe"
+import { DependencyTracker, isProduction, shallowEqual } from "./utils"
 import { storeEntries, storeRefs } from "./storeRegistry"
 import type { Scheduler } from "./schedule"
 
@@ -58,6 +58,26 @@ const MAX_TIMEOUT = 2 ** 31 - 1
 
 /** What `storeRef(params).get()` returns while nothing holds the instance: always the same empty state. */
 const NO_STATE = Object.freeze({})
+
+/** The same keys with `Object.is`-equal values: params that name the same instance without building its name. */
+const sameParams = (a: object, b: object) => {
+  let keys = 0
+  for (const key in a) {
+    if (!Object.is((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) return false
+    keys++
+  }
+  for (const _ in b) keys--
+  return keys === 0
+}
+
+/** What one `useStore` call holds: the instance it reads, AutoRootCtx's context, and the reading of the proxy form. */
+type Reader<V> = {
+  name: string,
+  params: object,
+  ctx: Context<V>,
+  autoCtx: Context<any>,
+  reading?: Reading<V>,
+}
 
 /** AutoRootCtx's bookkeeping for one instance: consumers and retainers, and the pending timeToClean removal. */
 type StoreBook = {
@@ -642,18 +662,42 @@ export function createStore<U extends StoreParamsShape<U>, V extends object>(
     }
   }
 
-  /** The context of the instance for `params`, which runs while this component is mounted. */
-  const useInstance = (params: U): Context<V> => {
-    const autoCtx = useDataContext<any>("auto-ctx")
-    const ctx = useDataContext<V>(getCtxName(params))
+  /**
+   * The instance for `params`, which runs while this component is mounted: its context and AutoRootCtx's
+   * stay cached (as useDataContext keeps one), and AutoRootCtx is asked to run it. One state, one ref
+   * and one effect for all of it, and the name is built again only when the params change: a reader
+   * renders on every change it reads.
+   */
+  const useReader = (params: U): Reader<V> => {
+    const [, adopt] = useState(0)
+    const ref = useRef<Reader<V> | null>(null)
+    const last = ref.current
+    const name = last && sameParams(last.params, params) ? last.name : getCtxName(params)
+    if (!isProduction) DependencyTracker.addDependency(name)
+    if (!last || last.name !== name) {
+      ref.current = { name, params, ctx: contextForRender<V>(name), autoCtx: contextForRender("auto-ctx") }
+    }
+    const reader = ref.current!
 
-    useEffect(
-      () => mountStore(autoCtx, ctx.name, params),
+    useEffect(() => {
+      const store = holdContext(reader.ctx)
+      const root = holdContext(reader.autoCtx)
+      if (store.ctx !== reader.ctx || root.ctx !== reader.autoCtx) {
+        // someone created a fresh instance in between: adopt it (see useDataContext)
+        ref.current = { name, params: reader.params, ctx: store.ctx, autoCtx: root.ctx }
+        adopt(n => n + 1)
+      }
+      const unmount = mountStore(root.ctx, store.ctx.name, reader.params as U)
+      return () => {
+        unmount()
+        reader.reading?.tracker.dispose()
+        store.release()
+        root.release()
+      }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [autoCtx, ctx]
-    )
+    }, [reader.ctx, reader.autoCtx])
 
-    return ctx
+    return reader
   }
 
   /**
@@ -686,17 +730,20 @@ export function createStore<U extends StoreParamsShape<U>, V extends object>(
   function useStore(...args: unknown[]) {
     const [params, options] = args as [U | undefined, Partial<StoreSelect<unknown, unknown>> | undefined]
     if (!isProduction) checkParams(name, params, options)
-    const ctx = useInstance((params ?? {}) as U)
-    useThrowOnFailure(ctx)
+    const reader = useReader((params ?? {}) as U)
+    const { ctx } = reader
     const selector = options?.select
     const withSelector = typeof selector === "function"
     const schedule = options?.schedule ?? defaultSchedule
     // isProduction never changes at runtime, so this conditional hook keeps a stable order
     if (!isProduction) useSelectorModeCheck(`useStore("${ctx.name}")`, withSelector)
     // The two forms run different hooks: a call site must always pass a selector or never.
-    return withSelector
-      ? useDataSelector(ctx, selector, options?.isEqual ?? shallowEqual, schedule)
-      : useQuickSubscribe(ctx, schedule)
+    if (withSelector) {
+      useThrowOnFailure(ctx)
+      return useDataSelector(ctx, selector, options?.isEqual ?? shallowEqual, schedule)
+    }
+    // the proxy form follows failures in its own subscription (see createReading)
+    return useReading(reader.reading ??= createReading(ctx), schedule)
   }
 
   // so that react-state-custom/testing finds this store from whichever of these a module exports

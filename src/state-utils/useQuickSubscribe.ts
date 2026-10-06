@@ -350,6 +350,53 @@ export function createTracker<D>(ctx: Context<D> | undefined) {
 
 export type Tracker<D> = ReturnType<typeof createTracker<D>>
 
+/** A snapshot at or below this says that the store failed (see createReading). */
+const FAILED = -2
+
+/**
+ * What the proxy form reads one context with: a tracker, and the subscription and snapshots of its
+ * `useSyncExternalStore`, which also follow the context's status. One subscription re-renders the
+ * component for a change it read and for a failure of the store.
+ */
+export const createReading = <D>(ctx: Context<D> | undefined) => {
+  const tracker = createTracker(ctx)
+  return {
+    ctx,
+    tracker,
+    subscribe(listener: () => void) {
+      const offData = tracker.subscribe(listener)
+      const offStatus = ctx?.onStatus(listener)
+      return () => {
+        offData()
+        offStatus?.()
+      }
+    },
+    // a failed store reads at or below FAILED whatever the version, so that a change still re-renders
+    getSnapshot: () => ctx?.failed ? FAILED - tracker.getSnapshot() : tracker.getSnapshot(),
+    // stores never run on the server: a hydrating render never reads a failure
+    getServerSnapshot: tracker.getServerSnapshot,
+  }
+}
+
+export type Reading<D> = ReturnType<typeof createReading<D>>
+
+/**
+ * The render of a reading: the proxy of this render, whose reads become the subscriptions after the
+ * commit. A store that threw is disabled, and its readers throw its error, for their own error boundary.
+ */
+export const useReading = <D>(reading: Reading<D>, schedule?: Scheduler) => {
+  const { tracker } = reading
+  const snapshot = useSyncExternalStore(reading.subscribe, reading.getSnapshot, reading.getServerSnapshot)
+  if (snapshot <= FAILED) throw reading.ctx!.error
+  tracker.beginRender(snapshot)
+  const plan = schedulerOf(schedule)
+
+  // no deps: subscriptions must follow the keys read in *every* render
+  useEffect(() => { tracker.commit(plan) })
+
+  return tracker.view()
+}
+
 /**
  * The proxy form of `useStore`: subscribes to the properties of a context's data that the component reads.
  * 
@@ -381,16 +428,7 @@ export const useQuickSubscribe = <D>(
     [P in keyof D]?: D[P] | undefined;
   } => {
 
-  const tracker = useMemo(() => createTracker(ctx), [ctx])
-  const plan = schedulerOf(schedule)
-
-  const snapshot = useSyncExternalStore(tracker.subscribe, tracker.getSnapshot, tracker.getServerSnapshot)
-  tracker.beginRender(snapshot)
-
-  // no deps: subscriptions must follow the keys read in *every* render
-  useEffect(() => { tracker.commit(plan) })
-
-  useEffect(() => () => tracker.dispose(), [tracker])
-
-  return tracker.view()
+  const reading = useMemo(() => createReading(ctx), [ctx])
+  useEffect(() => () => reading.tracker.dispose(), [reading])
+  return useReading(reading, schedule)
 };

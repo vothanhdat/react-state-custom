@@ -339,6 +339,32 @@ export const liveContext = <D>(name: string, rendered: Context<D>): Context<D> =
 }
 
 /**
+ * The context a component renders with for `name`. On the server nothing publishes or subscribes
+ * (effects never run), so instances need not be shared, and the module-level cache would only grow
+ * per request because eviction lives in an effect cleanup: a throwaway instance there; the HTML comes
+ * out identical.
+ */
+export const contextForRender = <D>(name: string) =>
+  (isServer() ? new Context<D>(name) : getContextInRender(name)) as Context<D>
+
+/**
+ * On commit, hold the context a component rendered with until `release()`: counted while held, and
+ * evicted shortly after the last holder releases it. `ctx` is the live instance (see liveContext),
+ * which is not `rendered` when another component created a fresh one in between: the caller adopts it.
+ */
+export const holdContext = <D>(rendered: Context<D>) => {
+  const live = liveContext(rendered.name, rendered)
+  live.useCounter += 1
+  return {
+    ctx: live,
+    release: () => {
+      live.useCounter -= 1
+      scheduleEvict(live.name, live)
+    },
+  }
+}
+
+/**
  * Non-hook counterpart of `useDataContext`: get the cached Context for `name` and keep it alive
  * until `release()` is called. Used by `storeRef(params)`, which holds a context while no
  * component is committed. On the server it returns a throwaway instance.
@@ -380,27 +406,17 @@ export const useDataContext = <D>(name: string) => {
 
   const [, forceRender] = useState(0)
   const ref = useRef<{ name: string, ctx: Context<any> } | null>(null)
-  if (!ref.current || ref.current.name !== name) {
-    // On the server nothing publishes or subscribes (effects never run), so instances need not be
-    // shared, and the module-level cache would only grow per request because eviction lives in an
-    // effect cleanup. Use a throwaway instance there; the HTML comes out identical.
-    ref.current = { name, ctx: isServer() ? new Context<any>(name) : getContextInRender(name) }
-  }
+  if (!ref.current || ref.current.name !== name) ref.current = { name, ctx: contextForRender(name) }
   const ctx = ref.current.ctx
 
   useEffect(() => {
-    const live = liveContext(name, ctx)
-    if (live !== ctx) {
+    const held = holdContext(ctx)
+    if (held.ctx !== ctx) {
       // someone created a fresh instance in between: adopt it
-      ref.current = { name, ctx: live }
+      ref.current = { name, ctx: held.ctx }
       forceRender(c => c + 1)
     }
-
-    live.useCounter += 1;
-    return () => {
-      live.useCounter -= 1;
-      scheduleEvict(name, live)
-    }
+    return held.release
   }, [ctx, name])
 
   return ctx as Context<D>
