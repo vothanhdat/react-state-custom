@@ -84,6 +84,8 @@ export function createTracker<D>(ctx: Context<D> | undefined) {
   let committed = createReads<D>()
   /** A render has started since the last commit, so `reading` holds the reads of the render being committed. */
   let rendered = false
+  /** The context's revision when that render read it. */
+  let renderedRevision: number | undefined
   const subs = new Map<keyof D, () => void>()
   /** Subscription to every change, held while the render on screen enumerated the keys. */
   let subAll: (() => void) | undefined
@@ -266,9 +268,11 @@ export function createTracker<D>(ctx: Context<D> | undefined) {
       listing = false
       renders++
       rendered = true
-      reading.seen.clear()
-      reading.called.clear()
-      reading.present.clear()
+      renderedRevision = ctx?.revision
+      // usually empty: clearing an empty Map still allocates its table, on every render of every reader
+      if (reading.seen.size > 0) reading.seen.clear()
+      if (reading.called.size > 0) reading.called.clear()
+      if (reading.present.size > 0) reading.present.clear()
       reading.keys = undefined
       reading.ready = ctx?.ready ?? false
     },
@@ -279,6 +283,9 @@ export function createTracker<D>(ctx: Context<D> | undefined) {
      */
     commit(next: Scheduler) {
       open = false
+      // The data has not changed since the render being committed read it: nothing to check below. (A
+      // render of what the server rendered is checked by React, against the snapshot it hydrated with.)
+      const unchanged = rendered && renderedRevision !== undefined && renderedRevision === ctx?.revision
       if (next !== plan) {
         task.cancel()
         plan = next
@@ -305,10 +312,13 @@ export function createTracker<D>(ctx: Context<D> | undefined) {
         if (committed.keys && !subAll) subAll = ctx.subscribeAll(onChange)
         subscribing = false
       }
-      for (const [key, unsub] of subs) {
-        if (!committed.seen.has(key) && !committed.present.has(key)) {
-          unsub()
-          subs.delete(key)
+      // every key read is subscribed now: with no `in` checks, more subscriptions than keys means some were dropped
+      if (committed.present.size > 0 || subs.size > committed.seen.size) {
+        for (const [key, unsub] of subs) {
+          if (!committed.seen.has(key) && !committed.present.has(key)) {
+            unsub()
+            subs.delete(key)
+          }
         }
       }
       if (!committed.keys && subAll) {
@@ -319,6 +329,7 @@ export function createTracker<D>(ctx: Context<D> | undefined) {
       // catch anything published between render and commit (onReady checks at once when it is ready);
       // a schedule is asked only for a real change: a throttle would spend its window on nothing
       watchReady()
+      if (unchanged) return
       if (plan === SYNC) check()
       else if (hasChanged()) task.request()
     },

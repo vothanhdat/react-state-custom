@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { renderHook, act, waitFor } from '@testing-library/react'
+import { renderHook, render, act, waitFor } from '@testing-library/react'
+import { useLayoutEffect } from 'react'
 import { Context, getContext } from '../src/state-utils/ctx'
 import { useQuickSubscribe } from '../src/state-utils/useQuickSubscribe'
 
@@ -540,5 +541,46 @@ describe('useQuickSubscribe: listing keys', () => {
     act(() => { ctx.publish('b', 2) })
     expect(renders).toBe(before)
     hook.unmount()
+  })
+
+  it('shows a value published between its render and its commit, for a key it had not read before', () => {
+    const ctx = getContext('quick-between-render-and-commit') as Context<{ a: number, b: number }>
+    act(() => {
+      ctx.publish('a', 1)
+      ctx.publish('b', 1)
+    })
+    const Reader = ({ k }: { k: 'a' | 'b' }) => <i data-testid="value">{useQuickSubscribe(ctx)[k]}</i>
+    // publishes in the commit, after the Reader rendered and before its effects subscribe to `b`
+    const Publisher = ({ b }: { b: number }) => {
+      useLayoutEffect(() => { ctx.publish('b', b) }, [b])
+      return null
+    }
+    const { rerender, getByTestId } = render(<><Reader k="a" /><Publisher b={1} /></>)
+    rerender(<><Reader k="b" /><Publisher b={5} /></>)
+    expect(getByTestId('value').textContent).toBe('5')
+  })
+
+  it('drops the subscription of a key it no longer reads', () => {
+    const ctx = getContext('quick-drop-subscription') as Context<{ a: number, b: number }>
+    act(() => {
+      ctx.publish('a', 1)
+      ctx.publish('b', 2)
+    })
+    const active: Record<string, number> = {}
+    const subscribe = ctx.subscribe.bind(ctx)
+    vi.spyOn(ctx, 'subscribe').mockImplementation((key, listener) => {
+      active[key] = (active[key] ?? 0) + 1
+      const off = subscribe(key, listener)
+      return () => {
+        active[key]!--
+        off()
+      }
+    })
+    const hook = renderHook(({ k }: { k: 'a' | 'b' }) => useQuickSubscribe(ctx)[k], { initialProps: { k: 'a' } })
+    expect(active).toEqual({ a: 1 })
+    hook.rerender({ k: 'b' })
+    expect(active).toEqual({ a: 0, b: 1 })
+    hook.unmount()
+    expect(active).toEqual({ a: 0, b: 0 })
   })
 })

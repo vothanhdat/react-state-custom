@@ -121,12 +121,20 @@ const checkResult = (name: string, state: unknown) => {
  */
 export const createRootCtx = <U extends StoreParamsShape<U>, V extends object>(name: string, useFn: (params: U) => V) => {
 
-  const getCtxName = (e: U) => [name, paramsToId(e as ParamsToIdRecord)]
-    .filter(Boolean)
-    .join("?");
+  const getCtxName = (e: U) => {
+    const id = paramsToId(e as ParamsToIdRecord)
+    return name && id ? name + "?" + id : name || id
+  }
+
+  /** The name of each params object a runner renders with: the same object on every render of an instance. */
+  const names = new WeakMap<object, string>()
 
   const useRootState = (e: U) => {
-    const ctxName = getCtxName(e)
+    let ctxName = typeof e === "object" && e !== null ? names.get(e) : undefined
+    if (ctxName === undefined) {
+      ctxName = getCtxName(e)
+      if (typeof e === "object" && e !== null) names.set(e, ctxName)
+    }
     const ctx = useDataContext<V>(ctxName)
     // A test double set with mockStore (react-state-custom/testing) runs in place of the hook, for the
     // whole life of the instance: switching hooks in a running instance would break their order.

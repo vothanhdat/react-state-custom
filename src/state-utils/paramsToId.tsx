@@ -49,18 +49,22 @@ const encodeValue = (value: string | number | bigint | boolean | null) => {
  * paramsToId() // Returns ""
  * ```
  */
-export const paramsToId = (params: ParamsToIdInput = undefined) => Object
-  .keys(params ?? {})
-  .filter(key => params?.[key] !== undefined)
-  .sort()
-  .map(key => {
-    const value = params![key] as string | number | bigint | boolean | null | object;
+export const paramsToId = (params: ParamsToIdInput = undefined) => {
+  if (!params) return ""
+  // built in one pass: every useStore call with params names its instance on every render
+  const keys = Object.keys(params)
+  if (keys.length > 1) keys.sort()
+  let id = ""
+  for (const key of keys) {
+    const value = params[key] as string | number | bigint | boolean | null | object | undefined;
+    if (value === undefined) continue
     if (
       value !== null &&
       (typeof value === "object" || typeof value === "function")
     ) {
       throw new Error(`Parameter "${key}" must be a primitive value (string, number, bigint, boolean, null, or undefined), but received ${typeof value}`)
     }
-    return encodeURIComponent(key) + '=' + encodeValue(value)
-  })
-  .join("&");
+    id += (id ? "&" : "") + encodeURIComponent(key) + '=' + encodeValue(value)
+  }
+  return id
+};
