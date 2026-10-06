@@ -33,9 +33,10 @@ const hasValues = (live: Record<PropertyKey, unknown>) => {
 }
 
 const outOfRenderWarning = (key: PropertyKey) =>
-  `useStore: "${String(key)}" was read outside of render (e.g. in an event handler or effect). ` +
-  `The value is current, but this read is not tracked, so later changes to it will not re-render the component. ` +
-  `Read it during render and capture it, or use storeRef(params).get() for reads outside render.`
+  `useStore: "${String(key)}" was read outside the render of the component that called useStore: in an event ` +
+  `handler, an effect, or a child component the proxy was passed to. The value is current, but this read is not ` +
+  `tracked, so later changes to it re-render nothing. Read it during that render and pass the value on, call ` +
+  `useStore in the component that reads it, or use storeRef(params).get() in a handler.`
 
 const restWarning = (name: string) =>
   `useStore: the state of "${name}" was spread during render. That reads every key, ` +
@@ -134,9 +135,11 @@ export function createTracker<D>(ctx: Context<D> | undefined) {
       if (typeof p === "symbol" || (!Object.hasOwn(current, p) && p in Object.prototype)) return current[p]
       const key = p as keyof D
       const value = current[key]
-      const out = typeof value === "function" && functionSources.has(value) ? probeFor(key, value) : value
+      const action = typeof value === "function" && functionSources.has(value)
+      const out = action ? probeFor(key, value) : value
       if (!open) {
-        if (!isProduction && !warned.has(key)) {
+        // an action needs no subscription: it keeps its identity and runs the latest implementation
+        if (!isProduction && !action && !warned.has(key)) {
           warned.add(key)
           console.warn(outOfRenderWarning(key))
         }

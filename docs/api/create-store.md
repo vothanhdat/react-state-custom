@@ -49,7 +49,7 @@ The reader hook. Returns a proxy that records which keys the component reads dur
 Every key is `undefined` until the store has run once, and the type says so: a store starts when its first reader asks for it, so the first render of that reader never has its values. Default at the read (`count ?? 0`) or render a loading state. See [Before the data arrives](/guide/getting-started#before-the-data-arrives).
 
 - The proxy is a new object on every render.
-- Reads outside render return the current value, are not tracked, and log a development warning. See [Reads outside render](/guide/reads-outside-render).
+- Reads outside render, and reads by a child component the proxy was passed to once it renders on its own, return the current value, are not tracked, and log a development warning; calling an action through the proxy in a handler is fine. See [Reads outside render](/guide/reads-outside-render).
 - The proxy is read-only: writing to it throws in development.
 - `options.schedule` says when the component re-renders for a change: a [scheduler](/api/schedulers) such as `frame()`, `throttle(ms)`, `debounce(ms)` or `idle(ms)`. By default it follows the store's `schedule` option, or re-renders at once. See [Update cadence](/guide/update-cadence).
 

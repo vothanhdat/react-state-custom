@@ -17,7 +17,7 @@ const root = resolve(__dirname, '..')
 const devOnly = [
   'was spread during render',               // useQuickSubscribe: spread warning
   'is read-only. A write here',             // useQuickSubscribe: write through the proxy
-  'was read outside of render',             // useQuickSubscribe: untracked read
+  'was read outside the render of',         // useQuickSubscribe: untracked read
   'More than one <AutoRootCtx',             // second root
   'Two different stores are named',         // duplicate store name
   'was called with a selector',             // selector toggled at a call site

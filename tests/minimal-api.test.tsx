@@ -116,6 +116,45 @@ describe('useStore(params, { select })', () => {
     expect(getByTestId('label').textContent).toBe('Beta')
   })
 
+  it('reads outside render: an action logs nothing, a value warns, as does a child reading the proxy it was passed', async () => {
+    const { useStore } = itemStore()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => { })
+    const log = vi.spyOn(console, 'log').mockImplementation(() => { })
+    let show: (() => void) | undefined
+    const Child = ({ item }: { item: ReturnType<typeof useStore> }) => {
+      const [shown, setShown] = useState(false)
+      show = () => setShown(true)
+      return <span data-testid="child">{shown ? item.label : null}</span>
+    }
+    const Row = () => {
+      const item = useStore({ id: 'a' })
+      return <>
+        <button data-testid="hit" onClick={() => item.hit?.()} />
+        <button data-testid="log" onClick={() => console.log(item.hits)} />
+        <Child item={item} />
+      </>
+    }
+    const { getByTestId } = render(<><AutoRootCtx /><Row /></>)
+    await tick()
+
+    await act(async () => { getByTestId('hit').click() })
+    expect(warn).not.toHaveBeenCalled()
+
+    await act(async () => { getByTestId('log').click() })
+    expect(log).toHaveBeenCalledWith(1)
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]![0]).toContain('"hits" was read outside the render of the component that called useStore')
+
+    // the child renders on its own, after the parent's render: its read is not tracked
+    await act(async () => { show!() })
+    expect(getByTestId('child').textContent).toBe('A')
+    expect(warn).toHaveBeenCalledTimes(2)
+    expect(warn.mock.calls[1]![0]).toContain('"label" was read outside the render')
+    expect(warn.mock.calls[1]![0]).toContain('a child component the proxy was passed to')
+    log.mockRestore()
+    warn.mockRestore()
+  })
+
   it('says where the options go when they are passed as params', () => {
     const { useStore } = itemStore()
     const error = vi.spyOn(console, 'error').mockImplementation(() => { })

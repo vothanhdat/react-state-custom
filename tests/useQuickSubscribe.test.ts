@@ -366,7 +366,7 @@ describe('useQuickSubscribe', () => {
     expect(result.current.value).toBe(123)
     expect(result.current.value).toBe(123)
     expect(warn).toHaveBeenCalledTimes(1)
-    expect(warn.mock.calls[0][0]).toContain('"value" was read outside of render')
+    expect(warn.mock.calls[0][0]).toContain('"value" was read outside the render of the component that called useStore')
     warn.mockRestore()
   })
 

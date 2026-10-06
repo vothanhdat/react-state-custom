@@ -7,6 +7,9 @@ All notable changes to this project are documented here.
 - `useSyncExternalStore(ref.subscribe, ref.get)` rendered until React gave up ("Maximum update depth exceeded"): `get()` built a new object on every call. `storeRef(params).get()` now returns the same snapshot until the state changes, frozen since every caller shares it.
 - A store hook returning a tuple (`createStore('count', () => useState(0))`) type-checked, then crashed its readers with "useStore is not a function or its return value is not iterable"; one returning nothing published nothing, silently. A hook returning an array, a function or no object is now a type error, and in development its instance fails with a `TypeError` that says to return an object.
 
+### Changed
+- Reading a store action through the `useStore` proxy in an event handler (`store.increment?.()`) no longer logs the "read outside of render" warning: an action needs no subscription. The warning for values now names the case it missed: a child component reading a proxy passed to it as a prop, in a render of its own.
+
 ## [2.0.1] - 2026-10-06
 ### Fixed
 - A failed store with a `timeToClean` kept its failed instance until the timeout, and forever with `Infinity`, so a reader coming back after an error boundary's retry threw again. A failed instance is now torn down as soon as nothing reads or retains it, and at once if it fails while waiting out its `timeToClean`. A `retain()` still keeps it, failed, until released.

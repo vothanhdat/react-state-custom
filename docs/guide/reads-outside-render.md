@@ -17,6 +17,8 @@ const onClick = () => console.log(counterRef().get().count)
 
 Destructure what you need at the top of the component. The value in `count` is the one from the last render, which is what a handler usually wants. For a value that may have changed since, read the store's ref: `counterRef().get()` (see [Outside React](/guide/outside-react)).
 
+Actions are the exception: `store.increment?.()` in a handler logs nothing. An action needs no subscription, since it keeps its identity and always runs the store's latest implementation.
+
 ## Spreading the proxy
 
 `{ ...useStore() }` and `Object.entries(useStore())` read every key, so the component re-renders whenever any of them changes, and when a key is added or removed. The library logs a development warning (once per store) when it sees this during render. Pick the keys you need instead.
@@ -51,6 +53,28 @@ const onSubmit = () => submit(draftRef().get().draft)
 ```
 
 The proxy is a new object on every render. Do not use it as a dependency of `useEffect`, `useMemo` or `useCallback`, and do not store it in a ref for later: use the values read from it. This is also what makes it safe under the [React Compiler](/guide/react-compiler).
+
+### To a child component
+
+A child that gets the proxy as a prop reads it in its own render. While the child renders together with the component that called `useStore`, its reads count as that component's. Once the child re-renders on its own, for its own state or context, its reads are not tracked: it shows the value of that moment, a later change of that key re-renders nothing, and the development warning says so. A new proxy every render also means a `memo` child re-renders with its parent every time.
+
+```tsx
+// ⚠️ the row reads `title` in its own render, which the list's proxy does not track
+const List = () => {
+  const todos = useTodos()
+  return <Row todos={todos} />
+}
+
+// ✅ pass the values, or let the child call the store itself
+const List = () => {
+  const { title } = useTodos()
+  return <Row title={title} />
+}
+const Row = () => {
+  const { title } = useTodos()
+  return <b>{title}</b>
+}
+```
 
 ## Symbols and non-string keys
 
