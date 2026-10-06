@@ -2,7 +2,7 @@ import React, { createContext, useContext, useMemo, useState } from 'react'
 import { createStore as createZustandStore } from 'zustand/vanilla'
 import { useStore as useZustandStore } from 'zustand'
 import { atom, createStore as createJotaiStore, Provider as JotaiProvider, useAtomValue, type Atom } from 'jotai'
-import { AutoRootCtx, createStore } from '../src'
+import { AutoRootCtx, createStore, useMultipleStore } from '../src'
 import type { Counters, World } from './harness'
 
 /**
@@ -103,6 +103,52 @@ export const reactStateCustom: ShopAdapter = {
   },
 }
 
+/**
+ * The same graph with one store instance per line and per checkout, the shape of the Jotai atoms: a line
+ * reads its own item and `discount`, a checkout reads its 10 lines with `useMultipleStore`, the summary
+ * its 10 checkouts. A qty change re-runs one line, one checkout and the summary.
+ */
+export const reactStateCustomPerLine: ShopAdapter = {
+  name: 'react-state-custom, store per line',
+  exportName: 'reactStateCustomPerLine',
+  create() {
+    const counters = { renders: 0, derives: 0 }
+    const calc = calcFor(counters)
+    const { useStore: useConfig, storeRef: getConfig } = createStore(`shop-config-${worldId++}`, () => {
+      const [state, setState] = useState(initialConfig)
+      return { ...state, patch: (p: Partial<Config>) => setState(c => ({ ...c, ...p })) }
+    })
+    const { useStore: useItems, storeRef: getItems } = createStore(`shop-items-${worldId++}`, () => {
+      const [state, setState] = useState(initialItems)
+      const setQty = (id: string, qty: number) => setState(it => ({ ...it, [id]: { ...it[id], qty } }))
+      return { ...state, setQty } as Items & { setQty: typeof setQty }
+    })
+    const { useStore: useLine, storeRef: lineRef } = createStore(`shop-line-${worldId++}`, ({ id }: { id: string }) => {
+      const item = useItems()[id]
+      const { discount } = useConfig()
+      return { total: calc.line(item ?? emptyItem, discount ?? 0) }
+    })
+    const { useStore: useCheckout, storeRef: checkoutRef } = createStore(`shop-checkout-${worldId++}`, ({ g }: { g: number }) => {
+      const lines = useMultipleStore(groupIds(g).map(id => lineRef({ id })))
+      const { vat } = useConfig()
+      return { total: calc.checkout(lines.map(line => line.total ?? 0), vat ?? 0) }
+    })
+    const { useStore: useSummary } = createStore(`shop-summary-${worldId++}`, () => {
+      const checkouts = useMultipleStore(groups.map(g => checkoutRef({ g })))
+      return { grandTotal: calc.summary(checkouts.map(checkout => checkout.total ?? 0)) }
+    })
+    const read = (role: Role) => role.kind === 'line' ? useLine({ id: role.id }).total : role.kind === 'checkout' ? useCheckout({ g: role.g }).total : useSummary().grandTotal
+    return {
+      counters,
+      Providers: ({ children }) => <><AutoRootCtx />{children}</>,
+      Consumer: ({ k }) => { counters.renders++; return <i>{read(roleOf(k))}</i> },
+      update: (kind, tick) => kind === 'qty'
+        ? getItems().get().setQty!(itemId(tick % ITEMS), tick)
+        : getConfig().get().patch!(configPatch(kind, tick)),
+    }
+  },
+}
+
 /** Derived values are kept in the store and recomputed by every write, the usual Zustand pattern. */
 export const zustand: ShopAdapter = {
   exportName: 'zustand',
@@ -185,4 +231,4 @@ export const reactContext: ShopAdapter = {
   },
 }
 
-export const shopAdapters: ShopAdapter[] = [reactStateCustom, zustand, jotai, reactContext]
+export const shopAdapters: ShopAdapter[] = [reactStateCustom, reactStateCustomPerLine, zustand, jotai, reactContext]

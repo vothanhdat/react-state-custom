@@ -5,7 +5,11 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const LIBRARIES = ['react-state-custom', 'zustand', 'jotai', 'React context']
-const ARRAY = 'react-state-custom, array in one key'
+/** Other react-state-custom adapters of a scenario, each printed as a row of its own under it. */
+const VARIANTS = [
+  { library: 'react-state-custom, array in one key', row: s => `${s.split(':')[0]}: same, array under one key` },
+  { library: 'react-state-custom, store per line', row: s => `${s.replace(/ \(.*\)$/, '')}, store per line` },
+]
 
 const median = list => {
   const sorted = [...list].sort((a, b) => a - b)
@@ -35,8 +39,10 @@ export function summarize(data) {
   lines.push('| scenario | ' + LIBRARIES.join(' | ') + ' |', '|---|' + LIBRARIES.map(() => '---').join('|') + '|')
   for (const s of scenarios('scenarios')) {
     lines.push(`| ${s} | ${LIBRARIES.map(l => ms(find(s, l)?.median)).join(' | ')} |`)
-    const array = find(s, ARRAY)
-    if (array) lines.push(`| ${s.split(':')[0]}: same, array under one key | ${ms(array.median)} | | | |`)
+    for (const v of VARIANTS) {
+      const variant = find(s, v.library)
+      if (variant) lines.push(`| ${v.row(s)} | ${ms(variant.median)} | | | |`)
+    }
   }
 
   const nested = scenarios('nested')
