@@ -155,6 +155,34 @@ describe('useStore(params, { select })', () => {
     warn.mockRestore()
   })
 
+  it('a proxy passed to a child: React diffing the props in development subscribes the parent to nothing and warns nothing', async () => {
+    const { useStore, storeRef } = itemStore()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => { })
+    type Item = ReturnType<typeof useStore>
+    const Child = ({ item, items }: { item: Item, items: Item[] }) => <span data-testid="child">{item.label}{items[0]!.label}</span>
+    let rowCommits: { count: number } | undefined
+    const Row = () => {
+      rowCommits = useCommits()
+      return <Child item={useStore({ id: 'a' })} items={useMultipleStore([storeRef({ id: 'b' })])} />
+    }
+    const { getByTestId } = render(<><AutoRootCtx /><Row /></>)
+    await tick()
+    expect(getByTestId('child').textContent).toBe('AB')
+
+    // a re-render with new props: React's development build reads every key of both proxies to diff them
+    await act(async () => { storeRef({ id: 'a' }).get().setLabel!('A2') })
+    await act(async () => { storeRef({ id: 'b' }).get().setLabel!('B2') })
+    expect(getByTestId('child').textContent).toBe('A2B2')
+    const before = rowCommits!.count
+
+    // keys neither component read
+    await act(async () => { storeRef({ id: 'a' }).get().hit!() })
+    await act(async () => { storeRef({ id: 'b' }).get().hit!() })
+    expect(rowCommits!.count).toBe(before)
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
   it('says where the options go when they are passed as params', () => {
     const { useStore } = itemStore()
     const error = vi.spyOn(console, 'error').mockImplementation(() => { })

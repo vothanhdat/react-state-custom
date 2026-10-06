@@ -94,6 +94,17 @@ export function createTracker<D>(ctx: Context<D> | undefined) {
 
   const warned = new Set<PropertyKey>()
 
+  /** Renders so far: each view of a render knows its number (development only, see `listing`). */
+  let renders = 0
+  /**
+   * Development only. React's development build lists the keys of a proxy passed as a prop and reads
+   * every one of them, to diff the props of the component in each commit: the proxy of the render
+   * before (a render never lists that one) first, then the new one, before `commit` stops recording.
+   * Listing the keys of an earlier view, or of any view outside render, stops recording and warning
+   * until the next render or microtask: those reads are not the render's.
+   */
+  let listing = false
+
   /**
    * What a read of a store function returns: a function bound to this component that records a call
    * made while rendering, so a new implementation (a `useCallback` whose deps changed) re-renders it.
@@ -137,9 +148,9 @@ export function createTracker<D>(ctx: Context<D> | undefined) {
       const value = current[key]
       const action = typeof value === "function" && functionSources.has(value)
       const out = action ? probeFor(key, value) : value
-      if (!open) {
+      if (!open || listing) {
         // an action needs no subscription: it keeps its identity and runs the latest implementation
-        if (!isProduction && !action && !warned.has(key)) {
+        if (!isProduction && !action && !listing && !warned.has(key)) {
           warned.add(key)
           console.warn(outOfRenderWarning(key))
         }
@@ -149,12 +160,16 @@ export function createTracker<D>(ctx: Context<D> | undefined) {
       return out
     },
     has(target, p) {
-      if (open && typeof p !== "symbol") reading.present.set(p as keyof D, Object.hasOwn(target, p))
+      if (open && !listing && typeof p !== "symbol") reading.present.set(p as keyof D, Object.hasOwn(target, p))
       return Reflect.has(target, p)
     },
-    ownKeys(target) {
+    ownKeys(this: { render?: number }, target) {
       const keys = Reflect.ownKeys(target)
-      if (open) reading.keys = keys
+      if (!isProduction && !listing && (!open || this.render !== renders)) {
+        listing = true
+        queueMicrotask(() => { listing = false })
+      }
+      if (open && !listing) reading.keys = keys
       return keys
     },
     ...(isProduction ? {} : { set: refuseWrite, deleteProperty: refuseWrite, defineProperty: refuseWrite }),
@@ -166,7 +181,7 @@ export function createTracker<D>(ctx: Context<D> | undefined) {
    * the keys the helper reads would stop being tracked. A new object each render keeps every read
    * observable; the compiler still memoises on the primitive values read out of it.
    */
-  const view = () => new Proxy(readable() as any, handler) as { [P in keyof D]?: D[P] | undefined }
+  const view = () => new Proxy(readable() as any, isProduction ? handler : Object.assign(Object.create(handler), { render: renders })) as { [P in keyof D]?: D[P] | undefined }
 
   const hasChanged = () => {
     const current = data()
@@ -248,6 +263,8 @@ export function createTracker<D>(ctx: Context<D> | undefined) {
       // what the server rendered from: stores never run there, so every key reads undefined
       rendering = snapshot === FROM_SERVER ? {} : undefined
       open = true
+      listing = false
+      renders++
       rendered = true
       reading.seen.clear()
       reading.called.clear()
