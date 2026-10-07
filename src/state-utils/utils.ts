@@ -206,7 +206,13 @@ export const shallowEqual = (a: unknown, b: unknown): boolean => {
   if (Object.getPrototypeOf(a) !== Object.getPrototypeOf(b)) return false
   if (Array.isArray(a)) {
     const other = b as unknown[]
-    return a.length === other.length && a.every((item, i) => Object.is(item, other[i]))
+    if (a.length !== other.length) return false
+    // an index loop, not every(): every() skips holes, so `new Array(1)` would equal `[42]`.
+    // A hole and `undefined` differ too: `map` skips the hole.
+    for (let i = 0; i < a.length; i++) {
+      if (!Object.is(a[i], other[i]) || (a[i] === undefined && (i in a) !== (i in other))) return false
+    }
+    return true
   }
   if (a instanceof Map) {
     const other = b as Map<unknown, unknown>

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, act } from '@testing-library/react'
 import { useMemo, useState } from 'react'
-import { createStore, AutoRootCtx } from '../src'
+import { createStore, useMultipleStore, AutoRootCtx } from '../src'
 import { shallowEqual } from '../src/state-utils/utils'
 
 describe('shallowEqual', () => {
@@ -19,6 +19,16 @@ describe('shallowEqual', () => {
     expect(shallowEqual(new Set([1]), new Set([2]))).toBe(false)
     expect(shallowEqual(NaN, NaN)).toBe(true)
     expect(shallowEqual(0, -0)).toBe(false)
+  })
+
+  it('compares every index of an array, holes included', () => {
+    expect(shallowEqual(new Array(1), [42])).toBe(false)
+    expect(shallowEqual([42], new Array(1))).toBe(false)
+    expect(shallowEqual(new Array(1), [undefined])).toBe(false)          // map() skips a hole
+    expect(shallowEqual([undefined], new Array(1))).toBe(false)
+    expect(shallowEqual(new Array(2), new Array(2))).toBe(true)
+    expect(shallowEqual([, 1], [, 1])).toBe(true)
+    expect(shallowEqual([, 1], [1, ,])).toBe(false)
   })
 
   it('treats other objects as equal only when they are the same object', () => {
@@ -46,5 +56,20 @@ describe('shallowEqual', () => {
     await act(async () => { storeRef().get().setStatus!('a', 'done') })
     expect(plain).toBeGreaterThan(before.plain)
     expect(shallow).toBe(before.shallow)
+  })
+
+  it('re-renders a selection when a hole of a sparse array is filled', async () => {
+    const { useStore, storeRef } = createStore('shallow-equal-slots', () => {
+      const [slots, setSlots] = useState<(number | undefined)[]>(() => new Array(3))
+      return { slots, place: (i: number, value: number) => setSlots(s => { const next = s.slice(); next[i] = value; return next }) }
+    })
+    const show = (slots: readonly (number | undefined)[]) => Array.from(slots, v => v ?? '_').join(',')
+    const One = () => <p>one {show(useStore(undefined, { select: s => s.slots ?? [] }))}</p>
+    const Many = () => <p>many {show(useMultipleStore([storeRef()], { select: ([s]) => s?.slots ?? [] }))}</p>
+    const { container } = render(<><AutoRootCtx /><One /><Many /></>)
+    await act(async () => { })
+    expect(container.textContent).toBe('one _,_,_many _,_,_')
+    await act(async () => { storeRef().get().place!(1, 42) })
+    expect(container.textContent).toBe('one _,42,_many _,42,_')
   })
 })
