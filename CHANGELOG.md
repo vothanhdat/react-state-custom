@@ -4,6 +4,9 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Changed
+- `AI_CONTEXT.md`, the guide for AI assistants, follows the docs' principles: the model (a store as a small service, lazy, eventually consistent), the ten rules of the Rules page in the same order, and a golden path in the four store layers (domain, a core store whose command returns an outcome and whose failed request is state, a UI store and a plain hook, views that check before reading) instead of a counter. It no longer says to mount `AutoRootCtx` at the top and never to use providers: it goes inside the providers the stores read. CI type-checks its code blocks with the docs'.
+
 ## [2.0.4] - 2026-10-07
 Documentation only. The built code is the same as 2.0.3's; the package's README, which npm shows, is the shorter one below.
 

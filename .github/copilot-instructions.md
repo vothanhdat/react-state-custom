@@ -21,16 +21,9 @@ up to date with every release. This file only adds repository-specific notes.
   by the same Pages workflow. `docs/changelog.md` and `docs/benchmarks.md` include `CHANGELOG.md` and
   `bench/README.md`; `API_DOCUMENTATION.md` is a redirect, the reference lives in `docs/api/`.
 
-## Golden path (what generated code should use)
-- The API: `createStore(name, useFn, { timeToClean?, schedule? })` returns `{ useStore, storeRef }`;
-  `useMultipleStore(refs, options?)`; `<AutoRootCtx />` mounted once at the root. Nothing else is exported from
-  the main entry; the 1.x APIs were removed in 2.0.
-- `useStore(params?)` returns the proxy: destructure during render; it tracks reads and is a new object every render
-  (React Compiler safe). `useStore(params, { select, isEqual?, schedule? })` selects, compared shallowly by default.
-- A store hook that throws disables that instance only; its readers throw its error for their own error boundary.
-- Params are primitives only (`paramsToId` throws otherwise). Same params = shared instance.
-- Stores are lazy: values are `undefined` until the hook has run, by design. Read with `??`/`?.`, call actions with `?.()`.
-- Values from two stores can disagree for one render (a store publishes one commit after the stores it reads): check before reading, join by id, keep decisions that need several stores in one store.
+## Generated code
+- Follow `AI_CONTEXT.md`: the model, the API, the ten rules, the four store layers and the patterns. Its rules are
+  `docs/guide/rules.md` with the same numbering: change both together. `yarn test:docs-code` type-checks its code blocks.
 
 ## Internals worth knowing when editing the core
 - `Context.publish` uses `Object.is`; every reader (proxy, selection, useMultipleStore) is built on `useSyncExternalStore`.
