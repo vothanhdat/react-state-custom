@@ -4,6 +4,9 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-07
+Read-only types for what readers get and for params, and a fix to the default `isEqual` of `select`, the one change at runtime. The minor version is for the types: code that writes to what `useStore` returns, to `storeRef(params).get()` or inside `select` no longer compiles.
+
 ### Changed
 - Types: what readers get is read-only. The keys of `StoreState`, which `useStore` returns, `storeRef(params).get()` returns, and `select` and `subscribe` listeners receive, are `readonly`, so `store.count = 1`, `delete store.count` or a write inside `select` is a compile error. At runtime only a write to the proxy is refused, and only in development; `select` receives the store's own data, where a write changed it for every reader without notifying them. Params are `Readonly<Params>` in `useStore`, `storeRef`, the store hook and the testing helpers: their values name the instance, and a reader reads them again only when it gets a different object, so pass a new object rather than changing one you passed. Only the keys are read-only: arrays and objects under them keep their types, and a read-only key still passes where a mutable type is expected.
 - `AI_CONTEXT.md`, the guide for AI assistants, follows the docs' principles: the model (a store as a small service, lazy, eventually consistent), the ten rules of the Rules page in the same order, and a golden path in the four store layers (domain, a core store whose command returns an outcome and whose failed request is state, a UI store and a plain hook, views that check before reading) instead of a counter. It no longer says to mount `AutoRootCtx` at the top and never to use providers: it goes inside the providers the stores read. CI type-checks its code blocks with the docs'.
@@ -357,7 +360,8 @@ Marked `@deprecated`, so editors strike them through; they work as before in 1.x
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.4...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.4...v2.1.0
 [2.0.4]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.3...v2.0.4
 [2.0.3]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.2...v2.0.3
 [2.0.2]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.1...v2.0.2
