@@ -210,3 +210,47 @@ export const LabelOf = ({ useLabel }: { useLabel: UseStore<{ id: string }, { lab
   assert<Equals<typeof label, string>>()
   return null
 }
+
+// What a reader gets is read-only: the store changes its state in its own hook
+export const ReadOnlyState = () => {
+  const counter = interfaces.useStore({ initial: 1 })
+  // @ts-expect-error the proxy is read-only (development throws)
+  counter.count = 2
+  // @ts-expect-error nor can a key be deleted
+  delete counter.count
+  // @ts-expect-error the snapshot is shared and frozen
+  interfaces.storeRef({ initial: 1 }).get().count = 2
+  interfaces.useStore({ initial: 1 }, {
+    select: s => {
+      // @ts-expect-error select reads the store's own data
+      s.count = 2
+      return s.count
+    },
+  })
+  useMultipleStore([interfaces.storeRef({ initial: 1 })], {
+    select: ([a]) => {
+      // @ts-expect-error each state too
+      a.count = 2
+      return a.count
+    },
+  })
+  // readonly keys still pass for the mutable types a codebase declares
+  const takesCounter = (_: { count?: number }) => { }
+  takesCounter(counter)
+  const copy: StoreState<CounterState> = { ...counter }
+  expectType<number | undefined>(copy.count)
+  return null
+}
+
+// Params are read-only where the library takes them; a mutable object and an `as const` one both pass
+const counterParams = { initial: 1 }
+interfaces.storeRef(counterParams)
+interfaces.storeRef({ initial: 1 } as const)
+assert<Equals<Parameters<typeof interfaces.storeRef>, [params: Readonly<CounterParams>]>>()
+// the hook's own params type is still what createStore infers
+assert<Equals<typeof interfaces, Store<CounterParams, CounterState>>>()
+export const readOnlyParams = createStore('types-readonly-params', (params: { id: string }) => {
+  expectType<string>(params.id)
+  return { id: params.id }
+})
+assert<Equals<typeof readOnlyParams, Store<{ id: string }, { id: string }>>>()

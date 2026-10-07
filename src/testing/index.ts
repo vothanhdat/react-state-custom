@@ -23,10 +23,10 @@ type ParamsOf<F> = TypesOf<F>[0]
 type StateOf<F> = TypesOf<F>[1]
 
 /** What `waitForStore(store, params, keys)` resolves with: the keys it waited for hold a value. */
-type StoreStateWith<V, K extends keyof V> = StoreState<V> & { [P in K]-?: Exclude<V[P], undefined> }
+type StoreStateWith<V, K extends keyof V> = StoreState<V> & { readonly [P in K]-?: Exclude<V[P], undefined> }
 
 /** The params argument when more arguments follow it: `undefined` is accepted when no param is required. */
-type ParamsArg<F> = {} extends ParamsOf<F> ? ParamsOf<F> | undefined : ParamsOf<F>
+type ParamsArg<F> = {} extends ParamsOf<F> ? Readonly<ParamsOf<F>> | undefined : Readonly<ParamsOf<F>>
 
 const entryOf = (store: unknown, caller: string): StoreEntry => {
   const entry = typeof store === "function" ? storeEntries.get(store) : undefined

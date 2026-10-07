@@ -535,14 +535,21 @@ export type StoreSelect<S, R> = StoreReadOptions & {
   isEqual?: (a: R, b: R) => boolean
 }
 
-/** `useStore(params)`: `params` can be omitted when the store has no required params. */
-export type StoreParams<U> = {} extends U ? [params?: U] : [params: U]
+/**
+ * `useStore(params)`: `params` can be omitted when the store has no required params. Read-only: the
+ * values name the instance, and a reader reads them again only when it gets a new object. Pass a new
+ * object (`useStore({ id })`) rather than changing one you passed.
+ */
+export type StoreParams<U> = {} extends U ? [params?: Readonly<U>] : [params: Readonly<U>]
 
 /** Turns a store hook returning an array or a function into a type error that says what to return. */
 type ObjectResult<V> = V extends readonly unknown[] | Function ? "a store hook returns an object of keys, not an array or a function" : unknown
 
-/** What `useStore` returns: every key optional, `undefined` until the store has run once. */
-export type StoreState<V> = { [P in keyof V]?: V[P] | undefined }
+/**
+ * What `useStore` returns: every key optional, `undefined` until the store has run once. Read-only:
+ * a store changes its state in its own hook, and every reader shares what it published.
+ */
+export type StoreState<V> = { readonly [P in keyof V]?: V[P] | undefined }
 
 /**
  * One instance of a store, as `storeRef(params)` returns it: read it and keep it running from code
@@ -582,7 +589,7 @@ export type StoreRef<V> = {
 export interface UseStore<U, V> {
   // the selection first: options without `select` fall through to the proxy
   // params may be undefined only when every param is optional
-  <R>(params: {} extends U ? U | undefined : U, options: StoreSelect<StoreState<V>, R>): R
+  <R>(params: {} extends U ? Readonly<U> | undefined : Readonly<U>, options: StoreSelect<StoreState<V>, R>): R
   (...args: [...StoreParams<U>, options?: StoreReadOptions]): StoreState<V>
 }
 
@@ -591,6 +598,8 @@ export type Store<U, V> = {
   /**
    * Read the instance for `params`, starting it if nothing runs it yet. Without `select`, a proxy
    * that re-renders the component only for the keys it read; with `select`, the selected value.
+   * `params` is read again only when it is a different object: pass a new one (`useStore({ id })`),
+   * never change one you passed.
    */
   useStore: UseStore<U, V>
   /** The instance for `params`, outside React or for `useMultipleStore`. */
@@ -607,7 +616,7 @@ export type Store<U, V> = {
  */
 export function createStore<U extends StoreParamsShape<U>, V extends object>(
   name: string,
-  useFn: (params: U) => V & ObjectResult<V>,
+  useFn: (params: Readonly<U>) => V & ObjectResult<V>,
   options: StoreOptions = {},
 ): Store<U, V> {
   if (!isProduction) checkOptions(name, options, arguments.length - 3)
