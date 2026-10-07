@@ -3,13 +3,17 @@
 All notable changes to this project are documented here.
 
 ## [Unreleased]
+
+## [2.0.4] - 2026-10-07
+Documentation only. The built code is the same as 2.0.3's; the package's README, which npm shows, is the shorter one below.
+
 ### Fixed
 - Docs: two examples did not type-check. Error handling reported through a function named like the browser's `reportError`, which takes one argument; the example of a proxy passed to a child passed props to a `Row` that took none. CI now type-checks the TypeScript blocks of the docs and the README against the library (`yarn test:docs-code`), so an example using a removed export, an unknown option or a wrong argument fails the build.
 - Docs: Introduction and Limitations quoted older benchmark ratios (1.6–2.6x Jotai's time in jsdom, 1.1–1.6x in Chrome) instead of the current 1.3–2.1x and 1.1–1.3x, and Testing said the readers of a mock that throws keep its last values, as in 1.x; they throw its error.
 
 ### Changed
-- Docs: two entry pages. Rules lists in one page what the library adds to the rules of hooks, each with a link to its page; For React developers maps what a React developer knows onto stores, compares the library with Jotai, RTK Query, Zustand and Redux (moved from the README), and says what it costs. The sidebar starts with them, and keeps the patterns (layers, progressive data, realtime, events) and the integrations (testing, dev tools, SSR, concurrent rendering, React Compiler) in collapsed groups.
-- Docs: a shorter way in. The README drops its How it works and Quick Start sections and the long comparison (now in For React developers) for a summary of the API and a paragraph on Jotai, RTK Query and Zustand: 1,985 words to 1,184. The Introduction page is folded into the home page, which gains its When it fits section; its old address sends readers there, and the Guide link opens Getting started. Limitations says what an update costs in one paragraph and leaves the rest to How it works.
+- Docs: two entry pages. Rules lists in one page what the library adds to the rules of hooks, each with a link to its page; For React developers maps what a React developer knows onto stores, compares the library with Jotai, RTK Query, Zustand and Redux (moved from the README), and says what it costs. The sidebar starts with them, and keeps the patterns (progressive data, realtime, events) and the integrations (testing, dev tools, SSR, concurrent rendering, React Compiler) in collapsed groups.
+- Docs: a shorter way in. The README drops its How it works and Quick Start sections and the long comparison (now in For React developers) for a summary of the API and a paragraph on Jotai, RTK Query and Zustand: 1,986 words to 1,188. The Introduction page is folded into the home page, which gains its When it fits section; its old address sends readers there, and the Guide link opens Getting started. Limitations says what an update costs in one paragraph and leaves the rest to How it works.
 - Docs: Organizing stores in layers (domain, core stores, UI stores and hooks, views) is on the way in: in the Start group of the sidebar, linked from Getting started, Rules, the home page and the README, and summed up in For React developers.
 - Docs: the home page names what 2.0 adds (`useMultipleStore`, schedules, a store that throws failing alone) and links Migrating to 2.0.
 
@@ -346,7 +350,8 @@ Marked `@deprecated`, so editors strike them through; they work as before in 1.x
 ## [1.0.31] - 2025-11-25
 - Last tagged release before this changelog was introduced (see git history for details).
 
-[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.3...HEAD
+[Unreleased]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.4...HEAD
+[2.0.4]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.3...v2.0.4
 [2.0.3]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.2...v2.0.3
 [2.0.2]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/vothanhdat/react-state-custom/compare/v2.0.0...v2.0.1
