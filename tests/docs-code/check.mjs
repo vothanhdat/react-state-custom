@@ -1,4 +1,4 @@
-// Type-checks the ts/tsx code blocks of the docs and the README against the library's source, so an example
+// Type-checks the ts/tsx code blocks of the docs, the README and AI_CONTEXT.md against the library's source, so an example
 // that uses an API wrongly (an export that does not exist, an unknown option, a wrong argument) fails CI.
 // A block is a sketch, not a program: names it uses without declaring them (`socket`, `fetchUser`, the
 // store of an earlier block) are allowed, as are blocks that do not parse on their own (a signature, a
@@ -47,7 +47,7 @@ const pageImports = { screen: `import { screen } from '@testing-library/react'` 
 const outsideTheLibrary = d => d.code === 2307 && !/['"]react-state-custom[/'"]/.test(ts.flattenDiagnosticMessageText(d.messageText, '\n'))
 
 // every ```ts / ```tsx block, as its own module
-const pages = [join(repo, 'README.md')]
+const pages = [join(repo, 'README.md'), join(repo, 'AI_CONTEXT.md')]
 const walk = dir => {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     if (e.name.startsWith('.') || e.name === 'node_modules') continue
