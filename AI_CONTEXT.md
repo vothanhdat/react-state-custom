@@ -38,7 +38,7 @@ Schedulers come from `react-state-custom/schedulers`, test helpers from `react-s
 
 2. **Mount one `<AutoRootCtx />`, inside the providers your stores use.** Store hooks run in it, so `useContext` in a store reads the providers above it (query client, router, i18n), not the ones around the reader. There is no provider per store. A new `key` on it starts every store afresh.
 
-3. **Same name and params, same instance.** Params say which instance; they are not props or initial values: `useTasks({ projectId })`, not `useCounter({ initial: 10 })`. They are an object of primitives; a store without params is called `useX()`. Callers with the same params share everything the hook holds, so keep per-view state (a cursor, a selection) in the component, or in the params (`{ documentId, viewId }`). Store names are global: keep them unique.
+3. **Same name and params, same instance.** Params say which instance; they are not props or initial values: `useTasks({ projectId })`, not `useCounter({ initial: 10 })`. They are an object of primitives, a new one each call (never change one you passed); a store without params is called `useX()`. Callers with the same params share everything the hook holds, so keep per-view state (a cursor, a selection) in the component, or in the params (`{ documentId, viewId }`). Store names are global: keep them unique.
 
 4. **Every key is `undefined` until the store has run**, actions included, and typed optional: a store starts when its first reader mounts. Default at the read (`count ?? 0`, `const { isLoading = true } = ...`; a constant defined once where identity matters). Never cast it away with `!` or `as Required<...>`.
 

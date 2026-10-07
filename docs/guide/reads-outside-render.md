@@ -27,7 +27,7 @@ Actions are the exception: `store.increment?.()` in a handler logs nothing. An a
 
 ## Writing to the proxy
 
-The proxy is read-only. `store.count = 1` or `delete store.count` would change the data under every reader without notifying any of them, so in development it throws a `TypeError`. Change state inside the store hook, for example with a setter it returns.
+The proxy is read-only. `store.count = 1` or `delete store.count` would change the data under every reader without notifying any of them, so TypeScript rejects it and in development it throws a `TypeError`. Change state inside the store hook, for example with a setter it returns.
 
 ## Passing the proxy around
 

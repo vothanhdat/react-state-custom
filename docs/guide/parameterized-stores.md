@@ -15,6 +15,7 @@ Each instance runs its own copy of the hook with its own state and effects, and 
 ## Rules
 
 - **Params must be primitives**: `string`, `number`, `bigint`, `boolean`, `null` or `undefined`. Passing an object, array or function as a param throws, because they cannot be serialized into a stable identity, and TypeScript rejects a params type with such a value. Params and state may be declared with `interface` or `type`.
+- **Pass a new object, never change one you passed.** A reader reads the params again only when it gets a different object, so changing `params.listId` on the object it already has keeps it on the old instance. The types mark params read-only; passing them inline, `useTodoStore({ listId })`, is enough.
 - **Key order does not matter.** `{ a: 1, b: 2 }` and `{ b: 2, a: 1 }` are the same instance.
 - **Values are URI-encoded.** `=`, `&` and `?` inside a value cannot collide with another params object. The identity of `{ listId: 'work' }` under the name `todos` is `todos?listId=work`.
 - **`undefined` means absent.** `{ listId: 'work', filter: undefined }` and `{ listId: 'work' }` are the same instance, so optional params can be passed straight through.

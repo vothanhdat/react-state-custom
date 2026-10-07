@@ -6,7 +6,7 @@ A store is a React hook, so what you know about hooks holds inside it. These are
 
 2. **Mount one `AutoRootCtx`, inside the providers your stores use.** Store hooks run in it, so `useContext` in a store reads the providers above `AutoRootCtx` (query client, router, i18n), not the ones around the component that reads the store. → [AutoRootCtx](/api/auto-root-ctx)
 
-3. **Same name and params, same instance.** Params are primitives. Every caller with the same params shares everything the hook holds, so keep what belongs to one view (a cursor, a selection) in the component, or in the params. Store names are global: keep them unique. → [What an instance shares](/guide/parameterized-stores#what-an-instance-shares)
+3. **Same name and params, same instance.** Params are primitives, in a new object each call: never change one you passed. Every caller with the same params shares everything the hook holds, so keep what belongs to one view (a cursor, a selection) in the component, or in the params. Store names are global: keep them unique. → [What an instance shares](/guide/parameterized-stores#what-an-instance-shares)
 
 4. **Every key is `undefined` until the store has run.** A store starts when its first reader mounts, so that reader's first render has nothing yet: default at the read (`count ?? 0`), and default arrays and objects to a constant defined once. → [Before the data arrives](/guide/getting-started#before-the-data-arrives)
 

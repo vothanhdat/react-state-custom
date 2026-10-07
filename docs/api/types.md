@@ -7,8 +7,10 @@ The types of the main API are exported from `react-state-custom`; `Scheduler` an
 What `useStore` returns, and what `select` and `storeRef(params).get()` see: every key of `State` is optional, because it is `undefined` until the store has run once.
 
 ```ts
-type StoreState<State> = { [K in keyof State]?: State[K] }
+type StoreState<State> = { readonly [K in keyof State]?: State[K] }
 ```
+
+The keys are read-only: a store changes its state in its own hook, and every reader shares what it published. Writing to the proxy throws in development, `get()` returns a frozen snapshot, and `select` receives the store's own data. Only the keys are: an array or object under a key keeps its type, and a read-only key still passes where a mutable type is expected.
 
 ## `StoreRef`
 
@@ -72,7 +74,9 @@ type ScheduledTask = { request(): void, cancel(): void }
 
 ## `StoreParams`
 
-The argument list of `useStore` and `storeRef`: `[params?: Params]` when `Params` has no required keys, `[params: Params]` otherwise.
+The argument list of `useStore` and `storeRef`: `[params?: Readonly<Params>]` when `Params` has no required keys, `[params: Readonly<Params>]` otherwise. The store hook receives `Readonly<Params>` too.
+
+Params are read-only because their values name the instance. A reader reads them again only when it gets a different object, so pass a new one (`useStore({ id })`) rather than changing one you passed: a changed object keeps its reader on the old instance.
 
 Every value of the params must be a primitive (`string`, `number`, `bigint`, `boolean`, `null` or `undefined`), so the identity of an instance is deterministic. The constraint is written over the keys of the params type, so an `interface` qualifies as well as a `type`.
 
