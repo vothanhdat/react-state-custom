@@ -8,7 +8,7 @@ export function Header() {
   const { symbol } = useWorkspace()
   return (
     <header className="header">
-      <div className="brand">◆ Terminal</div>
+      <div className="brand">◆ Terminal<About /></div>
       {symbol && <SymbolSummary symbol={symbol} />}
       <div className="spacer" />
       <Equity />
@@ -16,6 +16,17 @@ export function Header() {
       <SimControls />
       <PerfHud />
     </header>
+  )
+}
+
+/** Where the demo comes from, for visitors of the hosted build */
+function About() {
+  return (
+    <div className="about">
+      <a href="https://vothanhdat.github.io/react-state-custom/docs/" target="_blank" rel="noopener noreferrer" title="Built with react-state-custom: docs">react-state-custom</a>
+      {' · '}
+      <a href="https://github.com/vothanhdat/react-state-custom/tree/master/demos/trading" target="_blank" rel="noopener noreferrer" title="This demo's source on GitHub">source</a>
+    </div>
   )
 }
 

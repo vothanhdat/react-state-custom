@@ -90,7 +90,12 @@ input:focus, select:focus { border-color: var(--accent); }
 
 /* ------------------------------------------------------------ header */
 .header { background: var(--panel); display: flex; align-items: center; gap: 22px; padding: 0 14px; }
-.brand { font-weight: 700; color: var(--accent); letter-spacing: 0.5px; }
+.brand { font-weight: 700; color: var(--accent); letter-spacing: 0.5px; white-space: nowrap; flex-shrink: 0; }
+.about { font-size: 10.5px; font-weight: 400; letter-spacing: 0; color: var(--muted); white-space: nowrap; margin-top: 2px; }
+.about a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.about a:hover { color: var(--accent); }
+/* laptops: drop 24h high, low and volume so the feed controls and the perf readout stay on screen */
+@media (max-width: 1400px) { .summary > .stat:nth-child(n+4) { display: none; } }
 .summary { display: flex; align-items: center; gap: 22px; }
 .summary-symbol { font-weight: 700; font-size: 15px; }
 .summary-last { font: 600 18px ui-monospace, Menlo, monospace; min-width: 110px; }
