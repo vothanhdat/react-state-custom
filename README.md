@@ -15,7 +15,7 @@ One running instance per params, shared by every component and every store that 
 npm install react-state-custom
 ```
 
-📚 **[Documentation →](https://vothanhdat.github.io/react-state-custom/docs/)** · 🎮 **[Live Demo →](https://vothanhdat.github.io/react-state-custom/)**
+📚 **[Documentation →](https://vothanhdat.github.io/react-state-custom/docs/)** · 🎮 **[Live Demo →](https://vothanhdat.github.io/react-state-custom/)** · 📈 **[Trading Terminal →](https://vothanhdat.github.io/react-state-custom/trading/)**
 
 ---
 
@@ -128,7 +128,7 @@ What it costs: each update commits twice, first the store, then the consumers th
 
 - **[Documentation site](https://vothanhdat.github.io/react-state-custom/docs/)**, with search: [getting started](https://vothanhdat.github.io/react-state-custom/docs/guide/getting-started), [rules](https://vothanhdat.github.io/react-state-custom/docs/guide/rules), [for React developers](https://vothanhdat.github.io/react-state-custom/docs/guide/for-react-developers), [organizing stores in layers](https://vothanhdat.github.io/react-state-custom/docs/guide/layers), guides, [API reference](https://vothanhdat.github.io/react-state-custom/docs/api/create-store), [benchmarks](https://vothanhdat.github.io/react-state-custom/docs/benchmarks).
 - **[Live demo](https://vothanhdat.github.io/react-state-custom/)**: editable examples.
-- **[Trading terminal](./demos/trading)**: a realtime exchange UI (order book, charts, order ticket, account) over a simulated feed of up to ~1,100 messages a second, with stores in layers and tests per layer: `yarn demo:trading`.
+- **[Trading terminal](https://vothanhdat.github.io/react-state-custom/trading/)**: a realtime exchange UI (order book, charts, order ticket, account) over a simulated feed of up to ~1,100 messages a second, running in your browser. Its [source](./demos/trading) has stores in layers and tests per layer; run it locally with `yarn demo:trading`.
 - **[AI context](./AI_CONTEXT.md)**: a short guide for AI assistants generating code with this library.
 - **[Changelog](./CHANGELOG.md)**
 

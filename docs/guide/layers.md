@@ -9,7 +9,7 @@ stores/ui     view-models: what the screens render, built from core stores
 components    views: read stores/ui only, plus their own local state
 ```
 
-`demos/trading` in the repository is built this way: an order book, an account, an order ticket and a dozen panels over a simulated exchange.
+The [trading terminal demo](https://vothanhdat.github.io/react-state-custom/trading/) is built this way: an order book, an account, an order ticket and a dozen panels over a simulated exchange. Its source is `demos/trading` in the repository.
 
 ## Domain
 

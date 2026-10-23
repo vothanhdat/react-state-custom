@@ -16,8 +16,11 @@ hero:
       text: API reference
       link: /api/create-store
     - theme: alt
-      text: Live demo
+      text: Playground
       link: https://vothanhdat.github.io/react-state-custom/
+    - theme: alt
+      text: Trading demo
+      link: https://vothanhdat.github.io/react-state-custom/trading/
 
 features:
   - icon: 🪝

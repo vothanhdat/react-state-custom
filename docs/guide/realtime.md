@@ -1,6 +1,6 @@
 # Realtime data
 
-Stores fed by a socket: snapshots and deltas, sequence gaps, reconnects, bursts of messages, history that races the live stream. The snippets come from `demos/trading` in the repository, a trading terminal over a simulated exchange, shortened.
+Stores fed by a socket: snapshots and deltas, sequence gaps, reconnects, bursts of messages, history that races the live stream. The snippets come from `demos/trading` in the repository, a [trading terminal](https://vothanhdat.github.io/react-state-custom/trading/) over a simulated exchange, shortened.
 
 ## Snapshot and sequenced deltas
 

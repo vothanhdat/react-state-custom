@@ -4,6 +4,9 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Added
+- The trading terminal demo runs on the docs site, at https://vothanhdat.github.io/react-state-custom/trading/, built by the Pages deploy (`yarn build:demo:trading`) next to the playground and the docs. The README, the docs (navigation, home page, layers, realtime data, update cadence) and the playground link it; its header links back to the docs and to its source.
+
 ## [2.1.0] - 2026-10-07
 Read-only types for what readers get and for params, and a fix to the default `isEqual` of `select`, the one change at runtime. The minor version is for the types: code that writes to what `useStore` returns, to `storeRef(params).get()` or inside `select` no longer compiles.
 

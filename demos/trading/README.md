@@ -3,6 +3,8 @@
 A realtime exchange UI built with `react-state-custom`, to see how the library holds up on a
 frontend with high-frequency data, cross-store validation and racing async sources.
 
+**Live: https://vothanhdat.github.io/react-state-custom/trading/** (the simulator runs in the browser; built for desktop screens).
+
 ```bash
 yarn demo:trading                                        # http://localhost:3100
 npx vitest run --config demos/trading/vitest.config.mjs  # tests: domain, stores, views, architecture

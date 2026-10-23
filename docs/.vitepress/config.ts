@@ -16,7 +16,13 @@ export default defineConfig({
       { text: 'API', link: '/api/create-store', activeMatch: '/api/' },
       { text: 'Benchmarks', link: '/benchmarks' },
       { text: 'Changelog', link: '/changelog' },
-      { text: 'Demo', link: 'https://vothanhdat.github.io/react-state-custom/' },
+      {
+        text: 'Demos',
+        items: [
+          { text: 'Playground', link: 'https://vothanhdat.github.io/react-state-custom/' },
+          { text: 'Trading terminal', link: 'https://vothanhdat.github.io/react-state-custom/trading/' },
+        ],
+      },
     ],
     sidebar: {
       '/guide/': [

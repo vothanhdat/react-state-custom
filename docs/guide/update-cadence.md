@@ -84,7 +84,7 @@ A scheduled reader lags behind the store by up to its period. Two components sho
 
 ## Measured
 
-In the trading demo (`demos/trading`), the core stores publish once per frame and the UI layer throttles the depth chart to 100 ms and equity to 250 ms, and renders history and fills when idle. The ladder, about 1,400 commits per second at full speed, stays on every frame. Compared with the same demo without those schedules, in a production build in headless Chrome over three alternating runs, script time went from 134–142 to 129–132 ms per second at 20× feed speed and from 197–201 to 190 ms at 50×. The depth chart went from 60 to 10 commits per second. Both builds kept 60 fps with no long frames. Most of the work in that app is the ladder, so the savings are as large as the views you schedule.
+In the [trading demo](https://vothanhdat.github.io/react-state-custom/trading/) (`demos/trading`), the core stores publish once per frame and the UI layer throttles the depth chart to 100 ms and equity to 250 ms, and renders history and fills when idle. The ladder, about 1,400 commits per second at full speed, stays on every frame. Compared with the same demo without those schedules, in a production build in headless Chrome over three alternating runs, script time went from 134–142 to 129–132 ms per second at 20× feed speed and from 197–201 to 190 ms at 50×. The depth chart went from 60 to 10 commits per second. Both builds kept 60 fps with no long frames. Most of the work in that app is the ladder, so the savings are as large as the views you schedule.
 
 ## Testing
 

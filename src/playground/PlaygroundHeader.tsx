@@ -45,6 +45,18 @@ export const PlaygroundHeader = ({ devTools, onDevToolsChange }: PlaygroundHeade
                     </svg>
                     Documentation
                 </a>
+                <a
+                    href="https://vothanhdat.github.io/react-state-custom/trading/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="playground-link"
+                    title="A realtime trading terminal built with the library"
+                >
+                    <svg viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M1 14.5V1h1.5v12.5H15V15H1.5a.5.5 0 0 1-.5-.5zm3.5-3V7H6v4.5H4.5zm3-6.5H9v6.5H7.5V5zm3 2.5H12v4h-1.5v-4z" />
+                    </svg>
+                    Trading demo
+                </a>
                 <button
                     type="button"
                     className="playground-link"
