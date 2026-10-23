@@ -36,6 +36,9 @@ jobs:
       - name: Build demo
         run: yarn build:demo
 
+      - name: Build the trading demo into demo-dist/trading
+        run: yarn build:demo:trading
+
       - name: Build docs into demo-dist/docs
         run: yarn docs:build
 

@@ -95,6 +95,7 @@
   "scripts": {
     "build": "vite build",
     "build:demo": "vite build --config vite.config.dev.ts",
+    "build:demo:trading": "vite build --config demos/trading/vite.config.mjs --base /react-state-custom/trading/ --outDir ../../demo-dist/trading --emptyOutDir",
     "dev": "vite",
     "dev:playground": "vite --config vite.config.dev.ts",
     "demo:tasks": "vite --config demos/task-manager/vite.config.mjs",
